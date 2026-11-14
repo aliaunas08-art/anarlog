@@ -177,10 +177,10 @@ transcription or network:
 | # | Check | Result | Evidence |
 | --- | --- | --- | --- |
 | 1 | App builds and launches with no errors | **PASS** | `cargo build --features dev` finished (`Finished dev profile … 5m 30s`); `pnpm dev:desktop` opened the "Anarlog Dev" window (user screenshot, 16:41). No Rust panics in `.process-compose/desktop/desktop.log`. The only stderr "errors" are `[perf] slow …` console warnings from the UI. |
-| 2 | 2-minute mic recording → transcript with speaker labels | **MANUAL** (needs live audio) | Steps below. |
-| 3 | Meeting Minutes has every section; no invented owners/dates | **PARTIAL**: template verified, LLM output needs your API key | `sqlite3 ~/Library/Application\ Support/com.hyprnote.dev/app.db "select id,title,pinned from templates where id='default-meeting-minutes'"` → `default-meeting-minutes\|Meeting Minutes\|1`; migration `20261114120000` applied. Steps below. |
-| 4 | Audio file exists on disk after stopping | **MANUAL** (code verified) | Writer: `crates/listener-core/src/actors/recorder/chunks.rs` (1 s fsync). Check command below. |
-| 5 | Markdown export opens and matches the app | **MANUAL** | Steps below. |
+| 2 | Mic recording → transcript with speaker labels | **PASS** (single speaker) | User test 2026-11-14 with the In person button and Apple Speech. App log: `start_source_loop new_mode=MicOnly`. Transcript tab shows the words under "Speaker 1". A two-person recording to confirm per-person labels is still open. |
+| 3 | Meeting Minutes has every section; no invented owners/dates | **PASS** (notes-priority re-test pending) | Session "March Launch Planning" (Claude via your own key): all 6 sections in order; action table: Sam/Thursday, Priya/End of the week, pricing owner "Not stated", onboarding testing owner and date "Not stated". The "notes win" rule is untested: the typed note was not saved to that session (empty `memo`, no "Friday" in `session_documents`). |
+| 4 | Audio file exists on disk after stopping | **PASS** | `~/Library/Application Support/com.hyprnote.dev/sessions/5b61e32e…/audio.mp3` (10.3 s) and `sessions/7e7de75d…/audio.mp3` (32.0 s), checked with `afinfo`. |
+| 5 | Markdown export opens and matches the app | **PASS** | `~/Downloads/March Launch Planning_2026-11-14T22-48-00-823Z.md`: the same sections and table as the screen, plus `## Transcript` with speaker labels. Minor: "Duration: 0m" for a 32 s recording; the minutes' h1 headings sit under the export's `## Summary`. |
 
 Automated checks run on this branch:
 
