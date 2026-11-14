@@ -47,7 +47,7 @@ export const SETTING_DEFINITIONS = {
   export_include_transcript: {
     type: "boolean",
     path: ["general", "export_include_transcript"],
-    default: false as boolean,
+    default: true as boolean,
   },
   autostart: {
     type: "boolean",

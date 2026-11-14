@@ -264,7 +264,7 @@ async fn migrations_seed_default_templates_without_overwriting_existing_rows() {
     anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
     let rows = list_templates(db.pool()).await.unwrap();
-    assert_eq!(rows.len(), 17);
+    assert_eq!(rows.len(), 18);
     assert_eq!(
         rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
         vec![
@@ -277,6 +277,7 @@ async fn migrations_seed_default_templates_without_overwriting_existing_rows() {
             "default-incident-postmortem",
             "default-investor-pitch",
             "default-lecture-notes",
+            "default-meeting-minutes",
             "default-one-on-one-meeting",
             "default-performance-review",
             "default-product-roadmap-review",

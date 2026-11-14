@@ -100,7 +100,7 @@ function readExportConfig(values: {
     format: parseExportFormat(values.export_format),
     includeMemo: values.export_include_memo ?? false,
     includeSummary: values.export_include_summary ?? true,
-    includeTranscript: values.export_include_transcript ?? false,
+    includeTranscript: values.export_include_transcript ?? true,
   };
 }
 

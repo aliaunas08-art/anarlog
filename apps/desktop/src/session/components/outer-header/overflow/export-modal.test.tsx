@@ -278,7 +278,7 @@ describe("ExportModal", () => {
     expect(
       (screen.getByRole("checkbox", { name: "Transcript" }) as HTMLInputElement)
         .checked,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("persists the used config on successful export", async () => {
@@ -291,7 +291,7 @@ describe("ExportModal", () => {
       export_format: "txt",
       export_include_memo: true,
       export_include_summary: true,
-      export_include_transcript: false,
+      export_include_transcript: true,
     });
   });
 
@@ -315,7 +315,7 @@ describe("ExportModal", () => {
       export_format: "txt",
       export_include_memo: true,
       export_include_summary: true,
-      export_include_transcript: false,
+      export_include_transcript: true,
     });
   });
 
@@ -341,7 +341,7 @@ describe("ExportModal", () => {
       export_format: "txt",
       export_include_memo: false,
       export_include_summary: true,
-      export_include_transcript: false,
+      export_include_transcript: true,
     });
   });
 

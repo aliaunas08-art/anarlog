@@ -586,11 +586,12 @@ async fn repair_migration_recreates_missing_templates_table() {
 
     anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
-    let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates")
-        .fetch_one(db.pool())
+    // Only templates seeded by migrations after the repair step come back.
+    let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM templates")
+        .fetch_all(db.pool())
         .await
         .unwrap();
-    assert_eq!(row_count, 0);
+    assert_eq!(ids, vec!["default-meeting-minutes".to_string()]);
 }
 
 #[tokio::test]
