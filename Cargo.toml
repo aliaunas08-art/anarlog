@@ -6,6 +6,9 @@ debug = true
 [profile.dev.package."*"]
 opt-level = 1
 debug = false
+# macOS 27 dyld rejects proc-macro dylibs stripped by Rust < 1.98
+# (rust-lang/rust#157750). `debug = false` implies stripping, so opt out.
+strip = false
 
 [workspace]
 resolver = "2"
