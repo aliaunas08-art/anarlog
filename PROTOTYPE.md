@@ -77,3 +77,155 @@ Supabase/Stripe/Nango setup:
 
 Everything the prototype needs works locally: capture, local or BYO-key STT, BYO-key Claude,
 SQLite storage, manual Markdown export, Apple Calendar.
+
+## Phase 2: Build and run
+
+### One-time machine setup (done on this Mac, outside the repo)
+
+| Tool | How | Where |
+| --- | --- | --- |
+| Rust 1.94.0 | rustup official installer, toolchain from `rust-toolchain.toml` | `~/.cargo` |
+| Node 24.22.3 | nodejs.org tarball (SHA256 verified) | `~/.local/opt/node` |
+| pnpm 11.1.1 | corepack shim | `~/.local/bin/pnpm` |
+| process-compose 1.124.0 | GitHub release (SHA256 verified) | `~/.local/bin` |
+| cmake 4.5.0 | Kitware release (SHA256 verified) | `~/.local/opt/cmake` |
+| Xcode 27.2 + Metal Toolchain | App Store; `xcodebuild -downloadComponent MetalToolchain` | `/Applications/Xcode.app` |
+
+### Build fixes
+
+1. `Cargo.toml`: `strip = false` for dev dependencies. macOS 27 refuses proc-macro dylibs stripped by Rust < 1.98 (rust-lang/rust#157750). Committed.
+2. `plugins/permissions/swift/check-permissions.swift`: `import ApplicationServices`. The Xcode 27.2 SDK no longer re-exports `AXIsProcessTrusted`. Committed.
+3. `apps/desktop/.env` (gitignored, local only) sets `CARGO_TARGET_DIR=~/.cache/anarlog-target`. The repo path contains a space ("Granola Prototype"), which breaks libtool in `mp3lame-sys`.
+4. `~/.local/bin/swift` (local shim, not in repo). Xcode 27's SwiftPM defaults to the new `swiftbuild` engine, which puts libraries where the `swift-rs` crate cannot find them. The shim adds `--build-system native` to `swift build`.
+5. `cmake` installed (needed by whisper.cpp and pyannote's `knf-rs-sys`).
+
+### Run it
+
+From a new Terminal window:
+
+```bash
+cd "$HOME/Documents/Claude/Granola Prototype/anarlog"
+export PATH="$HOME/.local/bin:$HOME/.local/opt/node/bin:$HOME/.cargo/bin:$PATH"
+pnpm dev:desktop
+```
+
+A warm start takes about a minute. Logs are written to `.process-compose/desktop/desktop.log`.
+To make the `PATH` line permanent, add it to `~/.zprofile`.
+
+### macOS permissions
+
+macOS asks the first time each one is needed. In dev mode it may attribute the request to
+the app that launched the dev server (Terminal, or Claude) rather than "Anarlog Dev". If a toggle is missing,
+add or enable that app.
+
+| Permission | Needed for | Where |
+| --- | --- | --- |
+| Microphone | All recording, including in person | System Settings → Privacy & Security → Microphone |
+| System Audio Recording | Online meetings (other participants' audio). Not needed for in person | System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only" |
+| Screen Recording | Optional meeting screenshot context only | Same pane, top section |
+| Accessibility | Optional automatic meeting detection only | Privacy & Security → Accessibility |
+
+## Phase 3: Prototype changes
+
+### A. "Meeting Minutes" template
+
+- Seeded by migration `crates/db-app/migrations/20261114120000_meeting_minutes_template.sql`. This is a data-only
+  `INSERT OR IGNORE` with no schema change, the same mechanism as the existing default templates. It is pinned, so it appears at the top of the template picker.
+- Sections, in order: Meeting Details (title, date, attendees) → Summary (3–5 sentences) → Key Decisions →
+  Action Items (table `Action | Owner | Due date`, "Not stated" when missing, never inferred) → Open Questions →
+  Transcript.
+- The template's rules tell the model that typed Meeting Notes win when they conflict with the transcript. The shared system prompt already
+  says template instructions take precedence over formatting defaults (`enhance.system.md.jinja`).
+- **Decision:** the LLM does not re-type the full transcript. That would be slow and expensive, and long meetings could be cut off. The
+  transcript stays separate in the app's Transcript tab (with speaker labels). Markdown export now includes it
+  by default (`export_include_transcript` default `true`).
+- **LLM:** Settings → Intelligence → Anthropic → paste your API key (stored in the macOS Keychain) → pick a Claude
+  model. Nothing is hardcoded.
+
+### B. In-person (mic-only) mode
+
+- **Before this change:** you could record with no meeting (open a note → Record), but it always captured mic plus system audio.
+  `ChannelMode::MicOnly` existed in `crates/listener-core` but was never used.
+- **Change:** a new **"In person"** button next to Record in the note header. It starts the same pipeline with
+  `mic_only: true` → `ChannelMode::MicOnly`. It opens only the microphone, never the system-audio tap, and skips meeting
+  chat capture, screen capture and the recording disclosure. The microphone is never marked "personal", so people in
+  the room are not all labelled "You".
+- Resume and restart of an in-person session stay mic-only for the rest of the app run (in memory only, since saving it would need a schema change).
+- **Known limitations (inference, not verified with live audio):** live captions may label all room speech as
+  one speaker. Per-person labels come from the diarization pass after recording. The recorder stores mono as two identical
+  channels. Local transcription collapses them; a hosted batch STT provider could return duplicate words.
+
+### C. Reliability (verified in code, no change needed)
+
+`crates/listener-core/src/actors/recorder/chunks.rs` writes MP3 to disk **during** recording, independent of
+transcription or network:
+
+- `~/Library/Application Support/com.hyprnote.dev/sessions/<session-id>/audio.mp3` (dev build)
+- 60 s recovery chunks in `.../audio-recovery/*.part`, flushed with `fsync` every 1 s; recovered on next launch after
+  a crash. Storage errors retry every 5 s with up to 64 MB buffered in memory.
+
+### D. Markdown export (existing feature, no code change except the default)
+
+- Pick the folder: Settings → General → Storage → **Export location** → Choose folder (default: Downloads).
+- Per meeting: note header → `…` menu → Export → **Markdown** → tick Summary (and Memo/Transcript) → Export. The file is
+  written as `<title>_<timestamp>.md`.
+- The automatic per-meeting markdown export ("markdown-export" automation) is gated behind the Pro plan in the UI. Manual
+  export is free.
+
+## Phase 4: Verification checklist
+
+| # | Check | Result | Evidence |
+| --- | --- | --- | --- |
+| 1 | App builds and launches with no errors | **PASS** | `cargo build --features dev` finished (`Finished dev profile … 5m 30s`); `pnpm dev:desktop` opened the "Anarlog Dev" window (user screenshot, 16:41). No Rust panics in `.process-compose/desktop/desktop.log`. The only stderr "errors" are `[perf] slow …` console warnings from the UI. |
+| 2 | 2-minute mic recording → transcript with speaker labels | **MANUAL** (needs live audio) | Steps below. |
+| 3 | Meeting Minutes has every section; no invented owners/dates | **PARTIAL**: template verified, LLM output needs your API key | `sqlite3 ~/Library/Application\ Support/com.hyprnote.dev/app.db "select id,title,pinned from templates where id='default-meeting-minutes'"` → `default-meeting-minutes\|Meeting Minutes\|1`; migration `20261114120000` applied. Steps below. |
+| 4 | Audio file exists on disk after stopping | **MANUAL** (code verified) | Writer: `crates/listener-core/src/actors/recorder/chunks.rs` (1 s fsync). Check command below. |
+| 5 | Markdown export opens and matches the app | **MANUAL** | Steps below. |
+
+Automated checks run on this branch:
+
+- `cargo test --locked -p db-app -p listener-core`: 278 + 142 passed, 0 failed (includes the new
+  `channel_mode_tests` and the updated template-seed tests).
+- `cargo test --locked -p tauri-plugin-transcription`: 51 passed, 0 failed.
+- `pnpm -F @anlg/desktop typecheck`: clean. `oxlint`: 0 errors.
+- Vitest: `export-modal.test.tsx` 19/19; `src/stt` + `outer-header` 206/206.
+- Pre-existing failures, unrelated (fail on a clean checkout too): `settings/general/billing.test.tsx` (2 tests).
+  `stt/primary-device.test.tsx` is timing-flaky under full-suite load (passes 3/3 in isolation).
+
+### Manual test steps
+
+**Setup (once)**
+1. Start the app (Phase 2 → Run it).
+2. Settings → **Transcription** → choose a local model. **Apple Speech** needs no download. **Soniqo Parakeet**
+   downloads about 120 MB. Wait until it shows as ready.
+3. Settings → **Intelligence** → **Anthropic** → paste your API key → choose a Claude model (for example Claude Sonnet 5.5).
+4. Settings → General → Storage → **Export location** → Choose folder → pick a test folder.
+
+**Test 2 + 4: in-person recording**
+1. Create a new note (⌘N). In the header you should see **Record** and **In person**. Take a screenshot as evidence.
+2. Type a few notes, including one fact that contradicts what you will say (for example the note "Deadline: Friday" while you say "Thursday").
+3. Click **In person**. Allow Microphone if macOS asks.
+4. Talk for about 2 minutes with a second person if possible. Include one clear task with an owner and date ("Sam will send the deck by
+   Friday") and one task with no owner or date ("someone should look at pricing").
+5. Click **Stop**.
+6. Open the **Transcript** tab. PASS if the text is present and speakers are labelled. Per-person labels may only appear
+   after the post-recording pass finishes.
+7. Audio on disk (PASS if an `audio.mp3` from now is listed):
+   ```bash
+   ls -lt ~/Library/Application\ Support/com.hyprnote.dev/sessions/*/audio.mp3 | head -3
+   ```
+
+**Test 3: Meeting Minutes**
+1. In the same note, open the template picker → **Meeting Minutes** (pinned at the top) → generate.
+2. PASS if the headings appear in order: Meeting Details, Summary, Key Decisions, Action Items (a table),
+   Open Questions, Transcript.
+3. PASS if the action items table lists "Sam … Friday" and shows **Not stated** for the pricing task's owner and date.
+4. PASS if the conflicting fact follows your typed note, not the transcript.
+
+**Test 5: Markdown export**
+1. Note header → `…` → **Export** → **Markdown** → keep Summary and Transcript ticked → Export.
+2. Open the `.md` file in the chosen folder. PASS if the minutes match the note on screen and the transcript appears under
+   `## Transcript`.
+
+**Optional: online meeting (no bot)**: open a call, click **Record** (not In person), and allow System Audio Recording.
+The other side's speech should appear as separate speakers.
