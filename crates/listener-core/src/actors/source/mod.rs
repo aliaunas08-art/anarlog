@@ -73,6 +73,7 @@ pub enum ListenerRouting {
 pub struct SourceArgs {
     pub mic_device: Option<String>,
     pub onboarding: bool,
+    pub mic_only: bool,
     pub runtime: Arc<dyn ListenerRuntime>,
     pub audio: Arc<dyn AudioProvider>,
     pub session_id: String,
@@ -90,6 +91,7 @@ pub struct SourceState {
     /// default input was swapped for a wired one.
     pub(super) active_mic_device: Option<String>,
     pub(super) onboarding: bool,
+    pub(super) mic_only: bool,
     pub(super) capture_mic_isolated: bool,
     pub(super) mic_muted: Arc<AtomicBool>,
     pub(super) run_task: Option<tokio::task::JoinHandle<()>>,
@@ -256,10 +258,16 @@ fn capturing_mic_device(st: &SourceState) -> Option<String> {
     }
 }
 
+/// In person (mic-only), the mic hears everyone in the room, so it is never a
+/// personal mic whatever the headphone routing says.
+fn reported_mic_isolated(st: &SourceState) -> bool {
+    !st.mic_only && st.capture_mic_isolated
+}
+
 fn emit_mic_isolation(st: &SourceState) {
     st.runtime.emit_data(crate::SessionDataEvent::MicIsolated {
         session_id: st.session_id.clone(),
-        value: st.capture_mic_isolated,
+        value: reported_mic_isolated(st),
     });
     if let Some(session) =
         ractor::registry::where_is(crate::actors::session_supervisor_name(&st.session_id))
@@ -317,6 +325,7 @@ impl Actor for SourceActor {
                 mic_device,
                 active_mic_device: None,
                 onboarding: args.onboarding,
+                mic_only: args.mic_only,
                 capture_mic_isolated: false,
                 mic_muted: Arc::new(AtomicBool::new(false)),
                 run_task: None,
@@ -372,7 +381,7 @@ impl Actor for SourceActor {
                     }
                 }
                 SourceMsg::GetMicIsolated(reply) => {
-                    let _ = reply.send(st.capture_mic_isolated);
+                    let _ = reply.send(reported_mic_isolated(st));
                 }
                 SourceMsg::GetCaptureHealth(reply) => {
                     let _ = reply.send(st.capture_health);
@@ -776,6 +785,7 @@ mod tests {
             SourceArgs {
                 mic_device: expected.clone(),
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: None,
@@ -822,6 +832,7 @@ mod tests {
             SourceArgs {
                 mic_device: None,
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: Some(error_tx),
@@ -914,6 +925,7 @@ mod tests {
             SourceArgs {
                 mic_device: Some("working mic".into()),
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: None,
@@ -982,6 +994,7 @@ mod tests {
             SourceArgs {
                 mic_device: None,
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: Some(error_tx),
@@ -1060,6 +1073,7 @@ mod tests {
             SourceArgs {
                 mic_device: Some("unavailable mic".into()),
                 onboarding: false,
+                mic_only: false,
                 runtime,
                 audio: Arc::new(TestAudio {
                     capture_tx,
@@ -1252,6 +1266,7 @@ mod tests {
                         SourceArgs {
                             mic_device: None,
                             onboarding: false,
+                            mic_only: false,
                             runtime: Arc::new(TestRuntime {
                                 progress_tx,
                                 error_tx: None,

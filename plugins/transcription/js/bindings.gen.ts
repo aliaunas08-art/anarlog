@@ -1011,6 +1011,7 @@ export type CaptureParams = {
   retain_audio?: boolean | null;
   languages: string[];
   onboarding: boolean;
+  mic_only?: boolean;
   model: string;
   base_url: string;
   api_key: string;

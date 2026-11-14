@@ -3,7 +3,12 @@ import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
-import { Headset, Square, VideoCamera } from "@anlg/ui/components/icons";
+import {
+  Headset,
+  Microphone,
+  Square,
+  VideoCamera,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Popover,
@@ -234,6 +239,9 @@ function HeaderMeetingAction({
 
     await startListening();
   }, [sessionId, startListening]);
+  const startInPerson = useCallback(() => {
+    void startListening({ micOnly: true });
+  }, [startListening]);
   const openMeeting = useCallback(async () => {
     if (!meetingLink) {
       return;
@@ -322,6 +330,10 @@ function HeaderMeetingAction({
   })();
   const disabled = sessionMode === "finalizing" || joiningMeeting;
   const isPrimaryCta = sessionMode === "inactive";
+  const showInPerson =
+    sessionMode === "inactive" &&
+    action.onClick === start &&
+    isMainWebviewWindow();
   const showCountdown =
     Boolean(countdown.label) &&
     sessionMode !== "active" &&
@@ -358,6 +370,22 @@ function HeaderMeetingAction({
             <span className="truncate">{action.label}</span>
           </Button>
         </PopoverAnchor>
+        {showInPerson ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            data-tauri-drag-region="false"
+            aria-label={t`Record in person`}
+            title={t`Record in person (microphone only)`}
+            disabled={disabled}
+            onClick={startInPerson}
+            className="border-border text-foreground ml-1 shrink-0 gap-1.5 bg-transparent pr-2.5 pl-1.5 text-sm shadow-none"
+          >
+            <Microphone className="size-3.5" />
+            <span className="truncate">{t`In person`}</span>
+          </Button>
+        ) : null}
         {showWelcomeDemoPrompt ? (
           <PopoverContent
             data-welcome-demo-prompt

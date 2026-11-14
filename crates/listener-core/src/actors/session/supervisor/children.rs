@@ -84,6 +84,7 @@ pub(super) async fn spawn_source(
         SourceArgs {
             mic_device: ctx.params.mic_device.clone(),
             onboarding: ctx.params.onboarding,
+            mic_only: ctx.params.mic_only,
             runtime: ctx.runtime.clone(),
             audio: ctx.audio.clone(),
             session_id: ctx.params.session_id.clone(),
@@ -129,7 +130,7 @@ pub(super) async fn spawn_listener(
     ctx: &SessionContext,
     stream_offset_secs: Option<f64>,
 ) -> Result<(ActorCell, bool), ractor::SpawnErr> {
-    let mode = ChannelMode::determine(ctx.params.onboarding);
+    let mode = ChannelMode::determine(ctx.params.onboarding, ctx.params.mic_only);
     let mic_isolated = source_mic_isolated(ctx).await;
     let (listener_ref, _): (ActorRef<crate::actors::ListenerMsg>, _) = Actor::spawn_linked(
         Some(ListenerActor::name(&ctx.params.session_id)),
@@ -161,7 +162,7 @@ pub(super) async fn spawn_listener(
 }
 
 pub(super) async fn source_mic_isolated(ctx: &SessionContext) -> bool {
-    if ChannelMode::determine(ctx.params.onboarding) != ChannelMode::MicAndSpeaker {
+    if ChannelMode::determine(ctx.params.onboarding, ctx.params.mic_only) != ChannelMode::MicAndSpeaker {
         return false;
     }
     if let Some(source) = ractor::registry::where_is(SourceActor::name(&ctx.params.session_id)) {

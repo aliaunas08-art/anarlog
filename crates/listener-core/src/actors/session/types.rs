@@ -22,6 +22,8 @@ pub struct SessionParams {
     pub languages: Vec<anlg_language::Language>,
     pub onboarding: bool,
     #[serde(default)]
+    pub mic_only: bool,
+    #[serde(default)]
     pub transcription_mode: TranscriptionMode,
     pub model: String,
     pub base_url: String,
@@ -172,6 +174,7 @@ mod tests {
             retain_audio: None,
             languages: vec![],
             onboarding: false,
+            mic_only: false,
             transcription_mode: mode,
             model: model.to_string(),
             base_url: base_url.to_string(),

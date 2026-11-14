@@ -3010,6 +3010,10 @@ msgstr "In {totalSeconds}s"
 msgid "in {weeks} weeks"
 msgstr "in {weeks} weeks"
 
+#: src/session/components/outer-header/index.tsx
+msgid "In person"
+msgstr "In person"
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
@@ -4642,6 +4646,14 @@ msgstr "Reconnect Slack"
 #: src/session/components/outer-header/index.tsx
 msgid "Record"
 msgstr "Record"
+
+#: src/session/components/outer-header/index.tsx
+msgid "Record in person"
+msgstr "Record in person"
+
+#: src/session/components/outer-header/index.tsx
+msgid "Record in person (microphone only)"
+msgstr "Record in person (microphone only)"
 
 #: src/settings/general/permissions.tsx
 msgid "Record other participants in meetings."

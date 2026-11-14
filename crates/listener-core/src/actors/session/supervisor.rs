@@ -797,6 +797,7 @@ mod tests {
                 session_id: "session".to_string(),
                 languages: vec![],
                 onboarding: false,
+                mic_only: false,
                 transcription_mode: crate::TranscriptionMode::Live,
                 model: "test-model".to_string(),
                 base_url: "http://localhost:1234".to_string(),
