@@ -30,6 +30,12 @@ msgstr ""
 msgid "{0} {noteLabel} deleted"
 msgstr ""
 
+#. placeholder {0}: upcoming.title || t`Untitled meeting`
+#. placeholder {1}: formatTime(upcomingStart)
+#: src/main/home.tsx
+msgid "{0} at {1}"
+msgstr ""
+
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
 msgid "{0} could not be installed"
@@ -79,6 +85,11 @@ msgstr ""
 #. placeholder {0}: parked.pendingUpdate
 #: src/settings/sync/health.tsx
 msgid "{0} records are waiting for an app update"
+msgstr ""
+
+#. placeholder {0}: recovered.title || t`Your last note`
+#: src/main/home.tsx
+msgid "{0} was recovered"
 msgstr ""
 
 #. placeholder {0}: Math.round((percentage ?? 0) * 100)
@@ -730,6 +741,10 @@ msgstr ""
 msgid "Approve"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Ask"
+msgstr ""
+
 #: src/composer/index.tsx
 msgid "Ask Anarlog AI anything"
 msgstr ""
@@ -786,6 +801,10 @@ msgstr ""
 
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Audio was saved up to the second · not transcribed yet"
 msgstr ""
 
 #: src/lock/screen.tsx
@@ -2509,6 +2528,10 @@ msgstr ""
 msgid "Everyone in the workspace"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Everything from last time is safe. Ready when you are."
+msgstr ""
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Example summary"
 msgstr ""
@@ -2798,8 +2821,20 @@ msgstr ""
 msgid "Go to recent"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Good afternoon"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Good evening"
+msgstr ""
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Good Listener"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Good morning"
 msgstr ""
 
 #: src/settings/automations/google-drive-config.tsx
@@ -3010,6 +3045,7 @@ msgstr ""
 msgid "in {weeks} weeks"
 msgstr ""
 
+#: src/main/home.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "In person"
 msgstr ""
@@ -3144,6 +3180,7 @@ msgstr ""
 msgid "Job Title"
 msgstr ""
 
+#: src/main/home.tsx
 #: src/services/event-notification/index.ts
 #: src/session/components/outer-header/index.tsx
 msgid "Join & record"
@@ -3168,6 +3205,10 @@ msgstr ""
 #. placeholder {0}: invitation.workspaceName
 #: src/settings/team/index.tsx
 msgid "Joined {0}"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Jump back in"
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -3737,6 +3778,10 @@ msgstr ""
 msgid "My automations"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "my next meeting"
+msgstr ""
+
 #: src/crm/enrich-contact.tsx
 msgid "name"
 msgstr ""
@@ -3772,7 +3817,10 @@ msgstr ""
 msgid "New meetings are imported automatically while Anarlog is running."
 msgstr ""
 
-#: src/main/empty.tsx
+#: src/main/home.tsx
+msgid "New note"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
 msgstr ""
@@ -4050,6 +4098,10 @@ msgstr ""
 msgid "Note is Locked"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Note title or question"
+msgstr ""
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
 msgstr ""
@@ -4136,6 +4188,7 @@ msgid "Only sync items from this {0}."
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/main/home.tsx
 #: src/task/resource-view.tsx
 msgid "Open"
 msgstr ""
@@ -4447,6 +4500,11 @@ msgstr ""
 msgid "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
 msgstr ""
 
+#. placeholder {0}: upcoming.title || t`my next meeting`
+#: src/main/home.tsx
+msgid "Prep me for {0}"
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
 msgstr ""
@@ -4576,6 +4634,10 @@ msgstr ""
 msgid "Ready to go"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Ready when you are."
+msgstr ""
+
 #: src/settings/ai/llm/select.tsx
 msgid "Reasoning effort"
 msgstr ""
@@ -4590,6 +4652,10 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Recap yesterday"
 msgstr ""
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
@@ -4643,6 +4709,7 @@ msgstr ""
 msgid "Reconnect Slack"
 msgstr ""
 
+#: src/main/home.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Record"
 msgstr ""
@@ -4670,6 +4737,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Recording status prompts"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Recordings and notes stay on this Mac"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -5315,7 +5386,6 @@ msgstr ""
 msgid "Setting up encrypted cloud sync."
 msgstr ""
 
-#: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 #: src/shared/open-note-dialog.tsx
 #: src/sidebar/toast/registry.tsx
@@ -5775,6 +5845,10 @@ msgstr ""
 msgid "Stack another destination. Steps run top to bottom."
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Start a note, or ask about any meeting…"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
 msgstr ""
@@ -5799,10 +5873,6 @@ msgstr ""
 msgid "Start recording"
 msgstr ""
 
-#: src/main/empty.tsx
-msgid "Start Recording"
-msgstr ""
-
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
 msgstr ""
@@ -5823,6 +5893,11 @@ msgstr ""
 msgid "Start writing..."
 msgstr ""
 
+#. placeholder {0}: -minutesUntil
+#: src/main/home.tsx
+msgid "Started {0} min ago"
+msgstr ""
+
 #: src/settings/ai/stt/select.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Starting"
@@ -5840,6 +5915,10 @@ msgstr ""
 msgid "Starting microphone…"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Starting now"
+msgstr ""
+
 #: src/sidebar/toast/registry.tsx
 msgid "Starting transcription..."
 msgstr ""
@@ -5854,6 +5933,10 @@ msgstr ""
 
 #: src/chat/components/input/index.tsx
 msgid "Starting…"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Starts in {minutesUntil} min"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -5936,6 +6019,14 @@ msgstr ""
 
 #: src/session/components/note-input/raw.tsx
 msgid "Suggested templates"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Suggestions"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Summarize my last meeting"
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -6421,6 +6512,14 @@ msgstr ""
 msgid "Untitled automation"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Untitled meeting"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Untitled note"
+msgstr ""
+
 #: src/contacts/related-notes.tsx
 msgid "Untitled Note"
 msgstr ""
@@ -6431,6 +6530,10 @@ msgstr ""
 
 #: src/templates/template-form.tsx
 msgid "Untitled template"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Up next from your calendar"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -6675,6 +6778,10 @@ msgstr ""
 msgid "Weekly streak: {0}"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Welcome back"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
 msgstr ""
@@ -6689,6 +6796,10 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "What are my outstanding action items across my meetings?"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "What did I promise this week?"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
@@ -6847,6 +6958,10 @@ msgstr ""
 
 #: src/settings/stats/index.tsx
 msgid "Your insights"
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Your last note"
 msgstr ""
 
 #: src/auth/context.tsx

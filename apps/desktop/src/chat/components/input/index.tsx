@@ -18,6 +18,7 @@ import { cn } from "@anlg/utils";
 import {
   useAutoFocusEditor,
   useDraftState,
+  usePendingChatPrompt,
   useMessageHistory,
   useSubmit,
 } from "./hooks";
@@ -81,6 +82,7 @@ export function ChatMessageInput({
     disabled: Boolean(disabled) || Boolean(isStreaming),
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
+  usePendingChatPrompt({ draftKey, editorRef });
   const mentionConfig = useMentionConfig();
   const isSendDisabled = Boolean(disabled) || !hasContent;
   const isRightPanel = layout === "right-panel";

@@ -55,6 +55,11 @@ export { useResumeListeningLifecycle } from "./resume-listening";
 // meeting capture (system audio). In-memory only: cleared on app restart.
 const inPersonSessionIds = new Set<string>();
 
+/** Mark a session as in-person (mic only) before its recording auto-starts. */
+export function markSessionInPerson(sessionId: string) {
+  inPersonSessionIds.add(sessionId);
+}
+
 export function useStartListening(sessionId: string) {
   return useStartListeningState(sessionId).startListening;
 }

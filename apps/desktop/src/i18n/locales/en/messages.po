@@ -30,6 +30,12 @@ msgstr "(Unavailable — using current default)"
 msgid "{0} {noteLabel} deleted"
 msgstr "{0} {noteLabel} deleted"
 
+#. placeholder {0}: upcoming.title || t`Untitled meeting`
+#. placeholder {1}: formatTime(upcomingStart)
+#: src/main/home.tsx
+msgid "{0} at {1}"
+msgstr "{0} at {1}"
+
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
 msgid "{0} could not be installed"
@@ -80,6 +86,11 @@ msgstr "{0} records are too large to apply"
 #: src/settings/sync/health.tsx
 msgid "{0} records are waiting for an app update"
 msgstr "{0} records are waiting for an app update"
+
+#. placeholder {0}: recovered.title || t`Your last note`
+#: src/main/home.tsx
+msgid "{0} was recovered"
+msgstr "{0} was recovered"
 
 #. placeholder {0}: Math.round((percentage ?? 0) * 100)
 #: src/session/components/note-input/transcript/screens/empty.tsx
@@ -730,6 +741,10 @@ msgstr "Apply to summary"
 msgid "Approve"
 msgstr "Approve"
 
+#: src/main/home.tsx
+msgid "Ask"
+msgstr "Ask"
+
 #: src/composer/index.tsx
 msgid "Ask Anarlog AI anything"
 msgstr "Ask Anarlog AI anything"
@@ -787,6 +802,10 @@ msgstr "Audio file retention"
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
 msgstr "Audio is not available on this device."
+
+#: src/main/home.tsx
+msgid "Audio was saved up to the second · not transcribed yet"
+msgstr "Audio was saved up to the second · not transcribed yet"
 
 #: src/lock/screen.tsx
 msgid "Authenticate to continue."
@@ -2509,6 +2528,10 @@ msgstr "Everyone in the Team"
 msgid "Everyone in the workspace"
 msgstr "Everyone in the workspace"
 
+#: src/main/home.tsx
+msgid "Everything from last time is safe. Ready when you are."
+msgstr "Everything from last time is safe. Ready when you are."
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Example summary"
 msgstr "Example summary"
@@ -2798,9 +2821,21 @@ msgstr "Go to previous section"
 msgid "Go to recent"
 msgstr "Go to recent"
 
+#: src/main/home.tsx
+msgid "Good afternoon"
+msgstr "Good afternoon"
+
+#: src/main/home.tsx
+msgid "Good evening"
+msgstr "Good evening"
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Good Listener"
 msgstr "Good Listener"
+
+#: src/main/home.tsx
+msgid "Good morning"
+msgstr "Good morning"
 
 #: src/settings/automations/google-drive-config.tsx
 msgid "Google Docs"
@@ -3010,6 +3045,7 @@ msgstr "In {totalSeconds}s"
 msgid "in {weeks} weeks"
 msgstr "in {weeks} weeks"
 
+#: src/main/home.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "In person"
 msgstr "In person"
@@ -3144,6 +3180,7 @@ msgstr "job title"
 msgid "Job Title"
 msgstr "Job Title"
 
+#: src/main/home.tsx
 #: src/services/event-notification/index.ts
 #: src/session/components/outer-header/index.tsx
 msgid "Join & record"
@@ -3169,6 +3206,10 @@ msgstr "Join scheduled meetings"
 #: src/settings/team/index.tsx
 msgid "Joined {0}"
 msgstr "Joined {0}"
+
+#: src/main/home.tsx
+msgid "Jump back in"
+msgstr "Jump back in"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Keep {PRO_TRIAL_DAYS} days"
@@ -3737,6 +3778,10 @@ msgstr "Move up"
 msgid "My automations"
 msgstr "My automations"
 
+#: src/main/home.tsx
+msgid "my next meeting"
+msgstr "my next meeting"
+
 #: src/crm/enrich-contact.tsx
 msgid "name"
 msgstr "name"
@@ -3772,7 +3817,10 @@ msgstr "New folder"
 msgid "New meetings are imported automatically while Anarlog is running."
 msgstr "New meetings are imported automatically while Anarlog is running."
 
-#: src/main/empty.tsx
+#: src/main/home.tsx
+msgid "New note"
+msgstr "New note"
+
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
 msgstr "New Note"
@@ -4050,6 +4098,10 @@ msgstr "note"
 msgid "Note is Locked"
 msgstr "Note is Locked"
 
+#: src/main/home.tsx
+msgid "Note title or question"
+msgstr "Note title or question"
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
 msgstr "Notepad"
@@ -4136,6 +4188,7 @@ msgid "Only sync items from this {0}."
 msgstr "Only sync items from this {0}."
 
 #: src/calendar/components/apple/permission.tsx
+#: src/main/home.tsx
 #: src/task/resource-view.tsx
 msgid "Open"
 msgstr "Open"
@@ -4447,6 +4500,11 @@ msgstr "Post to a channel"
 msgid "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
 msgstr "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
 
+#. placeholder {0}: upcoming.title || t`my next meeting`
+#: src/main/home.tsx
+msgid "Prep me for {0}"
+msgstr "Prep me for {0}"
+
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
 msgstr "Prepare for events with a 5-minute reminder."
@@ -4576,6 +4634,10 @@ msgstr "Ready to dictate"
 msgid "Ready to go"
 msgstr "Ready to go"
 
+#: src/main/home.tsx
+msgid "Ready when you are."
+msgstr "Ready when you are."
+
 #: src/settings/ai/llm/select.tsx
 msgid "Reasoning effort"
 msgstr "Reasoning effort"
@@ -4591,6 +4653,10 @@ msgstr "Recap the last 5 minutes."
 #: src/chat/components/body/empty.tsx
 msgid "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
 msgstr "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
+
+#: src/main/home.tsx
+msgid "Recap yesterday"
+msgstr "Recap yesterday"
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "received"
@@ -4643,6 +4709,7 @@ msgstr "Reconnect required for {0} Calendar"
 msgid "Reconnect Slack"
 msgstr "Reconnect Slack"
 
+#: src/main/home.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Record"
 msgstr "Record"
@@ -4671,6 +4738,10 @@ msgstr "Recording not found. It may have been deleted."
 #: src/settings/general/notification.tsx
 msgid "Recording status prompts"
 msgstr "Recording status prompts"
+
+#: src/main/home.tsx
+msgid "Recordings and notes stay on this Mac"
+msgstr "Recordings and notes stay on this Mac"
 
 #: src/main/windows-title-bar.tsx
 msgid "Redo"
@@ -5315,7 +5386,6 @@ msgstr "Setting up dictation…"
 msgid "Setting up encrypted cloud sync."
 msgstr "Setting up encrypted cloud sync."
 
-#: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 #: src/shared/open-note-dialog.tsx
 #: src/sidebar/toast/registry.tsx
@@ -5775,6 +5845,10 @@ msgstr "SQLite migration verification is incomplete"
 msgid "Stack another destination. Steps run top to bottom."
 msgstr "Stack another destination. Steps run top to bottom."
 
+#: src/main/home.tsx
+msgid "Start a note, or ask about any meeting…"
+msgstr "Start a note, or ask about any meeting…"
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
 msgstr "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
@@ -5799,10 +5873,6 @@ msgstr "Start Pro"
 msgid "Start recording"
 msgstr "Start recording"
 
-#: src/main/empty.tsx
-msgid "Start Recording"
-msgstr "Start Recording"
-
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
 msgstr "Start voice input"
@@ -5823,6 +5893,11 @@ msgstr "Start with permissions"
 msgid "Start writing..."
 msgstr "Start writing..."
 
+#. placeholder {0}: -minutesUntil
+#: src/main/home.tsx
+msgid "Started {0} min ago"
+msgstr "Started {0} min ago"
+
 #: src/settings/ai/stt/select.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Starting"
@@ -5840,6 +5915,10 @@ msgstr "Starting in 1 minute"
 msgid "Starting microphone…"
 msgstr "Starting microphone…"
 
+#: src/main/home.tsx
+msgid "Starting now"
+msgstr "Starting now"
+
 #: src/sidebar/toast/registry.tsx
 msgid "Starting transcription..."
 msgstr "Starting transcription..."
@@ -5855,6 +5934,10 @@ msgstr "Starting your trial..."
 #: src/chat/components/input/index.tsx
 msgid "Starting…"
 msgstr "Starting…"
+
+#: src/main/home.tsx
+msgid "Starts in {minutesUntil} min"
+msgstr "Starts in {minutesUntil} min"
 
 #: src/settings/general/app-settings.tsx
 msgid "Stay current with updates installed the next time Anarlog opens."
@@ -5937,6 +6020,14 @@ msgstr "Suggested attendees"
 #: src/session/components/note-input/raw.tsx
 msgid "Suggested templates"
 msgstr "Suggested templates"
+
+#: src/main/home.tsx
+msgid "Suggestions"
+msgstr "Suggestions"
+
+#: src/main/home.tsx
+msgid "Summarize my last meeting"
+msgstr "Summarize my last meeting"
 
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
@@ -6421,6 +6512,14 @@ msgstr "Untitled"
 msgid "Untitled automation"
 msgstr "Untitled automation"
 
+#: src/main/home.tsx
+msgid "Untitled meeting"
+msgstr "Untitled meeting"
+
+#: src/main/home.tsx
+msgid "Untitled note"
+msgstr "Untitled note"
+
 #: src/contacts/related-notes.tsx
 msgid "Untitled Note"
 msgstr "Untitled Note"
@@ -6432,6 +6531,10 @@ msgstr "Untitled session"
 #: src/templates/template-form.tsx
 msgid "Untitled template"
 msgstr "Untitled template"
+
+#: src/main/home.tsx
+msgid "Up next from your calendar"
+msgstr "Up next from your calendar"
 
 #: src/settings/team/index.tsx
 msgid "Upcoming bot attendance"
@@ -6675,6 +6778,10 @@ msgstr "Week starts on"
 msgid "Weekly streak: {0}"
 msgstr "Weekly streak: {0}"
 
+#: src/main/home.tsx
+msgid "Welcome back"
+msgstr "Welcome back"
+
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
 msgstr "Welcome to Anarlog"
@@ -6690,6 +6797,10 @@ msgstr "What are my action items from this meeting?"
 #: src/chat/components/body/empty.tsx
 msgid "What are my outstanding action items across my meetings?"
 msgstr "What are my outstanding action items across my meetings?"
+
+#: src/main/home.tsx
+msgid "What did I promise this week?"
+msgstr "What did I promise this week?"
 
 #: src/chat/components/body/empty.tsx
 msgid "What key decisions were made in my recent meetings?"
@@ -6848,6 +6959,10 @@ msgstr "Your info"
 #: src/settings/stats/index.tsx
 msgid "Your insights"
 msgstr "Your insights"
+
+#: src/main/home.tsx
+msgid "Your last note"
+msgstr "Your last note"
 
 #: src/auth/context.tsx
 msgid "Your local notes are available. Connect this library to sync with your current account."

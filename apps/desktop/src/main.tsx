@@ -43,6 +43,7 @@ import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
 import { migratePlaintextAiProviderApiKeys } from "./settings/providers";
 import { initializeApplicationSettings } from "./settings/queries";
 import { initializeAppExitFlush } from "./shared/app-exit";
+import { detectUnexpectedQuit } from "./shared/unexpected-quit";
 import { initializeAppStoreBuild, isAppStoreBuild } from "./shared/app-store";
 import { useConfigValue } from "./shared/config";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
@@ -151,6 +152,7 @@ if (isMainWindow) {
       });
     }
   } catch {}
+  void detectUnexpectedQuit();
   void initializeAppExitFlush().catch((error) => {
     captureOperationalError(error, {
       operation: "app_exit_flush_initialize",

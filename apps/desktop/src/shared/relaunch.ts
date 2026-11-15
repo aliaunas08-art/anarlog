@@ -3,6 +3,7 @@ import { relaunch as tauriRelaunch } from "@tauri-apps/plugin-process";
 import { commands as store2Commands } from "@anlg/plugin-store2";
 
 import { flushDatabaseWritesWithin } from "~/db/write-queue";
+import { markCleanExit } from "~/shared/unexpected-quit";
 import { commands } from "~/types/tauri.gen";
 
 let pendingAutomaticRelaunch = false;
@@ -12,7 +13,7 @@ const APPLICATION_STATE_FLUSH_TIMEOUT_MS = 5000;
 async function flushApplicationState(): Promise<void> {
   const results = await Promise.allSettled([
     flushDatabaseWritesWithin(APPLICATION_STATE_FLUSH_TIMEOUT_MS),
-    store2Commands.save(),
+    markCleanExit().then(() => store2Commands.save()),
   ]);
   const failure = results.find((result) => result.status === "rejected");
   if (failure) throw failure.reason;

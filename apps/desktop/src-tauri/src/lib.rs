@@ -596,6 +596,7 @@ pub fn main() {
             }
         }
         tauri::RunEvent::Exit => {
+            mark_clean_exit(app);
             if let Some(ref ctx) = root_supervisor_ctx_for_run {
                 ctx.mark_exiting();
                 ctx.stop();
@@ -606,6 +607,25 @@ pub fn main() {
         _ => {}
     });
     drop(runtime);
+}
+
+/// Clears the "running" flag the frontend sets at launch (see
+/// `apps/desktop/src/shared/unexpected-quit.ts`). Every normal quit path
+/// (Cmd+Q, Quit Completely, logout/shutdown) ends in `RunEvent::Exit`, so a
+/// flag still set on the next launch means the app quit unexpectedly.
+fn mark_clean_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri_plugin_store2::Store2PluginExt;
+
+    match app.store2().scoped_store::<String>("app-lifecycle") {
+        Ok(store) => {
+            if let Err(error) = store.set("running".to_string(), false) {
+                tracing::warn!(%error, "failed to clear running flag on exit");
+            } else if let Err(error) = store.save() {
+                tracing::warn!(%error, "failed to save running flag on exit");
+            }
+        }
+        Err(error) => tracing::warn!(%error, "failed to open lifecycle store on exit"),
+    }
 }
 
 fn startup_failure_message(error: &impl std::fmt::Display) -> String {
