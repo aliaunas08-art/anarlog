@@ -194,7 +194,7 @@ describe("SettingsDevelopers", () => {
         installPath: "/Users/test/.local/bin/anarlog",
         state: "installed",
         details:
-          "Installed at /Users/test/.local/bin/anarlog and managed by Anarlog.",
+          "Installed at /Users/test/.local/bin/anarlog and managed by Notes.",
       },
     });
 
@@ -450,15 +450,12 @@ describe("SettingsDevelopers", () => {
     expect(screen.getByText("REST API")).toBeTruthy();
     expect(screen.getByText(/server-readable copy/)).toBeTruthy();
     expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+      action: {
+        label: "Upgrade",
+        onClick: expect.any(Function),
       },
-    );
+    });
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
 
@@ -558,7 +555,7 @@ describe("SettingsDevelopers", () => {
     expect(mocks.installAgentSkill).not.toHaveBeenCalledWith("cursor");
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Anarlog skill added to 3 agents",
+        "Notes skill added to 3 agents",
       ),
     );
   });
@@ -613,7 +610,7 @@ describe("SettingsDevelopers", () => {
     );
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Anarlog skill added to Codex",
+        "Notes skill added to Codex",
       ),
     );
   });

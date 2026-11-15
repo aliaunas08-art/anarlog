@@ -15,6 +15,7 @@ import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
+import { APP_NAME } from "~/shared/app-name";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ChatBodyEmpty({
@@ -119,7 +120,7 @@ export function ChatBodyEmpty({
                   : "text-foreground",
               ])}
             >
-              Anarlog AI
+              {APP_NAME} AI
             </span>
             <BetaChip isDarkAppearance={isDarkAppearance} />
           </div>
@@ -131,7 +132,7 @@ export function ChatBodyEmpty({
                 : "text-muted-foreground",
             ])}
           >
-            {t`Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help.`}
+            {t`Hi, I'm ${APP_NAME} AI. Set up a language model and I'll be ready to help.`}
           </p>
           <button
             onClick={handleGoToSettings}

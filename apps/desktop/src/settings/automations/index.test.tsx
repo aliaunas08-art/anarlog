@@ -326,15 +326,12 @@ describe("AutomationsContent", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+      action: {
+        label: "Upgrade",
+        onClick: expect.any(Function),
       },
-    );
+    });
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });

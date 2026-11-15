@@ -30,6 +30,7 @@ import { useShell } from "~/contexts/shell";
 import { normalizeAudioRetention } from "~/services/audio-retention";
 import { getSessionEvent } from "~/session/utils";
 import { getBaseLanguageDisplayName } from "~/settings/general/language";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 import {
@@ -336,7 +337,7 @@ export function useStartListeningState(
           excludedTexts: [MEETING_DISCLOSURE_MESSAGE],
           onParticipantDeclined: () => {
             toast.warning(
-              "A participant declined recording. Anarlog stopped listening.",
+              `A participant declined recording. ${APP_NAME} stopped listening.`,
               { id: "meeting-consent-declined", duration: Infinity },
             );
             stop();

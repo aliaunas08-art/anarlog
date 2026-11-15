@@ -33,6 +33,7 @@ import {
 } from "~/settings/ai/shared";
 import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
+import { APP_NAME } from "~/shared/app-name";
 import { localSttQueries } from "~/stt/useLocalSttModel";
 
 export { localSttQueries as sttModelQueries };
@@ -388,7 +389,7 @@ const _PROVIDERS = [
   {
     disabled: false,
     id: "anarlog",
-    displayName: "Anarlog",
+    displayName: APP_NAME,
     badge: "Recommended",
     builtIn: true,
     icon: <AnarlogProviderIcon />,

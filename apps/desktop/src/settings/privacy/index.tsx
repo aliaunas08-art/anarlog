@@ -12,6 +12,7 @@ import {
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 import { resolveConfigValue } from "~/shared/config";
 
 export function SettingsPrivacy() {
@@ -48,8 +49,8 @@ export function SettingsPrivacy() {
   const lockAppDescription = !authAvailable
     ? t`Device authentication is not available on this computer.`
     : platform() === "windows"
-      ? t`Require Windows Hello face, PIN, or password when opening Anarlog.`
-      : t`Require Touch ID or your password when opening Anarlog.`;
+      ? t`Require Windows Hello face, PIN, or password when opening ${APP_NAME}.`
+      : t`Require Touch ID or your password when opening ${APP_NAME}.`;
 
   return (
     <div className="flex flex-col gap-8">
@@ -84,7 +85,7 @@ export function SettingsPrivacy() {
         />
         <SettingSwitchRow
           title={t`Error`}
-          description={t`Send sanitized crash and error reports to help improve Anarlog.`}
+          description={t`Send sanitized crash and error reports to help improve ${APP_NAME}.`}
           checked={sentryEnabled}
           onChange={(crashReportingConsent) => {
             setSettingValues({

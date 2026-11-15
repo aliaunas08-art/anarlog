@@ -3682,7 +3682,7 @@ describe("useStartListening", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith(
-      "Anarlog could not save part of the live transcript.",
+      "Notes could not save part of the live transcript.",
       { id: "live-transcript-persist-failed" },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
@@ -3732,7 +3732,7 @@ describe("useStartListening", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith(
-      "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
+      "Notes could not finish saving the transcript. The recording was kept so you can try again.",
       { id: "post-capture-transcript-incomplete" },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
@@ -4219,12 +4219,12 @@ describe("useStartListening", () => {
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(2);
     expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining("https://anarlog.so"),
+      expect.stringContaining("to record and transcribe this meeting"),
       ["com.anarlog.dev"],
     );
     expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining("https://anarlog.so"),
+      expect.stringContaining("to record and transcribe this meeting"),
       ["us.zoom.xos"],
     );
     expect(toastWarningMock).not.toHaveBeenCalled();
@@ -4376,7 +4376,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
+          "I'm using Notes to record and transcribe this meeting.",
         ],
         onParticipantDeclined: expect.any(Function),
       });
@@ -4415,7 +4415,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
+          "I'm using Notes to record and transcribe this meeting.",
         ],
         onParticipantDeclined: expect.any(Function),
       });

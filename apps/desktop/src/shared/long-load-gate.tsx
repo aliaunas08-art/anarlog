@@ -12,6 +12,7 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
+import { APP_NAME } from "./app-name";
 import { BrandLoadingView } from "./brand-loading-view";
 
 import { captureOperationalError } from "~/error-reporting";
@@ -128,11 +129,13 @@ function StartupErrorView({ error }: { error: Error }) {
     >
       <div className="flex max-w-sm flex-col items-center gap-4 text-center">
         <h1 className="text-foreground text-base font-semibold">
-          {needsUpdate ? "Anarlog needs an update" : "Anarlog could not start"}
+          {needsUpdate
+            ? `${APP_NAME} needs an update`
+            : `${APP_NAME} could not start`}
         </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
           {needsUpdate
-            ? "Your data was updated by a newer version of Anarlog, such as Anarlog Nightly, and this version cannot open it yet. Your existing data was left unchanged. Install the latest version of Anarlog, or keep using the newer app until this version catches up."
+            ? `Your data was updated by a newer version of ${APP_NAME}, such as ${APP_NAME} Nightly, and this version cannot open it yet. Your existing data was left unchanged. Install the latest version of ${APP_NAME}, or keep using the newer app until this version catches up.`
             : "Your existing data was left unchanged. Please restart the app. If the problem continues, contact support."}
         </p>
         {needsUpdate ? null : (

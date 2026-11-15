@@ -32,6 +32,8 @@ import {
   compactControlsWidth,
 } from "./layout";
 
+import { APP_NAME } from "~/shared/app-name";
+
 export function FloatingBarOverlay({
   state,
   onStop,
@@ -207,7 +209,7 @@ function StopControl({
       }
       title={
         state.status === "error"
-          ? `${state.transcriptNotice ?? "Recording needs attention"}. Open Anarlog to retry or change devices.`
+          ? `${state.transcriptNotice ?? "Recording needs attention"}. Open ${APP_NAME} to retry or change devices.`
           : undefined
       }
       disabled={state.dictation?.phase === "transcribing"}

@@ -1,8 +1,10 @@
+import { Trans } from "@lingui/react/macro";
 import { memo, type ReactNode } from "react";
 
 import {
   MagnifyingGlass,
   NotePencil,
+  Plus,
   Sidebar,
   SidebarSimple,
 } from "@anlg/ui/components/icons";
@@ -14,16 +16,12 @@ import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-mee
 export const SidebarTimelineChromeWithUpcomingMeeting = memo(
   function SidebarTimelineChromeWithUpcomingMeeting({
     currentSessionId,
-    onNewNote,
-    onSearch,
     onToggleSidebar,
     sidebarExpanded,
     showSidebarToggle = true,
     showIgnoredTimelineEvents,
   }: {
     currentSessionId?: string;
-    onNewNote: () => void;
-    onSearch: () => void;
     onToggleSidebar: () => void;
     sidebarExpanded: boolean;
     showSidebarToggle?: boolean;
@@ -40,8 +38,6 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
     return (
       <SidebarTimelineChrome
         hasUpcomingMeeting={hasUpcomingMeeting}
-        onNewNote={onNewNote}
-        onSearch={onSearch}
         onToggleSidebar={onToggleSidebar}
         sidebarExpanded={sidebarExpanded}
         showSidebarToggle={showSidebarToggle}
@@ -52,15 +48,11 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 
 function SidebarTimelineChrome({
   hasUpcomingMeeting,
-  onNewNote,
-  onSearch,
   onToggleSidebar,
   sidebarExpanded,
   showSidebarToggle,
 }: {
   hasUpcomingMeeting: boolean;
-  onNewNote: () => void;
-  onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
   showSidebarToggle: boolean;
@@ -87,10 +79,66 @@ function SidebarTimelineChrome({
             )}
           </LeftSurfaceChromeButton>
         )}
-        {sidebarExpanded ? (
-          <SidebarNoteActions onNewNote={onNewNote} onSearch={onSearch} />
-        ) : null}
       </div>
+      {sidebarExpanded ? (
+        <div data-tauri-drag-region className="ml-auto flex items-center">
+          <SidebarNoteFilterMenu />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Board: a prominent "New note ⌘N" capsule and a search field under the
+// traffic-light row. Only rendered on macOS, where the shortcuts are ⌘.
+export function SidebarPrimaryActions({
+  onNewNote,
+  onSearch,
+}: {
+  onNewNote: () => void;
+  onSearch: () => void;
+}) {
+  return (
+    <div
+      data-sidebar-primary-actions
+      className="flex shrink-0 flex-col gap-2 px-2.5 pt-1 pb-2"
+    >
+      <button
+        type="button"
+        aria-label="New note"
+        onClick={onNewNote}
+        className={cn([
+          "cf-glass-tint rounded-pill flex h-8 w-full min-w-0 items-center gap-2 px-2.5",
+          "text-[13px] font-semibold whitespace-nowrap",
+          "cf-motion transition-[filter] hover:brightness-110 active:brightness-95",
+          "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-hidden",
+        ])}
+      >
+        <Plus size={13} weight="bold" aria-hidden className="shrink-0" />
+        <span className="min-w-0 truncate">
+          <Trans>New note</Trans>
+        </span>
+        <span className="ml-auto shrink-0 text-[11px] font-medium opacity-75">
+          ⌘N
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-label="Search"
+        onClick={onSearch}
+        className={cn([
+          "flex h-[30px] w-full min-w-0 items-center gap-1.5 rounded-lg px-2",
+          "bg-[var(--cf-fill)] text-[13px] whitespace-nowrap text-[var(--cf-secondary)]",
+          "cf-motion transition-colors hover:text-[var(--cf-label)]",
+          "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-hidden",
+        ])}
+      >
+        <MagnifyingGlass size={13} aria-hidden className="shrink-0" />
+        <span className="min-w-0 truncate">
+          <Trans>Search</Trans>
+        </span>
+        <span className="ml-auto shrink-0 text-[11px]">⌘P</span>
+      </button>
     </div>
   );
 }

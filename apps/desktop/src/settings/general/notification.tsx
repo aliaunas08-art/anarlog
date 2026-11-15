@@ -45,6 +45,7 @@ import {
 
 import { useSetSettingValues } from "~/settings/queries";
 import { SettingRow, SettingSwitchRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 import {
   normalizeCompletionSoundName,
   previewCompletionSound,
@@ -259,7 +260,7 @@ export function NotificationSettingsView() {
                   description={
                     <Trans>
                       Ask before stopping when a meeting may have ended. When
-                      alerts are off, Anarlog keeps listening.
+                      alerts are off, {APP_NAME} keeps listening.
                     </Trans>
                   }
                   checked={field.state.value}

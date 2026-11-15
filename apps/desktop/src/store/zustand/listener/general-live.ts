@@ -52,6 +52,7 @@ import { prepareSessionPeaks } from "~/audio-player/waveform";
 import { runMeetingCompletedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { getSessionResourcePath } from "~/session/resource-path";
+import { APP_NAME } from "~/shared/app-name";
 import { isAppStoreBuild } from "~/shared/app-store";
 import { fromResult } from "~/stt/fromResult";
 import { recordDetectedMeetingApps } from "~/stt/meeting-source-apps";
@@ -215,8 +216,7 @@ const notifyTranscriptionStalled = () => {
   toast.warning("Live transcription stalled", {
     id: "live-transcription-stalled",
     duration: Infinity,
-    description:
-      "Anarlog keeps recording while live transcription reconnects. Missing text will be recovered from temporary audio while the meeting continues.",
+    description: `${APP_NAME} keeps recording while live transcription reconnects. Missing text will be recovered from temporary audio while the meeting continues.`,
   });
 };
 

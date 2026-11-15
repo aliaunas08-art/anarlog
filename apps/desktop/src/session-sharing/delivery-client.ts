@@ -1,5 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 
+import { APP_NAME } from "~/shared/app-name";
+
 const MAX_RECAP_BODY_BYTES = 100 * 1024;
 const MAX_SLACK_CHANNELS = 200;
 
@@ -167,7 +169,7 @@ export function buildSlackRecap({
   noteTitle: string;
   noteBody: string;
 }) {
-  const signature = `\n\n_Sent by ${senderName} via Anarlog_`;
+  const signature = `\n\n_Sent by ${senderName} via ${APP_NAME}_`;
   const prefix = `*${noteTitle}*\n\n`;
   const bodyBudget = 40_000 - prefix.length - signature.length;
   const body =

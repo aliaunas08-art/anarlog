@@ -40,6 +40,7 @@ import {
 } from "~/session-sharing/delivery-client";
 import { getSessionShareSenderName } from "~/session-sharing/invitation-management";
 import { getStoredSettingValues, setSettingValue } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 
 export type { AutomationRunRecord, AutomationTargetRef };
 export { parseAutomationRunRecord, parseAutomationTargetRef };
@@ -563,8 +564,8 @@ async function executeLinearIssues(
   const connectionId = await findConnectionId(client, "linear");
   const recap = await loadMeetingRecap(sessionId);
   const description = recap
-    ? `Action item from the Anarlog meeting "${recap.title}" (${recap.date}).`
-    : "Action item from an Anarlog meeting.";
+    ? `Action item from the ${APP_NAME} meeting "${recap.title}" (${recap.date}).`
+    : `Action item from a ${APP_NAME} meeting.`;
   const items = actionItems.slice(0, MAX_LINEAR_ISSUES_PER_MEETING);
   await beforeCreate?.();
   for (const item of items) {

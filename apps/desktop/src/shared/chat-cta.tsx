@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";
+import { APP_NAME } from "~/shared/app-name";
 
 export function ChatCTA({
   label,
@@ -31,7 +32,7 @@ export function ChatCTA({
       data-chat-cta-trigger
       aria-hidden={isChatOpen}
       inert={isChatOpen}
-      aria-label={ariaLabel ?? t`Ask Anarlog anything`}
+      aria-label={ariaLabel ?? t`Ask ${APP_NAME} anything`}
       onClick={handleClick}
       className={cn([
         "group/anarlog-chat-cta relative h-10 w-[min(640px,calc(100cqw_-_2rem))] max-w-full cursor-text focus-visible:outline-none",

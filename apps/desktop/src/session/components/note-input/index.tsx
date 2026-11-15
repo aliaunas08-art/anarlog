@@ -384,22 +384,23 @@ const NoteInputContent = forwardRef<
             onMouseDown={handleContainerMouseDown}
             onScroll={onScroll}
             className={cn([
-              "h-full px-3",
+              "h-full px-3 @3xl:px-8",
               "pt-2",
+              // Bottom padding clears the floating glass bar (46px capsules
+              // 22px off the bottom) with room to spare.
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
-                : "scroll-pb-28 overflow-x-hidden overflow-y-auto pb-32",
+                : "scroll-pb-32 overflow-x-hidden overflow-y-auto pb-40",
             ])}
           >
             <div
               data-session-content-column
+              // Editorial title, section heads and prose sizes for this view
+              // live in styles/c-final.css, keyed off data-cf-view.
+              data-cf-view={renderedCurrentTab.type}
               className={cn([
                 "mx-auto w-full max-w-[720px]",
                 renderedCurrentTab.type === "transcript" && "h-full",
-                // The summary's first-line H1 is the session title there; give
-                // it the editorial title treatment.
-                renderedCurrentTab.type === "enhanced" &&
-                  "[&_.note-title-editor>h1:first-child]:mb-6! [&_.note-title-editor>h1:first-child]:text-[46px]! [&_.note-title-editor>h1:first-child]:leading-[1.08]! [&_.note-title-editor>h1:first-child]:font-bold! [&_.note-title-editor>h1:first-child]:tracking-[-0.035em]! [&_.note-title-editor>h1:first-child]:text-[var(--cf-label)]!",
               ])}
             >
               {renderLeadingContent && renderedCurrentTab.type !== "transcript"

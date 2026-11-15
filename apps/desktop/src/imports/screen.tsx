@@ -65,6 +65,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { useConnections } from "~/auth/useConnections";
+import { APP_NAME } from "~/shared/app-name";
 import { ConnectButtonGroup } from "~/shared/connect-button-group";
 
 const IMPORT_EXTENSIONS = [
@@ -683,7 +684,7 @@ export function MeetingImportScreen({
                         <p className="text-muted-foreground text-xs">
                           <Trans>
                             New meetings are imported automatically while
-                            Anarlog is running.
+                            {APP_NAME} is running.
                           </Trans>
                         </p>
                       ) : null}

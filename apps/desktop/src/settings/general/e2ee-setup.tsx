@@ -29,6 +29,7 @@ import {
 import { Input } from "@anlg/ui/components/ui/input";
 
 import { env } from "~/env";
+import { APP_NAME } from "~/shared/app-name";
 
 const RECOVERY_KEY_CLIPBOARD_TTL_MS = 60_000;
 
@@ -162,7 +163,7 @@ export function E2eeSetupDialog({
           <DialogDescription className="text-foreground max-w-[260px] text-center text-[13px] leading-[1.36]">
             <Trans>
               Your recovery key encrypts synced notes before they leave this
-              device. Anarlog cannot read or recover it.
+              device. {APP_NAME} cannot read or recover it.
             </Trans>
           </DialogDescription>
         </DialogHeader>

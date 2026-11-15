@@ -95,15 +95,12 @@ describe("AppIconSelector", () => {
 
     fireEvent.click(blueprintOption);
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+      action: {
+        label: "Upgrade",
+        onClick: expect.any(Function),
       },
-    );
+    });
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.applyAppIconPreference).not.toHaveBeenCalled();
     expect(mocks.setAppIcon).not.toHaveBeenCalled();

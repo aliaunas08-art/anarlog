@@ -9,6 +9,7 @@ import {
   type UserTemplate,
 } from "./queries";
 
+import { APP_NAME } from "~/shared/app-name";
 import { useWebResources } from "~/shared/ui/resource-list";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -85,7 +86,7 @@ export function getTemplateCreatorLabel({
   creatorName?: string | null;
   format?: "full" | "short";
 }) {
-  const name = isUserTemplate ? creatorName?.trim() || "user" : "Anarlog";
+  const name = isUserTemplate ? creatorName?.trim() || "user" : APP_NAME;
   return format === "short" ? `by ${name}` : `Created by ${name}`;
 }
 

@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
 
@@ -58,64 +58,80 @@ export function LeftSidebar({
     isTimelineSidebarLayout && !timelineHeader && !usesTitleBarSidebarActions();
   return (
     <div
-      className={cn([
-        "flex h-full w-full shrink-0 flex-col gap-1 overflow-hidden",
-        needsChromeRowGutter ? "pt-11" : "pt-0",
-        !isTimelineSidebarLayout && "pr-1",
-      ])}
+      data-sidebar-panel-frame
+      className="flex h-full w-full shrink-0 flex-col py-2 pr-1 pl-1"
     >
-      <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-        {isTimelineSidebarLayout ? timelineHeader : null}
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          {isSettingsMode ? (
-            <SettingsNav />
-          ) : isCalendarMode ? (
-            <CalendarNav />
-          ) : isContactsMode ? (
-            <ContactsNav />
-          ) : isTemplatesMode ? (
-            <TemplatesNav />
-          ) : isAutomationsMode ? (
-            <AutomationsNav />
-          ) : isFoldersMode ? (
-            <FoldersNav />
-          ) : (
-            <div className="flex h-full min-h-0 flex-col">
-              {noteFilter === "mine" ? (
-                <>
-                  {folderFilter ? (
-                    <FolderMaterialsPanel folderPath={folderFilter} />
-                  ) : null}
-                  {showDateFilter ? (
-                    <SidebarDateFilter
-                      folderFilter={folderFilter}
-                      // Clear the title-bar chrome that would otherwise
-                      // overlay the top of the timeline.
-                      className={timelineTopChromeInset ? "pt-12" : "pt-1"}
-                    />
-                  ) : null}
-                  <div className="relative min-h-0 flex-1">
-                    <TimelineView
-                      folderFilter={folderFilter}
-                      showIgnoredEvents={showIgnoredTimelineEvents}
-                      onShowIgnoredEventsChange={
-                        onShowIgnoredTimelineEventsChange
-                      }
-                      topChromeInset={timelineTopChromeInset && !showDateFilter}
-                      topChipsOverlapHeader={
-                        isTimelineSidebarLayout && !!timelineHeader
-                      }
-                    />
-                  </div>
-                  <SidebarTasksLink />
-                </>
-              ) : (
-                <SharedNotesNav />
-              )}
-            </div>
-          )}
+      <div
+        data-sidebar-panel
+        style={SIDEBAR_PANEL_CHROME_INSET}
+        className={cn([
+          "cf-sidebar-panel flex min-h-0 w-full flex-1 flex-col gap-1 overflow-hidden",
+          needsChromeRowGutter ? "pt-9" : "pt-0",
+          !isTimelineSidebarLayout && "pr-1",
+        ])}
+      >
+        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+          {isTimelineSidebarLayout ? timelineHeader : null}
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            {isSettingsMode ? (
+              <SettingsNav />
+            ) : isCalendarMode ? (
+              <CalendarNav />
+            ) : isContactsMode ? (
+              <ContactsNav />
+            ) : isTemplatesMode ? (
+              <TemplatesNav />
+            ) : isAutomationsMode ? (
+              <AutomationsNav />
+            ) : isFoldersMode ? (
+              <FoldersNav />
+            ) : (
+              <div className="flex h-full min-h-0 flex-col">
+                {noteFilter === "mine" ? (
+                  <>
+                    {folderFilter ? (
+                      <FolderMaterialsPanel folderPath={folderFilter} />
+                    ) : null}
+                    {showDateFilter ? (
+                      <SidebarDateFilter
+                        folderFilter={folderFilter}
+                        // Clear the title-bar chrome that would otherwise
+                        // overlay the top of the timeline.
+                        className={timelineTopChromeInset ? "pt-12" : "pt-1"}
+                      />
+                    ) : null}
+                    <div className="relative min-h-0 flex-1">
+                      <TimelineView
+                        folderFilter={folderFilter}
+                        showIgnoredEvents={showIgnoredTimelineEvents}
+                        onShowIgnoredEventsChange={
+                          onShowIgnoredTimelineEventsChange
+                        }
+                        topChromeInset={
+                          timelineTopChromeInset && !showDateFilter
+                        }
+                        topChipsOverlapHeader={
+                          isTimelineSidebarLayout && !!timelineHeader
+                        }
+                      />
+                    </div>
+                    <SidebarTasksLink />
+                  </>
+                ) : (
+                  <SharedNotesNav />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+// The panel sits 8px in from the window's top-left corner (body frame pl-1 +
+// pl-1, py-2); rows aligned to the traffic lights subtract this inset.
+const SIDEBAR_PANEL_CHROME_INSET = {
+  "--cf-chrome-inset-x": "8px",
+  "--cf-chrome-inset-y": "8px",
+} as CSSProperties;

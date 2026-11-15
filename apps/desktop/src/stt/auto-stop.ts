@@ -15,6 +15,7 @@ import {
 } from "./meeting-apps";
 
 import { loadSessionEvent } from "~/session/queries";
+import { APP_NAME } from "~/shared/app-name";
 
 export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
 export const AUTO_STOP_ACCESSIBILITY_TIMEOUT_MS = 10_000;
@@ -189,7 +190,7 @@ export async function showMeetingEndedPrompt({
     await notificationCommands.showNotification({
       key,
       title: "Did your meeting end?",
-      message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
+      message: `${APP_NAME} will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
       timeout: { secs: AUTO_STOP_CONFIRM_TIMEOUT_SECONDS, nanos: 0 },
       source: null,
       start_time: null,

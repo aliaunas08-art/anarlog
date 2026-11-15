@@ -19,6 +19,7 @@ import { useDictationStatus } from "./state";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useSettingsReady } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
@@ -164,7 +165,7 @@ function ActiveDictation({
         const capture = unwrap(await transcription.getCaptureState());
         if (capture !== "inactive")
           throw new Error(
-            "Dictation is unavailable while Anarlog is recording a meeting.",
+            `Dictation is unavailable while ${APP_NAME} is recording a meeting.`,
           );
         abort.signal.throwIfAborted();
         target = unwrap(await dictation.captureTarget());

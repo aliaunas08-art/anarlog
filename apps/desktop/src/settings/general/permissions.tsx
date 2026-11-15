@@ -7,6 +7,7 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
+import { APP_NAME } from "~/shared/app-name";
 import {
   trackPermissionRequested,
   usePermissionAnalytics,
@@ -208,7 +209,7 @@ function MacOSPermissions() {
         title={t`Accessibility`}
         description={
           accessibilityGuidance
-            ? t`Opens System Settings and guides you to add Anarlog to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list.`
+            ? t`Opens System Settings and guides you to add ${APP_NAME} to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list.`
             : t`Read meeting controls and visible chat.`
         }
         status={accessibility.status}
@@ -222,7 +223,7 @@ function MacOSPermissions() {
         <PermissionRow
           permission="calendar"
           title={t`Calendar`}
-          description={t`Show Apple Calendar events in Anarlog.`}
+          description={t`Show Apple Calendar events in ${APP_NAME}.`}
           status={calendar.status}
           isPending={calendar.isPending}
           onRequest={calendar.request}

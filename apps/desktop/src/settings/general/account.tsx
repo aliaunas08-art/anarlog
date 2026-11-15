@@ -12,6 +12,7 @@ import { AccountProfile } from "./account-profile";
 
 import { useAuth } from "~/auth";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { APP_NAME } from "~/shared/app-name";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
 
@@ -50,7 +51,7 @@ export function SettingsAccount() {
     onError: (error) => {
       const message = String(error).includes("unsent local changes")
         ? t`Sync your changes before signing out.`
-        : t`Anarlog couldn't sign you out. Try again.`;
+        : t`${APP_NAME} couldn't sign you out. Try again.`;
       toast.error(message);
     },
   });
@@ -84,7 +85,7 @@ export function SettingsAccount() {
           <Container
             title={<Trans>Finish sign-in</Trans>}
             description={
-              <Trans>Finish in your browser, then return to Anarlog.</Trans>
+              <Trans>Finish in your browser, then return to {APP_NAME}.</Trans>
             }
             action={
               <Button onClick={handleSignIn} variant="outline">
@@ -94,7 +95,8 @@ export function SettingsAccount() {
           >
             <p className="text-muted-foreground text-xs">
               <Trans>
-                If Anarlog stays closed, paste the link in the sign-in window.
+                If {APP_NAME} stays closed, paste the link in the sign-in
+                window.
               </Trans>
             </p>
           </Container>
@@ -108,7 +110,7 @@ export function SettingsAccount() {
         <section className="flex min-w-0 flex-col items-start gap-4 pb-4">
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-medium">
-              <Trans>Sign in to Anarlog</Trans>
+              <Trans>Sign in to {APP_NAME}</Trans>
             </h3>
             <div className="text-muted-foreground text-sm">
               <Trans>
@@ -164,7 +166,7 @@ export function SettingsAccount() {
       <Container
         title={<Trans>Connected accounts</Trans>}
         description={
-          <Trans>Manage your sign-in methods on the Anarlog website.</Trans>
+          <Trans>Manage your sign-in methods on the {APP_NAME} website.</Trans>
         }
         action={
           <Button
@@ -182,7 +184,7 @@ export function SettingsAccount() {
       <DestructiveConfirmationDialog
         open={isSignOutDialogOpen}
         onOpenChange={setIsSignOutDialogOpen}
-        title={t`Sign out of Anarlog?`}
+        title={t`Sign out of ${APP_NAME}?`}
         description={t`You'll need to sign in again to use cloud sync and account features.`}
         confirmLabel={t`Sign out`}
         pendingLabel={t`Signing out...`}

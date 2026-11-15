@@ -45,6 +45,7 @@ import {
   checkUnslothAvailability,
 } from "~/settings/ai/shared/local-provider-availability";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
+import { APP_NAME } from "~/shared/app-name";
 
 export type Provider = {
   id: string;
@@ -66,7 +67,7 @@ export type Provider = {
 const _PROVIDERS = [
   {
     id: "anarlog",
-    displayName: "Anarlog",
+    displayName: APP_NAME,
     badge: "Recommended",
     icon: <AnarlogProviderIcon />,
     baseUrl: new URL(

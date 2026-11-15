@@ -512,8 +512,7 @@ export const TimelineView = memo(function TimelineView({
           data-sidebar-timeline-scroll
           onContextMenu={showContextMenu}
           className={cn([
-            "scrollbar-hide flex h-full flex-col overflow-y-auto",
-            "rounded-xl",
+            "scrollbar-hide flex h-full flex-col overflow-y-auto px-2",
           ])}
         >
           {(topChromeInset || hasMoreFutureItems) && (
@@ -557,7 +556,7 @@ export const TimelineView = memo(function TimelineView({
           <div
             aria-hidden
             data-sidebar-timeline-bottom-fade
-            className="from-background/0 to-background pointer-events-none absolute inset-x-0 bottom-0 z-30 h-7 bg-linear-to-b"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-7 bg-linear-to-b from-transparent to-[var(--cf-sidebar-bg)]"
           />
         )}
 
@@ -565,7 +564,7 @@ export const TimelineView = memo(function TimelineView({
           <div
             aria-hidden
             data-sidebar-timeline-top-occluder
-            className="bg-background pointer-events-none absolute inset-x-0 top-0 z-10 h-12"
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-12 bg-[var(--cf-sidebar-bg)]"
           />
         )}
 

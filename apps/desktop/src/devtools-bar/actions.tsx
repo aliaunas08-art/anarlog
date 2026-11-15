@@ -11,6 +11,7 @@ import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
 import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { executeTransaction } from "~/db";
 import { createSession, updateSession } from "~/session/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { useOwnerUserId } from "~/shared/owner-user";
 import {
   type DevtoolsOtaPreviewStatus,
@@ -368,7 +369,7 @@ export function useDevtoolsActions() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         location: "Conference Room",
       },
-      action_label: "Open Anarlog",
+      action_label: `Open ${APP_NAME}`,
       action: null,
       action_menu: null,
       action_variant: null,
@@ -440,7 +441,7 @@ export function useDevtoolsActions() {
     await notificationCommands.showNotification({
       key: createAutoStopEndedNotificationKey(sessionId),
       title: "Did your meeting end?",
-      message: `Anarlog will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
+      message: `${APP_NAME} will stop listening in ${AUTO_STOP_CONFIRM_TIMEOUT_SECONDS} seconds.`,
       timeout: { secs: AUTO_STOP_CONFIRM_TIMEOUT_SECONDS, nanos: 0 },
       source: null,
       start_time: null,

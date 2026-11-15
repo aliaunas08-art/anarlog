@@ -4,6 +4,7 @@ import { Check } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useSetSettingValue } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { normalizeAppIconPreference } from "~/shared/theme/icon";
 import { applyThemePreference } from "~/shared/theme/provider";
@@ -38,7 +39,7 @@ export function ThemeSelector() {
           <Trans>Theme</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose how Anarlog looks on this device.</Trans>
+          <Trans>Choose how {APP_NAME} looks on this device.</Trans>
         </p>
       </div>
       <div

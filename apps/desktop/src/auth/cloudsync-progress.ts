@@ -1,6 +1,7 @@
 import { getCloudsyncStatus } from "@anlg/plugin-db";
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
+import { APP_NAME } from "~/shared/app-name";
 import { playCompletionSound } from "~/shared/completion-sound";
 import { shouldShowNotification } from "~/shared/notification-policy";
 
@@ -45,13 +46,13 @@ async function showCompletionNotification(userId: string) {
     const result = await notificationCommands.showNotification({
       key: `cloudsync-initial-sync-complete-${userId}`,
       title: "Cloud sync complete",
-      message: "Your Anarlog data is ready on this device.",
+      message: `Your ${APP_NAME} data is ready on this device.`,
       timeout: null,
       source: null,
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: "Open Anarlog",
+      action_label: `Open ${APP_NAME}`,
       action: null,
       action_menu: null,
       action_variant: null,

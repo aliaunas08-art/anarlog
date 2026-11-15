@@ -237,18 +237,16 @@ const ItemBase = memo(function ItemBase({
         onDragStart={onDragStart}
         contextMenu={hasSelection ? undefined : contextMenu}
         className={cn([
-          "w-full rounded-lg px-3 py-2 text-left",
+          "cf-motion w-full rounded-lg px-2 py-1.5 text-left transition-colors",
           showUpcomingGauge && "pl-4",
           showLiveStop && "pr-10",
           ignored ? "cursor-default" : "cursor-pointer",
-          multiSelected && "bg-accent",
-          !multiSelected && selected && "bg-accent",
-          !multiSelected && !selected && "hover:bg-accent/50",
-          isUpcoming &&
-            !isLive && [
-              "bg-destructive/8 text-foreground",
-              "focus-visible:ring-destructive/25",
-            ],
+          multiSelected && "bg-[var(--cf-selection)]",
+          !multiSelected && selected && "bg-[var(--cf-selection)]",
+          !multiSelected &&
+            !selected &&
+            "hover:bg-black/[0.03] dark:hover:bg-white/[0.05]",
+          isUpcoming && !isLive && "focus-visible:ring-[var(--cf-accent)]/30",
           isLive && [
             "bg-destructive text-destructive-foreground hover:bg-destructive/90",
             "focus-visible:ring-destructive/40 focus-visible:ring-2 focus-visible:outline-hidden",
@@ -259,14 +257,14 @@ const ItemBase = memo(function ItemBase({
         draggable={draggable}
       >
         <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-1 flex-col">
             {folderLabel ? (
               <div
                 className={cn([
                   "pointer-events-none flex min-w-0 items-center gap-1 text-[11px] leading-4",
                   isLive
                     ? "text-destructive-foreground/65"
-                    : "text-muted-foreground",
+                    : "text-[var(--cf-secondary)]",
                 ])}
               >
                 <FolderSimple className="size-3 shrink-0" aria-hidden />
@@ -275,7 +273,8 @@ const ItemBase = memo(function ItemBase({
             ) : null}
             <div
               className={cn(
-                "pointer-events-none min-w-0 truncate text-sm font-normal",
+                "pointer-events-none min-w-0 truncate text-[13px] leading-[18px]",
+                selected || multiSelected ? "font-semibold" : "font-medium",
                 ignored && "line-through",
               )}
             >
@@ -284,10 +283,10 @@ const ItemBase = memo(function ItemBase({
             {displayTime && (
               <div
                 className={cn([
-                  "font-mono text-xs",
+                  "pointer-events-none min-w-0 truncate text-[11px] leading-4 tabular-nums",
                   isLive
                     ? "text-destructive-foreground/65"
-                    : "text-muted-foreground",
+                    : "text-[var(--cf-secondary)]",
                 ])}
               >
                 {displayTime}
@@ -299,7 +298,7 @@ const ItemBase = memo(function ItemBase({
                   "pointer-events-none min-w-0 truncate text-[11px] leading-4",
                   isLive
                     ? "text-destructive-foreground/65"
-                    : "text-muted-foreground",
+                    : "text-[var(--cf-secondary)]",
                 ])}
               >
                 {tagLine}
@@ -337,11 +336,11 @@ const ItemBase = memo(function ItemBase({
         <div
           aria-hidden
           data-sidebar-timeline-upcoming-gauge
-          className="bg-destructive/20 pointer-events-none absolute top-2 bottom-2 left-1.5 w-0.5 overflow-hidden rounded-full"
+          className="pointer-events-none absolute top-2 bottom-2 left-1.5 w-[3px] overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--cf-accent)_22%,transparent)]"
         >
           <div
             data-sidebar-timeline-upcoming-gauge-fill
-            className="bg-destructive absolute bottom-0 left-0 w-full rounded-full transition-[height] duration-300 ease-linear"
+            className="absolute bottom-0 left-0 w-full rounded-full bg-[var(--cf-accent)] transition-[height] duration-300 ease-linear"
             style={{ height: `${upcomingGaugePercent}%` }}
           />
         </div>

@@ -36,6 +36,7 @@ import {
 
 import { useProviderSelectionPrompt } from "~/settings/ai/shared/provider-selection-prompt";
 import { useSetAiProvider } from "~/settings/providers";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { getScheme } from "~/shared/utils";
 
@@ -373,7 +374,7 @@ export function ConnectSubscriptionDialog({
               ? t`Sign in with your Claude account. After you authorize, copy the code and we'll finish connecting.`
               : providerId === "chatgpt"
                 ? listeningForCallback
-                  ? t`Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting.`
+                  ? t`Sign in with ChatGPT Plus or Pro. We'll open ${APP_NAME} and finish connecting.`
                   : t`Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser.`
                 : providerId === "github_copilot"
                   ? t`Sign in with GitHub Copilot and enter the code below.`

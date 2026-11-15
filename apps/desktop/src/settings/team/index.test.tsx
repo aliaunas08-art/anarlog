@@ -471,15 +471,12 @@ describe("SettingsTeam", () => {
 
     fireEvent.click(screen.getByRole("textbox"));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+      action: {
+        label: "Upgrade",
+        onClick: expect.any(Function),
       },
-    );
+    });
     expect(mocks.createWorkspace).not.toHaveBeenCalled();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });

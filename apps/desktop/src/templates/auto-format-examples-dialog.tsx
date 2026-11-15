@@ -28,6 +28,7 @@ import {
 } from "./auto-format-inference";
 
 import { useLanguageModel } from "~/ai/hooks";
+import { APP_NAME } from "~/shared/app-name";
 
 export function AutoFormatExamplesDialog({
   onClose,
@@ -125,8 +126,8 @@ export function AutoFormatExamplesDialog({
           </DialogTitle>
           <DialogDescription>
             <Trans>
-              Attach up to three past summaries you like. Anarlog will learn how
-              you prefer meeting notes to be structured and written.
+              Attach up to three past summaries you like. {APP_NAME} will learn
+              how you prefer meeting notes to be structured and written.
             </Trans>
           </DialogDescription>
         </DialogHeader>

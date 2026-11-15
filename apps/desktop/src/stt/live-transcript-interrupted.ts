@@ -1,6 +1,7 @@
 import type { DegradedError } from "@anlg/plugin-transcription";
 
 import { PROVIDERS } from "~/settings/ai/stt/shared";
+import { APP_NAME } from "~/shared/app-name";
 
 const SAVED_AUDIO_NOTE =
   "Your audio is still being saved, and the missing part will be filled in from the recording.";
@@ -45,7 +46,7 @@ function getPauseCause({
 
   if (degraded?.type === "authentication_failed") {
     return isCloud
-      ? "Anarlog couldn't verify your account"
+      ? `${APP_NAME} couldn't verify your account`
       : `${providerName} rejected your API key`;
   }
 
@@ -66,16 +67,16 @@ function getPauseCause({
 
   if (degraded) {
     if (isCloud) {
-      return "Anarlog's transcription server is having issues";
+      return `${APP_NAME}'s transcription server is having issues`;
     }
     if (sttProvider && LOCAL_PROVIDER_IDS.has(sttProvider)) {
       return "the local transcription model stopped responding";
     }
-    return `Anarlog can't reach ${providerName}`;
+    return `${APP_NAME} can't reach ${providerName}`;
   }
 
   return isCloud
-    ? "Anarlog's transcription server stopped sending words"
+    ? `${APP_NAME}'s transcription server stopped sending words`
     : `${providerName} stopped sending words`;
 }
 

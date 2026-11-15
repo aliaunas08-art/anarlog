@@ -12,6 +12,7 @@ import { LockScreen, useDeviceAuthHint } from "./screen";
 import { useAppLock } from "./store";
 
 import { useSettingsReady } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { BrandLoadingView } from "~/shared/brand-loading-view";
 import { useConfigValue } from "~/shared/config";
 
@@ -131,9 +132,9 @@ export function AppLockGate({ children }: { children: ReactNode }) {
       {locked ? (
         <div className="absolute inset-0">
           <LockScreen
-            title={t`Anarlog is Locked`}
+            title={t`${APP_NAME} is Locked`}
             description={hint}
-            action={t`View Anarlog`}
+            action={t`View ${APP_NAME}`}
             authenticating={authenticating}
             onUnlock={() => {
               promptedRef.current = true;

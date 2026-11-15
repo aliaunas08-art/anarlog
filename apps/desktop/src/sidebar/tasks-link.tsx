@@ -17,7 +17,7 @@ export function SidebarTasksLink() {
       onClick={openTasksTab}
       aria-current={isActive ? "page" : undefined}
       className={cn([
-        "mx-1 mb-1 flex h-9 shrink-0 items-center justify-between gap-2 rounded-lg px-2",
+        "mx-2 mb-2 flex h-9 shrink-0 items-center justify-between gap-2 rounded-lg px-2",
         "border-t border-[var(--cf-separator)] text-[13px] whitespace-nowrap text-[var(--cf-label)]",
         "cf-motion transition-colors hover:bg-[var(--cf-fill)]",
         isActive && "cf-glass-sel",

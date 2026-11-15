@@ -28,9 +28,9 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #44403c;
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #57534e;
+  background: rgba(255, 255, 255, 0.28);
 }

@@ -168,7 +168,7 @@ export function useSessionMeetingAction(
         title: t`Join meeting and record`,
         icon: isWelcomeDemo ? (
           <img
-            src="/assets/anarlog-icon.png"
+            src="/assets/app-mark.svg"
             alt=""
             className="size-3.5 shrink-0"
           />

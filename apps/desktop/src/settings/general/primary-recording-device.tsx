@@ -16,6 +16,7 @@ import { getDeviceIdentity } from "~/auth/cloudsync-credentials";
 import { requestSyncDevices } from "~/auth/sync-devices";
 import { setSettingValue } from "~/settings/queries";
 import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 
 export function PrimaryRecordingDeviceSelector() {
@@ -63,7 +64,7 @@ export function PrimaryRecordingDeviceSelector() {
             <Trans>Sign in to choose a primary recording device.</Trans>
           ) : !isPro ? (
             <Trans>
-              Anarlog Pro coordinates recording across your devices.
+              {APP_NAME} Pro coordinates recording across your devices.
             </Trans>
           ) : (
             <Trans>

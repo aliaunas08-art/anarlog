@@ -5,6 +5,7 @@ import { DefaultMeetingShareAccessSelector } from "./default-share-access";
 import { PrimaryRecordingDeviceSelector } from "./primary-recording-device";
 
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 
 interface SettingItem {
   value: boolean;
@@ -105,7 +106,7 @@ export function MeetingSettingsView({
       <SettingSwitchRow
         title={<Trans>Show floating bar</Trans>}
         description={
-          <Trans>Control listening without reopening Anarlog.</Trans>
+          <Trans>Control listening without reopening {APP_NAME}.</Trans>
         }
         checked={floatingBar.value}
         onChange={floatingBar.onChange}

@@ -31,6 +31,7 @@ import {
   verifyCrmConnection,
 } from "~/crm/connection";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { APP_NAME } from "~/shared/app-name";
 import { ConnectButtonGroup } from "~/shared/connect-button-group";
 
 export function SettingsCrm() {
@@ -44,8 +45,8 @@ export function SettingsCrm() {
       <SettingsPageTitle title={<Trans>CRM</Trans>} />
       <p className="text-muted-foreground text-sm">
         <Trans>
-          Connect a CRM to look up your contacts from Anarlog. Connections are
-          managed through your Anarlog account.
+          Connect a CRM to look up your contacts from {APP_NAME}. Connections
+          are managed through your {APP_NAME} account.
         </Trans>
       </p>
       {!signedIn ? (

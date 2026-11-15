@@ -19,6 +19,7 @@ import {
 } from "./welcome-note";
 
 import { createSession } from "~/session/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { flushAutomaticRelaunch } from "~/shared/relaunch";
 import { commands } from "~/types/tauri.gen";
 
@@ -107,17 +108,17 @@ export function FinalSection({
         {status === "loading" ? (
           <span className="flex items-center gap-2">
             <CircleNotch className="size-4 animate-spin" />
-            <Trans>Open Anarlog</Trans>
+            <Trans>Open {APP_NAME}</Trans>
           </span>
         ) : (
-          <Trans>Open Anarlog</Trans>
+          <Trans>Open {APP_NAME}</Trans>
         )}
       </OnboardingButton>
       {status === "error" && (
         <p className="text-sm text-red-500" role="alert">
           {translate({
             id: "onboarding.finish-error",
-            message: "Couldn't open Anarlog. Please try again.",
+            message: `Couldn't open ${APP_NAME}. Please try again.`,
           })}
         </p>
       )}

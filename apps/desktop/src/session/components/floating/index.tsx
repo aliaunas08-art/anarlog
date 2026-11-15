@@ -53,7 +53,10 @@ export function SessionBottomBar({
     normalizeAudioRetention(useConfigValue("audio_retention")) !== "none";
 
   return (
-    <div className="pointer-events-none absolute bottom-[22px] left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col-reverse items-center">
+    // Full-width (inset-x) host, not left-1/2 + translate: an absolutely
+    // positioned box at left:50% can only shrink-fit into the right half,
+    // which squeezed the view tabs and clipped "Transcript".
+    <div className="pointer-events-none absolute inset-x-4 bottom-[22px] z-30 flex flex-col-reverse items-center">
       <div
         role="toolbar"
         aria-label={t`Meeting controls`}
@@ -118,7 +121,7 @@ export function SessionBottomBar({
               <button
                 type="button"
                 data-tauri-drag-region="false"
-                aria-label={t`Ask Anarlog anything`}
+                aria-label={t`Ask Notes anything`}
                 aria-keyshortcuts="Meta+K"
                 title={t`Ask about this meeting (⌘K)`}
                 onClick={() => chat.sendEvent({ type: "OPEN" })}
@@ -195,7 +198,7 @@ function PrimaryAction({ action }: { action: SessionMeetingAction }) {
             />
             <span className="relative block font-medium">{t`Try the demo`}</span>
             <span className="text-muted-foreground relative mt-0.5 block leading-snug">
-              {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action.`}
+              {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Notes in action.`}
             </span>
           </PopoverContent>
         ) : action.countdownLabel ? (

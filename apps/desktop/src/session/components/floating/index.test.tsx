@@ -247,7 +247,7 @@ describe("SessionBottomBar", () => {
   it("shows the ⌘K shortcut on Ask", () => {
     renderBar();
 
-    const ask = screen.getByRole("button", { name: "Ask Anarlog anything" });
+    const ask = screen.getByRole("button", { name: "Ask Notes anything" });
     expect(ask.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
     expect(ask.textContent).toContain("⌘K");
   });
@@ -256,7 +256,7 @@ describe("SessionBottomBar", () => {
     renderBar();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Ask Anarlog anything" }),
+      screen.getByRole("button", { name: "Ask Notes anything" }),
     );
 
     expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
@@ -267,7 +267,7 @@ describe("SessionBottomBar", () => {
     renderBar();
 
     expect(
-      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+      screen.queryByRole("button", { name: "Ask Notes anything" }),
     ).toBeNull();
   });
 
@@ -290,7 +290,7 @@ describe("SessionBottomBar", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
 
     expect(
-      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+      screen.queryByRole("button", { name: "Ask Notes anything" }),
     ).toBeNull();
   });
 

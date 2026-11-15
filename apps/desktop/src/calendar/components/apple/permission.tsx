@@ -18,6 +18,7 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
+import { APP_NAME } from "~/shared/app-name";
 import {
   GlassDialogCancelButton,
   GlassDialogContent,
@@ -41,7 +42,7 @@ export function AppleCalendarPermissionDialog({
           </DialogTitle>
           <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             <Trans>
-              Turn on Anarlog in System Settings → Privacy &amp; Security →
+              Turn on {APP_NAME} in System Settings → Privacy &amp; Security →
               Calendars, then return here.
             </Trans>
           </DialogDescription>

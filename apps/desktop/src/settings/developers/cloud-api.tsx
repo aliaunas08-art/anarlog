@@ -25,6 +25,7 @@ import {
 } from "~/cloud-api/client";
 import { env } from "~/env";
 import { PlanGate } from "~/settings/plan-gate";
+import { APP_NAME } from "~/shared/app-name";
 
 const CLOUD_API_BASE_URL = new URL("/v1", env.VITE_API_URL).toString();
 const CLOUD_MCP_URL = new URL("/mcp", env.VITE_API_URL).toString();
@@ -58,7 +59,7 @@ export function CloudApiSection() {
       });
       if (backfillFailed) {
         toast.error(
-          t`Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry.`,
+          t`Cloud API enabled, but existing meetings could not be uploaded. ${APP_NAME} will retry.`,
         );
       } else if (settings.enabled) {
         toast.success(
@@ -152,7 +153,7 @@ function CloudApiHeading({ error }: { error?: string }) {
       </h2>
       <p className="text-muted-foreground mt-1 text-xs">
         <Trans>
-          Uploads meeting content for remote access while Anarlog is closed.
+          Uploads meeting content for remote access while {APP_NAME} is closed.
         </Trans>
       </p>
       <p className="text-muted-foreground mt-1 text-xs">

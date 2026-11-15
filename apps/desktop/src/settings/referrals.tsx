@@ -14,6 +14,7 @@ import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { useAuth } from "~/auth/auth-context";
 import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
+import { APP_NAME } from "~/shared/app-name";
 import { useTabs } from "~/store/zustand/tabs";
 
 const summarySchema = z.object({
@@ -156,7 +157,7 @@ function ReferralInvites() {
         </Button>
         {signIn.isSuccess && (
           <p role="status">
-            <Trans>Finish in your browser, then return to Anarlog.</Trans>
+            <Trans>Finish in your browser, then return to {APP_NAME}.</Trans>
           </p>
         )}
       </div>

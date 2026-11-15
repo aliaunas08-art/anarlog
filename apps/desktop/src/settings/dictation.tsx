@@ -17,6 +17,7 @@ import { SettingsPageTitle } from "~/settings/page-title";
 import { PlanGate } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -72,7 +73,7 @@ export function SettingsDictation() {
             title={<Trans>Enable dictation</Trans>}
             description={
               <Trans>
-                Keep Anarlog running to use your shortcut in other apps.
+                Keep {APP_NAME} running to use your shortcut in other apps.
               </Trans>
             }
             checked={enabled}
@@ -127,7 +128,7 @@ export function SettingsDictation() {
             ) : (
               <Trans>
                 Press Escape to cancel. Dictation stops after five minutes and
-                pauses while Anarlog records a meeting.
+                pauses while {APP_NAME} records a meeting.
               </Trans>
             )}
           </p>
@@ -210,7 +211,7 @@ export function SettingsDictation() {
               Dictation uses your microphone, transcription provider, languages,
               and dictionary. Temporary audio is deleted after transcription.
               Your last transcript stays in memory until dictation is disabled
-              or Anarlog closes.
+              or {APP_NAME} closes.
             </Trans>
           </p>
           {status.lastTranscript && (

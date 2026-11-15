@@ -26,6 +26,7 @@ import {
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { env } from "~/env";
+import { APP_NAME } from "~/shared/app-name";
 
 export function isInviteEmail(value: string) {
   const normalized = value.trim();
@@ -252,5 +253,5 @@ export function getSessionShareSenderName(user: {
     ? metadata.full_name.trim()
     : typeof metadata?.name === "string" && metadata.name.trim()
       ? metadata.name.trim()
-      : user.email || "An Anarlog user";
+      : user.email || `A ${APP_NAME} user`;
 }
