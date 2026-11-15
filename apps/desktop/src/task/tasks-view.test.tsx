@@ -13,6 +13,8 @@ import type { TaskRow } from "./tasks-data";
 const mocks = vi.hoisted(() => ({
   rows: [] as TaskRow[],
   setActionItemStatus: vi.fn(),
+  setActionItemOwner: vi.fn(),
+  setActionItemDue: vi.fn(),
   openCurrent: vi.fn(),
 }));
 
@@ -26,6 +28,16 @@ vi.mock("~/db", () => ({
 vi.mock("~/editor-bridge/task-storage", () => ({
   resolvedTaskSessionIdSql: () => "''",
   setActionItemStatus: mocks.setActionItemStatus,
+  setActionItemOwner: mocks.setActionItemOwner,
+  setActionItemDue: mocks.setActionItemDue,
+}));
+
+vi.mock("~/contacts/queries", () => ({
+  useHumans: () => [
+    { id: "h1", name: "Jordan", email: "jordan@example.com" },
+    { id: "h2", name: "Ana Lee", email: "ana@example.com" },
+    { id: "h3", name: "", email: "sam@example.com" },
+  ],
 }));
 
 vi.mock("~/calendar/hooks", () => ({
@@ -205,5 +217,74 @@ describe("TasksView", () => {
     expect(screen.getByTestId("tasks-empty")).toBeTruthy();
     expect(screen.getByText("No tasks yet")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("sets the owner from the Owner cell popover", async () => {
+    render(<TasksView view="all" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Owner of Review pricing" }),
+    );
+    const search = await screen.findByRole("combobox", {
+      name: "Search people",
+    });
+    fireEvent.change(search, { target: { value: "sam@" } });
+    expect(screen.queryByRole("option", { name: /Ana Lee/ })).toBeNull();
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(mocks.setActionItemOwner).toHaveBeenCalledWith("c", "h3", "user-1");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Owner of Fix step 3 copy" }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: "No owner" }));
+    expect(mocks.setActionItemOwner).toHaveBeenLastCalledWith(
+      "a",
+      "",
+      "user-1",
+    );
+  });
+
+  it("sets and clears the due date from the Due cell popover", async () => {
+    render(<TasksView view="all" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Due date of Review pricing" }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Tomorrow/ }));
+    expect(mocks.setActionItemDue).toHaveBeenCalledWith(
+      "c",
+      "2026-11-16",
+      "user-1",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Due date of Review pricing" }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Next week/ }));
+    expect(mocks.setActionItemDue).toHaveBeenLastCalledWith(
+      "c",
+      "2026-11-16",
+      "user-1",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Due date of Send the deck" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Wednesday, November 25, 2026",
+      }),
+    );
+    expect(mocks.setActionItemDue).toHaveBeenLastCalledWith(
+      "b",
+      "2026-11-25",
+      "user-1",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Due date of Send the deck" }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
+    expect(mocks.setActionItemDue).toHaveBeenLastCalledWith("b", "", "user-1");
   });
 });

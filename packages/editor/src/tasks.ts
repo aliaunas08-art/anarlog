@@ -20,6 +20,11 @@ export interface TaskRecord {
   textPreview: string;
   body: JSONContent[];
   dueDate?: string;
+  /**
+   * `humans.id` of the task's owner. From the note, it is the first person
+   * mentioned in the task (`@Name`); otherwise the stored value is kept.
+   */
+  assigneeHumanId?: string;
 }
 
 export function createTaskId(): string {
@@ -125,6 +130,7 @@ export function isSameTask(left: TaskRecord, right: TaskRecord): boolean {
     left.status === right.status &&
     left.textPreview === right.textPreview &&
     left.dueDate === right.dueDate &&
+    (left.assigneeHumanId ?? "") === (right.assigneeHumanId ?? "") &&
     JSON.stringify(left.body) === JSON.stringify(right.body)
   );
 }
@@ -168,11 +174,37 @@ export function extractTasksFromContent(
       status: normalizeTaskStatus(node.attrs?.status, node.attrs?.checked),
       textPreview: getTaskItemTextContent(node),
       body: cloneContentArray(node.content),
+      // The note has no date nodes, so the due date always comes from storage.
       dueDate: previousTask?.dueDate,
+      assigneeHumanId:
+        getTaskItemOwnerMentionId(node) ?? previousTask?.assigneeHumanId,
     });
   });
 
   return tasks;
+}
+
+/**
+ * The `humans.id` of the first person mentioned in the task item's own
+ * content (nested task lists belong to their own tasks), or null.
+ */
+export function getTaskItemOwnerMentionId(node: JSONContent): string | null {
+  let ownerId: string | null = null;
+  const visit = (child: JSONContent) => {
+    if (ownerId || child.type === "taskList") return;
+    if (
+      child.type?.startsWith("mention-") &&
+      child.attrs?.type === "human" &&
+      typeof child.attrs.id === "string" &&
+      child.attrs.id.trim()
+    ) {
+      ownerId = child.attrs.id;
+      return;
+    }
+    child.content?.forEach(visit);
+  };
+  node.content?.forEach(visit);
+  return ownerId;
 }
 
 export function createTaskItemNode(task: TaskRecord): JSONContent {

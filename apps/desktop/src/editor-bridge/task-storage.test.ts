@@ -1,10 +1,16 @@
 import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { TaskRecord, TaskSource } from "@anlg/editor/tasks";
+import {
+  extractTasksFromContent,
+  type TaskRecord,
+  type TaskSource,
+} from "@anlg/editor/tasks";
 
 import {
   createSqliteTaskStorage,
+  setActionItemDue,
+  setActionItemOwner,
   setActionItemStatus,
   type SqliteTaskRow,
   type TaskStorageDependencies,
@@ -410,5 +416,110 @@ describe("SQLite task storage persistence", () => {
       status: "in_progress",
       checked: false,
     });
+  });
+
+  const ownerAndDue = () =>
+    db
+      .prepare(
+        "SELECT assignee_human_id, due_at, updated_at, updated_by FROM action_items WHERE id = 'task-1'",
+      )
+      .get() as {
+      assignee_human_id: string;
+      due_at: string;
+      updated_at: string;
+      updated_by: string;
+    };
+
+  it("sets and clears a task's owner and due date", async () => {
+    createSqliteTaskStorage("user-1", dependencies).upsertTasksForSource(
+      sessionSource,
+      [{ ...task, dueDate: undefined }],
+    );
+    await vi.waitFor(() => expect(actionItem()).toBeTruthy());
+    dependencies.now = () => "2026-07-11T09:00:00.000Z";
+
+    await setActionItemOwner("task-1", "human-1", "user-2", dependencies);
+    await setActionItemDue("task-1", "2026-07-20", "user-2", dependencies);
+    expect(ownerAndDue()).toEqual({
+      assignee_human_id: "human-1",
+      due_at: "2026-07-20",
+      updated_at: "2026-07-11T09:00:00.000Z",
+      updated_by: "user-2",
+    });
+
+    await setActionItemDue("task-1", "next friday", "user-2", dependencies);
+    expect(ownerAndDue().due_at).toBe("2026-07-20");
+
+    await setActionItemOwner("task-1", "", "user-2", dependencies);
+    await setActionItemDue("task-1", "", "user-2", dependencies);
+    expect(ownerAndDue()).toMatchObject({ assignee_human_id: "", due_at: "" });
+  });
+
+  it("keeps owner and due date set elsewhere when the note has none", async () => {
+    const storage = createSqliteTaskStorage("user-1", dependencies);
+    storage.upsertTasksForSource(sessionSource, [
+      { ...task, dueDate: undefined },
+    ]);
+    await vi.waitFor(() => expect(actionItem()).toBeTruthy());
+    await setActionItemOwner("task-1", "human-1", "user-1", dependencies);
+    await setActionItemDue("task-1", "2026-07-20", "user-1", dependencies);
+
+    // A fresh editor (no snapshot yet) syncs the note with an edited text.
+    createSqliteTaskStorage("user-1", dependencies).upsertTasksForSource(
+      sessionSource,
+      [{ ...task, textPreview: "Follow up today", dueDate: undefined }],
+    );
+    await vi.waitFor(() =>
+      expect(
+        db.prepare("SELECT text FROM action_items WHERE id = 'task-1'").get(),
+      ).toEqual({ text: "Follow up today" }),
+    );
+    expect(ownerAndDue()).toMatchObject({
+      assignee_human_id: "human-1",
+      due_at: "2026-07-20",
+    });
+  });
+
+  it("uses a person mentioned in the task as its owner", async () => {
+    const content = {
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { status: "todo", taskId: "task-1", taskItemId: "i1" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Send deck " },
+                    {
+                      type: "mention-@",
+                      attrs: { id: "human-2", type: "human", label: "Ana" },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    createSqliteTaskStorage("user-1", dependencies).upsertTasksForSource(
+      sessionSource,
+      [task],
+    );
+    await vi.waitFor(() => expect(actionItem()).toBeTruthy());
+    await setActionItemOwner("task-1", "human-1", "user-1", dependencies);
+
+    createSqliteTaskStorage("user-1", dependencies).upsertTasksForSource(
+      sessionSource,
+      extractTasksFromContent(content, sessionSource),
+    );
+    await vi.waitFor(() =>
+      expect(ownerAndDue().assignee_human_id).toBe("human-2"),
+    );
   });
 });

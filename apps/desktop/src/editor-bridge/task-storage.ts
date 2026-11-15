@@ -25,6 +25,7 @@ export type SqliteTaskRow = {
   text: string;
   body_json: string;
   due_at: string;
+  assignee_human_id?: string | null;
 };
 
 export type TaskStorageDependencies = {
@@ -145,7 +146,8 @@ export function createSqliteTaskStorage(
               status,
               text,
               body_json,
-              due_at
+              due_at,
+              assignee_human_id
             FROM action_items
             WHERE source_type = ? AND source_id = ? AND deleted_at IS NULL
             ORDER BY source_order, id
@@ -378,7 +380,7 @@ function buildTaskUpsertStatement(
             FROM app_settings
             WHERE id = 'cloudsync_workspace_binding'
           )
-        ), ${sessionIdSql}, ?, ?, ?, '', ?, ?, ?, ?, ?, ${resolvedOwnerSql}, ${resolvedOwnerSql}, '{}', ?, ?, NULL
+        ), ${sessionIdSql}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${resolvedOwnerSql}, ${resolvedOwnerSql}, '{}', ?, ?, NULL
       )
       ON CONFLICT(id) DO UPDATE SET
         session_id = excluded.session_id,
@@ -388,7 +390,18 @@ function buildTaskUpsertStatement(
         status = excluded.status,
         text = excluded.text,
         body_json = excluded.body_json,
-        due_at = excluded.due_at,
+        -- The note only knows an owner when the task mentions a person, and
+        -- never a due date, so empty values keep what was set elsewhere (e.g.
+        -- the Tasks view).
+        assignee_human_id = CASE
+          WHEN excluded.assignee_human_id <> ''
+            THEN excluded.assignee_human_id
+          ELSE action_items.assignee_human_id
+        END,
+        due_at = CASE
+          WHEN excluded.due_at <> '' THEN excluded.due_at
+          ELSE action_items.due_at
+        END,
         completed_at = CASE
           WHEN excluded.status = 'done'
             THEN COALESCE(action_items.completed_at, excluded.completed_at)
@@ -405,6 +418,7 @@ function buildTaskUpsertStatement(
       task.sourceType,
       task.sourceId,
       task.sourceOrder,
+      task.assigneeHumanId ?? "",
       task.status,
       task.textPreview,
       JSON.stringify(task.body),
@@ -444,6 +458,7 @@ function sqliteTaskRowToRecord(row: SqliteTaskRow): TaskRecord | null {
     textPreview: row.text || getTextPreview(body),
     body,
     dueDate: row.due_at || undefined,
+    assigneeHumanId: row.assignee_human_id || undefined,
   };
 }
 
@@ -676,4 +691,84 @@ export function setTaskStatusInDocumentBody(
   visit(parsed);
 
   return changed ? JSON.stringify(parsed) : null;
+}
+
+const DAY_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Sets (or clears, with "") the owner of a single action item, e.g. from the
+ * Tasks view. `humanId` is a `humans.id`. The note isn't touched: the editor
+ * keeps stored owners unless the task mentions a person.
+ */
+export function setActionItemOwner(
+  taskId: string,
+  humanId: string,
+  ownerUserId = DEFAULT_USER_ID,
+  dependencies: TaskStorageDependencies = defaultDependencies,
+): Promise<void> {
+  return updateActionItemField(
+    taskId,
+    "assignee_human_id",
+    humanId,
+    ownerUserId,
+    dependencies,
+  );
+}
+
+/**
+ * Sets the due date of a single action item as a `YYYY-MM-DD` day, or clears
+ * it with "". Anything else is ignored.
+ */
+export function setActionItemDue(
+  taskId: string,
+  dueDay: string,
+  ownerUserId = DEFAULT_USER_ID,
+  dependencies: TaskStorageDependencies = defaultDependencies,
+): Promise<void> {
+  if (dueDay && !DAY_KEY_PATTERN.test(dueDay)) {
+    console.error(`[tasks] ignoring invalid due date "${dueDay}"`);
+    return Promise.resolve();
+  }
+  return updateActionItemField(
+    taskId,
+    "due_at",
+    dueDay,
+    ownerUserId,
+    dependencies,
+  );
+}
+
+async function updateActionItemField(
+  taskId: string,
+  column: "assignee_human_id" | "due_at",
+  value: string,
+  ownerUserId: string,
+  dependencies: TaskStorageDependencies,
+): Promise<void> {
+  try {
+    await dependencies.enqueueWrite("tasks", async () => {
+      const now = dependencies.now();
+      await dependencies.executeTransaction([
+        {
+          sql: `
+            UPDATE action_items
+            SET
+              ${column} = ?,
+              updated_at = ?,
+              updated_by = ${resolvedOwnerSql}
+            WHERE id = ? AND deleted_at IS NULL
+          `,
+          params: [
+            value,
+            now,
+            ownerUserId || DEFAULT_USER_ID,
+            DEFAULT_USER_ID,
+            taskId,
+          ],
+        },
+      ]);
+    });
+  } catch (error) {
+    console.error(`[tasks] failed to persist task ${column}`, error);
+  }
 }

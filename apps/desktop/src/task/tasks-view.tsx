@@ -12,6 +12,7 @@ import type { TaskStatus } from "@anlg/editor/tasks";
 import { ListChecks, MagnifyingGlass } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
+import { DuePicker, OwnerPicker } from "./task-cell-pickers";
 import {
   addDays,
   dayKeyToUtcDate,
@@ -28,7 +29,11 @@ import {
 } from "./tasks-data";
 
 import { useTimezone, useWeekStartsOn } from "~/calendar/hooks";
-import { setActionItemStatus } from "~/editor-bridge/task-storage";
+import {
+  setActionItemDue,
+  setActionItemOwner,
+  setActionItemStatus,
+} from "~/editor-bridge/task-storage";
 import { StandardContentWrapper } from "~/shared/main";
 import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
 import { useOwnerUserId } from "~/shared/owner-user";
@@ -115,6 +120,19 @@ export function TasksView({ view }: { view: TaskView }) {
       );
     },
     [ownerUserId, toggledMap, view],
+  );
+
+  const handleOwner = useCallback(
+    (taskId: string, humanId: string) => {
+      void setActionItemOwner(taskId, humanId, ownerUserId ?? undefined);
+    },
+    [ownerUserId],
+  );
+  const handleDue = useCallback(
+    (taskId: string, dueDay: string) => {
+      void setActionItemDue(taskId, dueDay, ownerUserId ?? undefined);
+    },
+    [ownerUserId],
   );
 
   const openMeeting = useCallback(
@@ -207,7 +225,13 @@ export function TasksView({ view }: { view: TaskView }) {
 
   const formatDue = (task: TaskItem) => {
     const due = getDueDayKey(task.dueAt, timezone);
-    if (!due) return { label: task.dueAt ? task.dueAt : "—", overdue: false };
+    if (!due) {
+      return {
+        day: null,
+        label: task.dueAt ? task.dueAt : "—",
+        overdue: false,
+      };
+    }
     const days = diffDays(todayKey, due);
     const label =
       days === 0
@@ -217,7 +241,7 @@ export function TasksView({ view }: { view: TaskView }) {
           : days === -1
             ? t`Yesterday`
             : formatDay(due);
-    return { label, overdue: days < 0 };
+    return { day: due, label, overdue: days < 0 };
   };
 
   const hasAnyTasks = tasks.length > 0;
@@ -340,17 +364,23 @@ export function TasksView({ view }: { view: TaskView }) {
                         </span>
                       </td>
                       <td className="border-b border-(--cf-separator) px-3 py-0 align-middle">
-                        <span
-                          title={task.ownerName || undefined}
-                          className={cn([
-                            "inline-block max-w-full truncate rounded-md bg-(--cf-fill) px-2 py-0.5 align-middle text-xs",
-                            task.ownerName
-                              ? "text-(--cf-label)"
-                              : "text-(--cf-secondary)",
-                          ])}
+                        <OwnerPicker
+                          ownerId={task.ownerName ? task.ownerId : ""}
+                          label={t`Owner of ${task.text}`}
+                          onSelect={(humanId) => handleOwner(task.id, humanId)}
                         >
-                          {task.ownerName || <Trans>No owner</Trans>}
-                        </span>
+                          <span
+                            title={task.ownerName || undefined}
+                            className={cn([
+                              "cf-motion block max-w-full truncate rounded-md bg-(--cf-fill) px-2 py-0.5 text-xs transition-colors hover:bg-(--cf-glass-sel)",
+                              task.ownerName
+                                ? "text-(--cf-label)"
+                                : "text-(--cf-secondary)",
+                            ])}
+                          >
+                            {task.ownerName || <Trans>No owner</Trans>}
+                          </span>
+                        </OwnerPicker>
                       </td>
                       <td
                         className={cn([
@@ -360,7 +390,17 @@ export function TasksView({ view }: { view: TaskView }) {
                             : "text-(--cf-secondary)",
                         ])}
                       >
-                        {due.label}
+                        <DuePicker
+                          dueDay={due.day}
+                          todayKey={todayKey}
+                          weekStartsOn={weekStartsOn}
+                          label={t`Due date of ${task.text}`}
+                          onSelect={(dueDay) => handleDue(task.id, dueDay)}
+                        >
+                          <span className="cf-motion transition-colors hover:text-(--cf-label)">
+                            {due.label}
+                          </span>
+                        </DuePicker>
                       </td>
                       <td className="border-b border-(--cf-separator) px-3 py-0 align-middle">
                         {task.sessionId ? (
