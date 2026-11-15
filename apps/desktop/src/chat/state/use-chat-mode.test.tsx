@@ -35,7 +35,7 @@ describe("useChatMode shortcuts", () => {
     mocks.transitionChatMode.mockClear();
   });
 
-  it.each(["k", "j"])("toggles Ask with ⌘%s", (key) => {
+  it.each(["p", "j"])("toggles Ask with ⌘%s", (key) => {
     renderHook(() => useChatMode());
 
     fireEvent.keyDown(document.body, {
@@ -47,10 +47,10 @@ describe("useChatMode shortcuts", () => {
     expect(mocks.transitionChatMode).toHaveBeenCalledWith({ type: "TOGGLE" });
   });
 
-  it("leaves Ctrl+K (kill line) alone on macOS", () => {
+  it("leaves Ctrl+P (previous line) alone on macOS", () => {
     renderHook(() => useChatMode());
 
-    fireEvent.keyDown(document.body, { key: "k", code: "KeyK", ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: "p", code: "KeyP", ctrlKey: true });
 
     expect(mocks.transitionChatMode).not.toHaveBeenCalled();
   });

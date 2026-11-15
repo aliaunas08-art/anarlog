@@ -15,6 +15,13 @@ import { SessionChip } from "./session-chip";
 import type { CalendarData } from "~/calendar/hooks";
 import { useNow } from "~/calendar/hooks";
 
+// Day-number marker shared with the sidebar's mini month, so "today" is the
+// same dark rounded square (light square in dark mode) in both places.
+export const CALENDAR_DAY_MARKER_CLASS =
+  "flex size-7 items-center justify-center rounded-full text-sm";
+export const CALENDAR_TODAY_MARKER_CLASS =
+  "bg-foreground font-medium text-background";
+
 function useVisibleItemCount(
   ref: React.RefObject<HTMLDivElement | null>,
   totalItems: number,
@@ -103,8 +110,9 @@ export function DayCell({
       <div className="flex shrink-0 justify-end">
         <div
           className={cn([
-            "mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium",
-            today && "bg-foreground text-background",
+            "mb-1 font-medium",
+            CALENDAR_DAY_MARKER_CLASS,
+            today && CALENDAR_TODAY_MARKER_CLASS,
             !today && !isCurrentMonth && "text-muted-foreground/70",
             !today &&
               isCurrentMonth &&

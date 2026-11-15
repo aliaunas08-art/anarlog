@@ -140,8 +140,8 @@ describe("FolderMaterialsPanel", () => {
   it("renames the active folder and keeps the sidebar on it", async () => {
     render(<FolderMaterialsPanel folderPath="CS 101" />);
 
-    fireEvent.click(screen.getByLabelText("Rename folder"));
-    fireEvent.change(screen.getByLabelText("Folder name"), {
+    fireEvent.click(screen.getByLabelText("Rename project"));
+    fireEvent.change(screen.getByLabelText("Project name"), {
       target: { value: "Algorithms" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
@@ -158,10 +158,10 @@ describe("FolderMaterialsPanel", () => {
   it("saves folder context when the field blurs", async () => {
     render(<FolderMaterialsPanel folderPath="CS 101" />);
 
-    fireEvent.change(screen.getByLabelText("Folder context"), {
+    fireEvent.change(screen.getByLabelText("Project context"), {
       target: { value: "Prefer the syllabus." },
     });
-    fireEvent.blur(screen.getByLabelText("Folder context"));
+    fireEvent.blur(screen.getByLabelText("Project context"));
 
     await waitFor(() => {
       expect(mocks.updateFolderInstructions).toHaveBeenCalledWith(
@@ -174,8 +174,8 @@ describe("FolderMaterialsPanel", () => {
   it("deletes the folder and returns to all notes", async () => {
     render(<FolderMaterialsPanel folderPath="CS 101" />);
 
-    fireEvent.click(screen.getByLabelText("Delete folder"));
-    fireEvent.click(screen.getByRole("button", { name: "Delete folder" }));
+    fireEvent.click(screen.getByLabelText("Delete project"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
 
     await waitFor(() => {
       expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("CS 101");

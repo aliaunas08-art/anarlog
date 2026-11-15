@@ -227,7 +227,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <TemplateIconPicker
             size="sm"
-            label={t`Choose folder icon`}
+            label={t`Choose project icon`}
             value={icon}
             onChange={(nextIcon) => {
               setIconOverride(folderPath, nextIcon);
@@ -242,12 +242,12 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
               aria-hidden="true"
               className="invisible block px-0 py-0 text-sm font-semibold whitespace-pre"
             >
-              {(draft || t`Folder name`) + " "}
+              {(draft || t`Project name`) + " "}
             </span>
             <Input
               value={draft}
               disabled={busy}
-              aria-label={t`Folder name`}
+              aria-label={t`Project name`}
               onChange={(event) => setDraft(event.target.value)}
               onBlur={() => {
                 void commitTitle();
@@ -262,7 +262,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
                   event.currentTarget.blur();
                 }
               }}
-              placeholder={t`Folder name`}
+              placeholder={t`Project name`}
               className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-sm font-semibold shadow-none focus-visible:ring-0 md:text-sm"
             />
           </div>
@@ -285,7 +285,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
                   "text-muted-foreground hover:text-foreground",
                   actionsOpen && "bg-muted text-foreground hover:bg-accent",
                 ])}
-                aria-label={t`Folder actions`}
+                aria-label={t`Project actions`}
               >
                 <DotsThree className="size-4" />
               </Button>
@@ -315,7 +315,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
                 </h4>
                 <p className="text-muted-foreground text-xs">
                   <Trans>
-                    Share new notes in this folder when their summary is ready.
+                    Share new notes in this project when their summary is ready.
                     You can still change access on each note.
                   </Trans>
                 </p>
@@ -466,13 +466,13 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              <Trans>Share new notes in this folder?</Trans>
+              <Trans>Share new notes in this project?</Trans>
             </DialogTitle>
             <DialogDescription>
               <Trans>
-                New notes in this folder will be shared with{" "}
+                New notes in this project will be shared with{" "}
                 {accessConfirmation?.label} once their summary is ready. Notes
-                already in the folder are not changed.
+                already in the project are not changed.
               </Trans>
             </DialogDescription>
           </DialogHeader>
@@ -501,14 +501,14 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
       <DestructiveConfirmationDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title={<Trans>Delete folder</Trans>}
+        title={<Trans>Delete project</Trans>}
         description={
-          <Trans id="Notes stay in All notes. Materials in this folder will be deleted.">
+          <Trans id="Notes stay in All notes. Materials in this project will be deleted.">
             Notes stay in All notes. This folder, its nested folders, and all
             their materials will be deleted.
           </Trans>
         }
-        confirmLabel={<Trans>Delete folder</Trans>}
+        confirmLabel={<Trans>Delete project</Trans>}
         isPending={busy}
         onConfirm={() => {
           void (async () => {

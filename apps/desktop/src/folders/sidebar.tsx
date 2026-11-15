@@ -83,7 +83,7 @@ export function FoldersSidebar() {
             size="icon"
             variant="ghost"
             className="text-muted-foreground hover:text-foreground relative z-[60]"
-            aria-label={t`New folder`}
+            aria-label={t`New project`}
             onClick={() => setCreating(true)}
           >
             <Plus size={16} />
@@ -108,7 +108,7 @@ export function FoldersSidebar() {
                   setSearch("");
                 }
               }}
-              placeholder={t`Search folders...`}
+              placeholder={t`Search projects...`}
               className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm focus:outline-hidden"
             />
             {search ? (
@@ -138,9 +138,9 @@ export function FoldersSidebar() {
             />
             <p className="text-sm">
               {search ? (
-                <Trans>No folders found</Trans>
+                <Trans>No projects found</Trans>
               ) : (
-                <Trans>No folders yet</Trans>
+                <Trans>No projects yet</Trans>
               )}
             </p>
           </div>
@@ -192,7 +192,7 @@ export function FoldersSidebar() {
           search={search}
           onImport={async (resource) => {
             const userId = auth?.session?.user.id;
-            if (!userId) throw new Error(t`Sign in to add this folder`);
+            if (!userId) throw new Error(t`Sign in to add this project`);
             const path = await importSharedFolder(
               parseSharedFolderPayload(resource.payload),
               userId,
@@ -204,7 +204,7 @@ export function FoldersSidebar() {
 
       <FolderNameDialog
         open={creating}
-        title={t`New folder`}
+        title={t`New project`}
         confirmLabel={t`Create`}
         onOpenChange={setCreating}
         onSubmit={async (path) => {

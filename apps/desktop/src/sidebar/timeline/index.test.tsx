@@ -694,7 +694,7 @@ describe("TimelineView", () => {
     render(<TimelineView topChromeInset />);
 
     expect(screen.getByText("work")).toBeTruthy();
-    expect(screen.getByText("No folder")).toBeTruthy();
+    expect(screen.getByText("No project")).toBeTruthy();
     expect(screen.queryByText("Today")).toBeNull();
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
     expect(screen.queryByTestId("current-time-indicator")).toBeNull();

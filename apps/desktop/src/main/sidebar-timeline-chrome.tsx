@@ -3,6 +3,7 @@ import { memo, type ReactNode } from "react";
 
 import {
   CalendarBlank,
+  House,
   ListChecks,
   MagnifyingGlass,
   NotePencil,
@@ -12,6 +13,7 @@ import {
 } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
+import { openHome } from "~/shared/leave-overlay-tab";
 import { SidebarNoteFilterMenu } from "~/sidebar/note-filter-menu";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 import { useTabs } from "~/store/zustand/tabs";
@@ -114,6 +116,12 @@ export function SidebarPrimaryActions({
       className="flex shrink-0 flex-col gap-px px-2 pt-1 pb-1"
     >
       <SidebarNavRow
+        label={t`Home`}
+        icon={<House size={16} aria-hidden />}
+        active={currentTabType === "empty"}
+        onClick={openHome}
+      />
+      <SidebarNavRow
         label={t`New note`}
         icon={<Plus size={16} aria-hidden />}
         hint="⌘N"
@@ -122,7 +130,7 @@ export function SidebarPrimaryActions({
       <SidebarNavRow
         label={t`Search`}
         icon={<MagnifyingGlass size={16} aria-hidden />}
-        hint="⌘P"
+        hint="⌘K"
         onClick={onSearch}
       />
       <SidebarNavRow

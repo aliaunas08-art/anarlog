@@ -82,9 +82,9 @@ export function OpenNoteDialogProvider({
     setOpen(true);
   }, []);
 
-  // ⌘K opens Ask (chat/state/use-chat-mode.ts); ⌘P is the quick-open
-  // convention for jumping to a note or page.
-  useHotkeys(primaryHotkey("p"), openDialog, {
+  // ⌘K opens Search (the sidebar's Search row); ⌘P toggles Ask
+  // (chat/state/use-chat-mode.ts).
+  useHotkeys(primaryHotkey("k"), openDialog, {
     preventDefault: true,
     enableOnFormTags: true,
     enableOnContentEditable: true,

@@ -135,8 +135,8 @@ export function SessionBottomBar({
                 type="button"
                 data-tauri-drag-region="false"
                 aria-label={t`Ask Notes anything`}
-                aria-keyshortcuts="Meta+K"
-                title={t`Ask about this meeting (⌘K)`}
+                aria-keyshortcuts="Meta+P"
+                title={t`Ask about this meeting (⌘P)`}
                 onClick={() => chat.sendEvent({ type: "OPEN" })}
                 className={GLASS_ITEM}
               >
@@ -146,7 +146,7 @@ export function SessionBottomBar({
                   data-session-ask-shortcut
                   className="font-sans text-xs text-[var(--cf-tertiary)] @max-[640px]:hidden"
                 >
-                  ⌘K
+                  ⌘P
                 </kbd>
               </button>
             ) : null}
@@ -179,16 +179,16 @@ function PrimaryAction({ action }: { action: SessionMeetingAction }) {
             disabled={action.disabled}
             onClick={action.onClick}
             className={cn([
-              "cf-motion rounded-pill inline-flex h-9 max-w-56 shrink-0 items-center gap-2 px-4 text-[13px] font-semibold whitespace-nowrap transition-[opacity,filter] [corner-shape:round]",
+              "cf-motion rounded-pill inline-flex h-9 max-w-56 shrink-0 items-center gap-2 px-4 text-[13px] font-medium whitespace-nowrap transition-opacity [corner-shape:round]",
               "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-1 focus-visible:outline-none",
               "disabled:cursor-default disabled:opacity-60",
-              "cf-glass-tint hover:brightness-105",
+              "bg-[var(--cf-label)] text-[var(--cf-window)] hover:opacity-85",
             ])}
           >
             {isRecord ? (
               <span
                 aria-hidden="true"
-                className="rounded-pill size-2 shrink-0 bg-[var(--cf-record)] shadow-[0_0_0_2px_rgba(255,255,255,0.6)]"
+                className="rounded-pill size-2 shrink-0 bg-current"
               />
             ) : (
               action.icon

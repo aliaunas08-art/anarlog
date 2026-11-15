@@ -40,10 +40,11 @@ export function useChatMode() {
     [scope, selectScopedChat],
   );
 
-  // ⌘K is the primary Ask shortcut (shown on the bottom bar's Ask button);
+  // ⌘P is the primary Ask shortcut (shown on the bottom bar's Ask button);
   // ⌘J is kept as an alias. Both toggle, so a second press closes the chat.
+  // ⌘K belongs to Search (shared/open-note-dialog.tsx).
   useHotkeys(
-    `${primaryHotkey("k")}, ${primaryHotkey("j")}`,
+    `${primaryHotkey("p")}, ${primaryHotkey("j")}`,
     () => {
       transitionChatMode({ type: "TOGGLE" });
     },

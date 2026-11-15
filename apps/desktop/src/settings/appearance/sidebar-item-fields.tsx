@@ -22,8 +22,8 @@ export function SidebarItemFieldsSettings() {
       </div>
       <div className="flex flex-col gap-4">
         <SettingSwitchRow
-          title={<Trans>Folder</Trans>}
-          description={<Trans>Show the folder above the title.</Trans>}
+          title={<Trans>Project</Trans>}
+          description={<Trans>Show the project above the title.</Trans>}
           checked={showFolder}
           onChange={setShowFolder}
         />

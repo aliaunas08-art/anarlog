@@ -381,7 +381,7 @@ function EventPopoverContent({
           disabled={filing}
           onClick={() => openFolderPicker("rule")}
         >
-          {t`Change auto-add folder`}
+          {t`Change auto-add project`}
         </Button>
         <Button
           size="sm"
@@ -403,7 +403,7 @@ function EventPopoverContent({
           {t`Auto-add future meetings?`}
         </div>
         <p className="text-muted-foreground text-sm">
-          {t`Automatically put all future instances of this recurring meeting into a folder.`}
+          {t`Automatically put all future instances of this recurring meeting into a project.`}
         </p>
         <div className="flex gap-2">
           <Button
@@ -452,7 +452,7 @@ function EventPopoverContent({
           <Folder className="size-3.5" aria-hidden="true" />
         )}
         <span className="min-w-0 flex-1 truncate text-left">
-          {sessionFolder ? folderDisplayName(sessionFolder) : t`Add to folder`}
+          {sessionFolder ? folderDisplayName(sessionFolder) : t`Add to project`}
         </span>
         <CaretDown className="size-3.5 shrink-0" aria-hidden="true" />
       </Button>

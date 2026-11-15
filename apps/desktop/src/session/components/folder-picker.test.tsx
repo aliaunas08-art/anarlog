@@ -88,7 +88,7 @@ describe("FolderPicker", () => {
 
     render(<FolderPicker sessionId="session-1" />);
 
-    const trigger = screen.getByRole("combobox", { name: "Folder: work" });
+    const trigger = screen.getByRole("combobox", { name: "Project: work" });
 
     expect(trigger.textContent).toBe("work");
   });
@@ -96,7 +96,7 @@ describe("FolderPicker", () => {
   it("lets the user select an existing folder for the current note", async () => {
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Select project" }));
     fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({
@@ -107,8 +107,8 @@ describe("FolderPicker", () => {
   it("creates a folder from the search query and assigns the note", async () => {
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
-    fireEvent.change(screen.getByPlaceholderText("Search or create folder"), {
+    fireEvent.click(screen.getByRole("combobox", { name: "Select project" }));
+    fireEvent.change(screen.getByPlaceholderText("Search or create project"), {
       target: { value: "clients" },
     });
     fireEvent.click(
@@ -127,8 +127,8 @@ describe("FolderPicker", () => {
   it("creates nested folder names", async () => {
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
-    fireEvent.change(screen.getByPlaceholderText("Search or create folder"), {
+    fireEvent.click(screen.getByRole("combobox", { name: "Select project" }));
+    fireEvent.change(screen.getByPlaceholderText("Search or create project"), {
       target: { value: "clients/acme" },
     });
     fireEvent.click(
@@ -148,14 +148,14 @@ describe("FolderPicker", () => {
 
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Project: work" }));
 
     expect(
       screen
         .getByRole("option", { name: "work" })
         .getAttribute("data-selected"),
     ).toBe("true");
-    expect(screen.queryByRole("option", { name: "No folder" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "No project" })).toBeNull();
   });
 
   it("can remove the current note from its folder", () => {
@@ -163,7 +163,7 @@ describe("FolderPicker", () => {
 
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Project: work" }));
     fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "" });
@@ -176,7 +176,7 @@ describe("FolderPicker", () => {
     render(<FolderPicker sessionId="session-1" />);
 
     fireEvent.click(
-      screen.getByRole("combobox", { name: "Folder: work/meetings" }),
+      screen.getByRole("combobox", { name: "Project: work/meetings" }),
     );
     fireEvent.click(screen.getByRole("option", { name: "work" }));
 
@@ -211,8 +211,8 @@ describe("FolderPicker", () => {
 
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
-    fireEvent.click(screen.getByRole("button", { name: "See all folders" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Project: work" }));
+    fireEvent.click(screen.getByRole("button", { name: "See all projects" }));
 
     expect(mocks.setSelectedPath).toHaveBeenCalledWith("work");
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "folders" });
@@ -225,8 +225,8 @@ describe("FolderPicker", () => {
 
     render(<FolderPicker sessionId="session-1" />);
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Folder: work" }));
-    fireEvent.click(screen.getByRole("button", { name: "See all folders" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Project: work" }));
+    fireEvent.click(screen.getByRole("button", { name: "See all projects" }));
 
     await waitFor(() => {
       expect(mocks.windowEmitNavigate).toHaveBeenCalledWith(

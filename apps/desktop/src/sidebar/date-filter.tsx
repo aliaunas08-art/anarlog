@@ -16,6 +16,10 @@ import {
   filterTimelineTablesByFolder,
 } from "./timeline/utils";
 
+import {
+  CALENDAR_DAY_MARKER_CLASS,
+  CALENDAR_TODAY_MARKER_CLASS,
+} from "~/calendar/components/day-cell";
 import { useWeekStartsOn } from "~/calendar/hooks";
 import { useTimelineSessionsTable } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
@@ -324,7 +328,7 @@ export function SidebarDateFilter({
         role="grid"
         aria-label={monthLabel}
         onKeyDown={handleGridKeyDown}
-        className="flex flex-col gap-y-1"
+        className="flex flex-col"
       >
         <div role="row" className="grid grid-cols-7 text-center">
           {weekdayKeys.map((key) => {
@@ -370,38 +374,43 @@ export function SidebarDateFilter({
                   tabIndex={dayKey === tabStopKey ? 0 : -1}
                   onClick={() => toggleDay(dayKey)}
                   onFocus={() => setFocusKey(dayKey)}
-                  className={cn([
-                    "cf-motion rounded-pill relative flex aspect-square w-full max-w-8 cursor-default items-center justify-center justify-self-center",
-                    "text-[14px] tabular-nums transition-colors select-none",
-                    "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-hidden",
-                    isToday
-                      ? [
-                          "bg-[var(--cf-today-bg)] font-medium text-[var(--cf-today-fg)]",
-                          isSelected &&
-                            "ring-2 ring-[var(--cf-accent)] ring-offset-1 ring-offset-[var(--cf-sidebar-bg)]",
-                        ]
-                      : isSelected
-                        ? "bg-[var(--cf-accent)] font-medium text-[var(--cf-on-accent)]"
-                        : [
-                            "hover:bg-[var(--cf-fill)]",
-                            isOutside
-                              ? "text-[var(--cf-tertiary)]"
-                              : "text-[var(--cf-label)]",
-                          ],
-                  ])}
+                  className="group/day relative flex h-9 cursor-default items-center justify-center outline-hidden select-none"
                 >
-                  {formatters.day.format(date)}
+                  {/* Same marker as the Calendar tab's month grid: the number
+                   * sits alone in a centred square; the notes dot hangs below
+                   * it so it never nudges the number. */}
+                  <span
+                    className={cn([
+                      CALENDAR_DAY_MARKER_CLASS,
+                      "cf-motion tabular-nums transition-colors",
+                      "group-focus-visible/day:ring-2 group-focus-visible/day:ring-[var(--cf-accent)]",
+                      isToday
+                        ? [
+                            CALENDAR_TODAY_MARKER_CLASS,
+                            isSelected &&
+                              "ring-2 ring-[var(--cf-accent)] ring-offset-1 ring-offset-[var(--cf-sidebar-bg)]",
+                          ]
+                        : isSelected
+                          ? "bg-[var(--cf-accent)] font-medium text-[var(--cf-on-accent)]"
+                          : [
+                              "group-hover/day:bg-[var(--cf-fill)]",
+                              isOutside
+                                ? "text-[var(--cf-tertiary)]"
+                                : "text-[var(--cf-label)]",
+                            ],
+                    ])}
+                  >
+                    {formatters.day.format(date)}
+                  </span>
                   {count > 0 && !isOutside ? (
                     <span
                       aria-hidden="true"
                       data-testid="date-filter-dot"
                       className={cn([
-                        "rounded-pill absolute bottom-[3px] left-1/2 size-[3px] -translate-x-1/2",
-                        isToday
-                          ? "bg-[var(--cf-today-fg)]"
-                          : isSelected
-                            ? "bg-[var(--cf-on-accent)]"
-                            : "bg-[var(--cf-secondary)]",
+                        "rounded-pill absolute bottom-0 left-1/2 size-[3px] -translate-x-1/2",
+                        isSelected && !isToday
+                          ? "bg-[var(--cf-accent)]"
+                          : "bg-[var(--cf-secondary)]",
                       ])}
                     />
                   ) : null}

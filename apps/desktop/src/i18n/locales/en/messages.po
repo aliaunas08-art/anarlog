@@ -188,6 +188,7 @@ msgid "{conflictedNotes} notes have a version from another device"
 msgstr "{conflictedNotes} notes have a version from another device"
 
 #: src/sidebar/date-filter.tsx
+#: src/sidebar/projects.tsx
 msgid "{count} notes"
 msgstr "{count} notes"
 
@@ -291,6 +292,7 @@ msgid "1 month"
 msgstr "1 month"
 
 #: src/sidebar/date-filter.tsx
+#: src/sidebar/projects.tsx
 msgid "1 note"
 msgstr "1 note"
 
@@ -330,10 +332,6 @@ msgstr "7 days"
 msgid "A dated Notion update with the meeting summary."
 msgstr "A dated Notion update with the meeting summary."
 
-#: src/sidebar/folder-name-dialog.tsx
-msgid "A folder with this name already exists."
-msgstr "A folder with this name already exists."
-
 #: src/resource-sharing/share-dialog.tsx
 msgid "A guest can access one shared item for free. Add them to your Team when they need more."
 msgstr "A guest can access one shared item for free. Add them to your Team when they need more."
@@ -353,6 +351,10 @@ msgstr "A Markdown file with the note, summary, and transcript."
 #: src/sidebar/timeline/utils/index.ts
 msgid "a month ago"
 msgstr "a month ago"
+
+#: src/sidebar/folder-name-dialog.tsx
+msgid "A project with this name already exists."
+msgstr "A project with this name already exists."
 
 #: src/automations/starters.tsx
 msgid "A Slack message with the meeting title and recap."
@@ -479,8 +481,8 @@ msgid "Add a payment method before it ends to keep using Pro without an interrup
 msgstr "Add a payment method before it ends to keep using Pro without an interruption."
 
 #: src/sidebar/folder-materials.tsx
-msgid "Add a syllabus or PDF for this folder"
-msgstr "Add a syllabus or PDF for this folder"
+msgid "Add a syllabus or PDF for this project"
+msgstr "Add a syllabus or PDF for this project"
 
 #: src/task/tasks-view.tsx
 msgid "Add a to-do in any meeting note and it will show up here, together with the meeting it came from."
@@ -523,8 +525,8 @@ msgid "Add at least one example summary."
 msgstr "Add at least one example summary."
 
 #: src/session/folder-instructions.tsx
-msgid "Add context for this folder"
-msgstr "Add context for this folder"
+msgid "Add context for this project"
+msgstr "Add context for this project"
 
 #: src/settings/sync/index.tsx
 msgid "Add device"
@@ -596,8 +598,8 @@ msgid "Add step"
 msgstr "Add step"
 
 #: src/calendar/components/event-chip.tsx
-msgid "Add to folder"
-msgstr "Add to folder"
+msgid "Add to project"
+msgstr "Add to project"
 
 #: src/settings/developers/webhooks.tsx
 msgid "Add webhook"
@@ -776,8 +778,8 @@ msgid "Ask {APP_NAME} anything"
 msgstr "Ask {APP_NAME} anything"
 
 #: src/session/components/floating/index.tsx
-msgid "Ask about this meeting (⌘K)"
-msgstr "Ask about this meeting (⌘K)"
+msgid "Ask about this meeting (⌘P)"
+msgstr "Ask about this meeting (⌘P)"
 
 #: src/chat/components/input/index.tsx
 #: src/shared/chat-cta.tsx
@@ -878,8 +880,8 @@ msgid "Automatically install updates"
 msgstr "Automatically install updates"
 
 #: src/calendar/components/event-chip.tsx
-msgid "Automatically put all future instances of this recurring meeting into a folder."
-msgstr "Automatically put all future instances of this recurring meeting into a folder."
+msgid "Automatically put all future instances of this recurring meeting into a project."
+msgstr "Automatically put all future instances of this recurring meeting into a project."
 
 #: src/settings/automations/index.tsx
 msgid "Automation actions"
@@ -1140,8 +1142,8 @@ msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
 
 #: src/calendar/components/event-chip.tsx
-msgid "Change auto-add folder"
-msgstr "Change auto-add folder"
+msgid "Change auto-add project"
+msgstr "Change auto-add project"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
@@ -1306,10 +1308,6 @@ msgstr "Choose files"
 msgid "Choose folder"
 msgstr "Choose folder"
 
-#: src/folders/folder-editor.tsx
-msgid "Choose folder icon"
-msgstr "Choose folder icon"
-
 #: src/settings/general/notification.tsx
 msgid "Choose from five completion sounds."
 msgstr "Choose from five completion sounds."
@@ -1333,6 +1331,10 @@ msgstr "Choose how Auto structures and styles your summaries."
 #: src/settings/general/audio-settings.tsx
 msgid "Choose how long recordings stay on this device."
 msgstr "Choose how long recordings stay on this device."
+
+#: src/folders/folder-editor.tsx
+msgid "Choose project icon"
+msgstr "Choose project icon"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
@@ -1946,8 +1948,8 @@ msgid "Could not save the automation setting"
 msgstr "Could not save the automation setting"
 
 #: src/sidebar/folder-name-dialog.tsx
-msgid "Could not save the folder."
-msgstr "Could not save the folder."
+msgid "Could not save the project."
+msgstr "Could not save the project."
 
 #: src/session-sharing/delivery-management.ts
 msgid "Could not send the meeting notes to Slack."
@@ -2059,6 +2061,7 @@ msgstr "Couldn't switch accounts. Please try again."
 
 #: src/folders/sidebar.tsx
 #: src/settings/team/index.tsx
+#: src/sidebar/projects.tsx
 msgid "Create"
 msgstr "Create"
 
@@ -2247,11 +2250,6 @@ msgstr "Delete comment"
 msgid "Delete Event"
 msgstr "Delete Event"
 
-#: src/folders/folder-editor.tsx
-#: src/sidebar/folder-materials.tsx
-msgid "Delete folder"
-msgstr "Delete folder"
-
 #: src/settings/ai/stt/select.tsx
 msgid "Delete model"
 msgstr "Delete model"
@@ -2259,6 +2257,11 @@ msgstr "Delete model"
 #: src/sidebar/timeline/item.tsx
 msgid "Delete Note"
 msgstr "Delete Note"
+
+#: src/folders/folder-editor.tsx
+#: src/sidebar/folder-materials.tsx
+msgid "Delete project"
+msgstr "Delete project"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Delete Selected ({sessionCount})"
@@ -2569,8 +2572,8 @@ msgstr "Enter a valid date and time"
 
 #: src/session/components/folder-picker.tsx
 #: src/sidebar/folder-name-dialog.tsx
-msgid "Enter a valid folder name."
-msgstr "Enter a valid folder name."
+msgid "Enter a valid project name."
+msgstr "Enter a valid project name."
 
 #: src/templates/template-form.tsx
 msgid "Enter template title"
@@ -2783,36 +2786,6 @@ msgstr "Float chat"
 #: src/settings/dictation-shortcut.tsx
 msgid "Fn / Globe"
 msgstr "Fn / Globe"
-
-#: src/settings/appearance/sidebar-item-fields.tsx
-#: src/sidebar/note-filter-menu.tsx
-msgid "Folder"
-msgstr "Folder"
-
-#: src/resource-sharing/share-dialog.tsx
-msgid "Folder access controls and reusable sharing are included with Pro."
-msgstr "Folder access controls and reusable sharing are included with Pro."
-
-#: src/folders/folder-editor.tsx
-msgid "Folder actions"
-msgstr "Folder actions"
-
-#: src/session/folder-instructions.tsx
-msgid "Folder context"
-msgstr "Folder context"
-
-#: src/folders/folder-editor.tsx
-#: src/sidebar/folder-name-dialog.tsx
-msgid "Folder name"
-msgstr "Folder name"
-
-#: src/session/components/folder-picker.tsx
-msgid "Folder: {currentPath}"
-msgstr "Folder: {currentPath}"
-
-#: src/sidebar/settings-nav-groups.ts
-msgid "Folders"
-msgstr "Folders"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Food & Drink"
@@ -3075,6 +3048,10 @@ msgstr "History {0}/{1}"
 #: src/settings/dictation.tsx
 msgid "Hold your shortcut while speaking, then release it to finish."
 msgstr "Hold your shortcut while speaking, then release it to finish."
+
+#: src/main/sidebar-timeline-chrome.tsx
+msgid "Home"
+msgstr "Home"
 
 #: src/settings/stats/index.tsx
 msgid "Hours transcribed"
@@ -3946,10 +3923,6 @@ msgstr "New automation"
 msgid "New chat"
 msgstr "New chat"
 
-#: src/folders/sidebar.tsx
-msgid "New folder"
-msgstr "New folder"
-
 #: src/imports/screen.tsx
 msgid "New meetings are imported automatically while{APP_NAME} is running."
 msgstr "New meetings are imported automatically while{APP_NAME} is running."
@@ -3965,8 +3938,13 @@ msgstr "New Note"
 
 #. placeholder {0}: accessConfirmation?.label
 #: src/folders/folder-editor.tsx
-msgid "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
-msgstr "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
+msgid "New notes in this project will be shared with {0} once their summary is ready. Notes already in the project are not changed."
+msgstr "New notes in this project will be shared with {0} once their summary is ready. Notes already in the project are not changed."
+
+#: src/folders/sidebar.tsx
+#: src/sidebar/projects.tsx
+msgid "New project"
+msgstr "New project"
 
 #: src/settings/referrals.tsx
 msgid "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
@@ -4076,33 +4054,9 @@ msgstr "No earlier versions yet."
 msgid "No emoji found"
 msgstr "No emoji found"
 
-#: src/sidebar/timeline/utils/index.ts
-msgid "No folder"
-msgstr "No folder"
-
 #: src/settings/automations/starter-config.tsx
 msgid "No folder selected yet."
 msgstr "No folder selected yet."
-
-#: src/folders/sidebar.tsx
-msgid "No folders found"
-msgstr "No folders found"
-
-#: src/session/components/folder-picker.tsx
-msgid "No folders found."
-msgstr "No folders found."
-
-#: src/folders/sidebar.tsx
-msgid "No folders yet"
-msgstr "No folders yet"
-
-#: src/session/components/folder-picker.tsx
-msgid "No folders yet."
-msgstr "No folders yet."
-
-#: src/folders/index.tsx
-msgid "No folders yet. Create one to group notes and materials."
-msgstr "No folders yet. Create one to group notes and materials."
 
 #: src/templates/template-icon-picker.tsx
 msgid "No icons found"
@@ -4170,6 +4124,31 @@ msgstr "No people"
 #: src/contacts/organization-details.tsx
 msgid "No people in this organization"
 msgstr "No people in this organization"
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "No project"
+msgstr "No project"
+
+#: src/folders/sidebar.tsx
+msgid "No projects found"
+msgstr "No projects found"
+
+#: src/session/components/folder-picker.tsx
+msgid "No projects found."
+msgstr "No projects found."
+
+#: src/folders/sidebar.tsx
+#: src/sidebar/projects.tsx
+msgid "No projects yet"
+msgstr "No projects yet"
+
+#: src/session/components/folder-picker.tsx
+msgid "No projects yet."
+msgstr "No projects yet."
+
+#: src/folders/index.tsx
+msgid "No projects yet. Create one to group notes and materials."
+msgstr "No projects yet. Create one to group notes and materials."
 
 #: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/llm/select.tsx
@@ -4314,7 +4293,7 @@ msgstr "Notes list"
 #. js-lingui-explicit-id
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
-msgid "Notes stay in All notes. Materials in this folder will be deleted."
+msgid "Notes stay in All notes. Materials in this project will be deleted."
 msgstr "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted."
 
 #: src/task/tasks-view.tsx
@@ -4816,6 +4795,37 @@ msgstr "Pro trial started"
 msgid "Production"
 msgstr "Production"
 
+#: src/settings/appearance/sidebar-item-fields.tsx
+#: src/sidebar/note-filter-menu.tsx
+msgid "Project"
+msgstr "Project"
+
+#: src/resource-sharing/share-dialog.tsx
+msgid "Project access controls and reusable sharing are included with Pro."
+msgstr "Project access controls and reusable sharing are included with Pro."
+
+#: src/folders/folder-editor.tsx
+msgid "Project actions"
+msgstr "Project actions"
+
+#: src/session/folder-instructions.tsx
+msgid "Project context"
+msgstr "Project context"
+
+#: src/folders/folder-editor.tsx
+#: src/sidebar/folder-name-dialog.tsx
+msgid "Project name"
+msgstr "Project name"
+
+#: src/session/components/folder-picker.tsx
+msgid "Project: {currentPath}"
+msgstr "Project: {currentPath}"
+
+#: src/sidebar/projects.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Projects"
+msgstr "Projects"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Protect cloud sync"
 msgstr "Protect cloud sync"
@@ -5101,8 +5111,8 @@ msgid "Rename device"
 msgstr "Rename device"
 
 #: src/sidebar/folder-materials.tsx
-msgid "Rename folder"
-msgstr "Rename folder"
+msgid "Rename project"
+msgstr "Rename project"
 
 #: src/settings/sync/index.tsx
 msgid "Rename this device"
@@ -5438,10 +5448,6 @@ msgstr "Search contacts..."
 msgid "Search emoji..."
 msgstr "Search emoji..."
 
-#: src/folders/sidebar.tsx
-msgid "Search folders..."
-msgstr "Search folders..."
-
 #: src/templates/template-icon-picker.tsx
 msgid "Search icons..."
 msgstr "Search icons..."
@@ -5462,13 +5468,13 @@ msgstr "Search notes and pages..."
 msgid "Search or add company"
 msgstr "Search or add company"
 
-#: src/session/components/folder-picker.tsx
-msgid "Search or create folder"
-msgstr "Search or create folder"
-
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Search or create new"
 msgstr "Search or create new"
+
+#: src/session/components/folder-picker.tsx
+msgid "Search or create project"
+msgstr "Search or create project"
 
 #: src/settings/todo/github.tsx
 msgid "Search or type owner/repo"
@@ -5481,6 +5487,10 @@ msgstr "Search pages shared with {APP_NAME}…"
 #: src/task/task-cell-pickers.tsx
 msgid "Search people"
 msgstr "Search people"
+
+#: src/folders/sidebar.tsx
+msgid "Search projects..."
+msgstr "Search projects..."
 
 #: src/settings/ai/shared/provider-search.tsx
 msgid "Search providers"
@@ -5522,8 +5532,8 @@ msgid "Section actions"
 msgstr "Section actions"
 
 #: src/session/components/folder-picker.tsx
-msgid "See all folders"
-msgstr "See all folders"
+msgid "See all projects"
+msgstr "See all projects"
 
 #: src/session/components/note-input/template-picker.tsx
 msgid "See all templates"
@@ -5559,10 +5569,6 @@ msgstr "Select day"
 msgid "Select default sharing"
 msgstr "Select default sharing"
 
-#: src/session/components/folder-picker.tsx
-msgid "Select folder"
-msgstr "Select folder"
-
 #: src/settings/general/main-language.tsx
 msgid "Select language"
 msgstr "Select language"
@@ -5570,6 +5576,10 @@ msgstr "Select language"
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Select or type to add speaker"
 msgstr "Select or type to add speaker"
+
+#: src/session/components/folder-picker.tsx
+msgid "Select project"
+msgstr "Select project"
 
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
@@ -5688,12 +5698,12 @@ msgid "Share link copied."
 msgstr "Share link copied."
 
 #: src/folders/folder-editor.tsx
-msgid "Share new notes in this folder when their summary is ready. You can still change access on each note."
-msgstr "Share new notes in this folder when their summary is ready. You can still change access on each note."
+msgid "Share new notes in this project when their summary is ready. You can still change access on each note."
+msgstr "Share new notes in this project when their summary is ready. You can still change access on each note."
 
 #: src/folders/folder-editor.tsx
-msgid "Share new notes in this folder?"
-msgstr "Share new notes in this folder?"
+msgid "Share new notes in this project?"
+msgstr "Share new notes in this project?"
 
 #: src/session-sharing/index.tsx
 msgid "Share note"
@@ -5848,8 +5858,8 @@ msgid "Show tags under the date and time."
 msgstr "Show tags under the date and time."
 
 #: src/settings/appearance/sidebar-item-fields.tsx
-msgid "Show the folder above the title."
-msgstr "Show the folder above the title."
+msgid "Show the project above the title."
+msgstr "Show the project above the title."
 
 #: src/settings/general/timezone.tsx
 msgid "Show the timeline in your preferred timezone."
@@ -5911,8 +5921,8 @@ msgid "Sign in to {APP_NAME}"
 msgstr "Sign in to {APP_NAME}"
 
 #: src/folders/sidebar.tsx
-msgid "Sign in to add this folder"
-msgstr "Sign in to add this folder"
+msgid "Sign in to add this project"
+msgstr "Sign in to add this project"
 
 #: src/settings/general/primary-recording-device.tsx
 msgid "Sign in to choose a primary recording device."
@@ -5957,8 +5967,8 @@ msgid "Sign in to share"
 msgstr "Sign in to share"
 
 #: src/resource-sharing/share-dialog.tsx
-msgid "Sign in to share folders, templates, and automations."
-msgstr "Sign in to share folders, templates, and automations."
+msgid "Sign in to share projects, templates, and automations."
+msgstr "Sign in to share projects, templates, and automations."
 
 #: src/session-sharing/index.tsx
 msgid "Sign in to share this note with others."
@@ -6546,8 +6556,8 @@ msgid "These rules apply to every member. Sharing changes fail closed on the ser
 msgstr "These rules apply to every member. Sharing changes fail closed on the server."
 
 #: src/resource-sharing/share-dialog.tsx
-msgid "They already have another shared item. Invite them to your Team for folders, templates, and automations."
-msgstr "They already have another shared item. Invite them to your Team for folders, templates, and automations."
+msgid "They already have another shared item. Invite them to your Team for projects, templates, and automations."
+msgstr "They already have another shared item. Invite them to your Team for projects, templates, and automations."
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
@@ -6895,8 +6905,8 @@ msgid "Upgrade"
 msgstr "Upgrade"
 
 #: src/resource-sharing/share-dialog.tsx
-msgid "Upgrade this workspace to share folders, templates, and automations with everyone on the Team."
-msgstr "Upgrade this workspace to share folders, templates, and automations with everyone on the Team."
+msgid "Upgrade this workspace to share projects, templates, and automations with everyone on the Team."
+msgstr "Upgrade this workspace to share projects, templates, and automations with everyone on the Team."
 
 #: src/billing/trial-ended-dialog.tsx
 #: src/instruction/index.tsx

@@ -9,6 +9,7 @@ import { SidebarDateFilter } from "./date-filter";
 import { FolderMaterialsPanel } from "./folder-materials";
 import { FoldersNav } from "./folders";
 import { type SidebarNoteFilter, useSidebarNotes } from "./note-filter";
+import { SidebarProjects } from "./projects";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
 import { TemplatesNav } from "./templates";
@@ -92,12 +93,15 @@ export function LeftSidebar({
                     {folderFilter ? (
                       <FolderMaterialsPanel folderPath={folderFilter} />
                     ) : null}
+                    {/* Clear the title-bar chrome that would otherwise
+                     * overlay the top of the sidebar. */}
+                    <SidebarProjects
+                      className={timelineTopChromeInset ? "pt-12" : "pt-3"}
+                    />
                     {showDateFilter ? (
                       <SidebarDateFilter
                         folderFilter={folderFilter}
-                        // Clear the title-bar chrome that would otherwise
-                        // overlay the top of the timeline.
-                        className={timelineTopChromeInset ? "pt-12" : "pt-3"}
+                        className="pt-3"
                       />
                     ) : null}
                     <SidebarUpNext />
@@ -107,9 +111,6 @@ export function LeftSidebar({
                         showIgnoredEvents={showIgnoredTimelineEvents}
                         onShowIgnoredEventsChange={
                           onShowIgnoredTimelineEventsChange
-                        }
-                        topChromeInset={
-                          timelineTopChromeInset && !showDateFilter
                         }
                         topChipsOverlapHeader={
                           isTimelineSidebarLayout && !!timelineHeader

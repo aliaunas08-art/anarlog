@@ -156,13 +156,13 @@ describe("CustomSidebarHeader", () => {
     try {
       const { container } = render(
         <CustomSidebarHeader>
-          <button type="button">New folder</button>
+          <button type="button">New project</button>
         </CustomSidebarHeader>,
       );
 
       expect(container.innerHTML).toBe("");
       expect(
-        slot.contains(screen.getByRole("button", { name: "New folder" })),
+        slot.contains(screen.getByRole("button", { name: "New project" })),
       ).toBe(true);
     } finally {
       slot.remove();

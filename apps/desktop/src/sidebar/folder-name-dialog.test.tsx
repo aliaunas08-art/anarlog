@@ -13,8 +13,8 @@ afterEach(cleanup);
 
 describe("FolderNameDialog", () => {
   it.each([
-    ["New folder", "Create", ""],
-    ["Rename folder", "Rename", "Old name"],
+    ["New project", "Create", ""],
+    ["Rename project", "Rename", "Old name"],
   ])(
     "uses %s's confirmation as the implicit submit button",
     async (title, confirmLabel, initialValue) => {
@@ -31,7 +31,7 @@ describe("FolderNameDialog", () => {
         />,
       );
 
-      const input = screen.getByRole("textbox", { name: "Folder name" });
+      const input = screen.getByRole("textbox", { name: "Project name" });
       fireEvent.change(input, { target: { value: " Project notes " } });
       const form = input.closest("form")!;
       // Enter activates the first submit button; jsdom does not implement implicit submission.
@@ -55,7 +55,7 @@ describe("FolderNameDialog", () => {
     render(
       <FolderNameDialog
         open
-        title="New folder"
+        title="New project"
         confirmLabel="Create"
         initialValue="Project notes"
         onSubmit={onSubmit}

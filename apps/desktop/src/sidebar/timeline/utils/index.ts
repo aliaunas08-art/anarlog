@@ -624,7 +624,7 @@ function buildFolderBuckets(items: TimelineItem[]): TimelineBucket[] {
       return left.localeCompare(right);
     })
     .map(([key, bucketItems]) => ({
-      label: key === "" ? t`No folder` : key,
+      label: key === "" ? t`No project` : key,
       items: bucketItems,
       precision: "date" as const,
     }));

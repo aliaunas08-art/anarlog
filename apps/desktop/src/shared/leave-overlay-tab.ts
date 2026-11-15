@@ -15,6 +15,18 @@ export function leaveAllOverlayTabs() {
   }
 }
 
+/** Show Home (the "empty" tab): reuse an open one, else open a new one. */
+export function openHome() {
+  const { tabs, currentTab, select, openNew } = useTabs.getState();
+  if (currentTab?.type === "empty") return;
+  const existingHomeTab = tabs.find((tab) => tab.type === "empty");
+  if (existingHomeTab) {
+    select(existingHomeTab);
+    return;
+  }
+  openNew({ type: "empty" });
+}
+
 export function leaveOverlayTab() {
   const { tabs, currentTab, openCurrent, select, goBack, canGoBack } =
     useTabs.getState();

@@ -44,7 +44,7 @@ describe("SidebarNoteFilterMenu", () => {
 
     openSortMenu();
     openSubmenu("Grouping, Date");
-    fireEvent.click(screen.getByRole("menuitem", { name: "Folder" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Project" }));
 
     expect(useSidebarNotes.getState().groupBy).toBe("folder");
   });

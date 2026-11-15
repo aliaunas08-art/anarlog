@@ -73,7 +73,7 @@ describe("OpenNoteDialog", () => {
 
   afterEach(cleanup);
 
-  it("opens from ⌘P only, leaving ⌘K to Ask and Ctrl+P to text fields", () => {
+  it("opens from ⌘K only, leaving ⌘P to Ask and Ctrl+K to text fields", () => {
     render(
       <OpenNoteDialogProvider>
         <div />
@@ -86,11 +86,11 @@ describe("OpenNoteDialog", () => {
         [modifier]: true,
       });
 
-    press("k", "metaKey");
-    press("p", "ctrlKey");
+    press("p", "metaKey");
+    press("k", "ctrlKey");
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    press("p", "metaKey");
+    press("k", "metaKey");
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 

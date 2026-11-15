@@ -27,9 +27,6 @@
     --cf-fill: rgba(120, 120, 128, 0.12);
     --cf-selection: rgba(0, 0, 0, 0.06);
     --cf-chip: rgba(255, 255, 255, 0.6);
-    /* Mini calendar "today" circle (Google Calendar style). */
-    --cf-today-bg: #d3e3fd;
-    --cf-today-fg: #041e49;
     /* Opaque "glass over the window" colour: sticky headers and fades inside
      * the sidebar panel paint with it so they match the panel. */
     --cf-sidebar-bg: #fefeff;
@@ -95,8 +92,6 @@
     --cf-fill: rgba(255, 255, 255, 0.08);
     --cf-selection: rgba(255, 255, 255, 0.09);
     --cf-chip: rgba(255, 255, 255, 0.03);
-    --cf-today-bg: #a8c7fa;
-    --cf-today-fg: #062e6f;
     /* Sidebar is the same black as the window, split off by a hairline. */
     --cf-sidebar-bg: #000000;
 

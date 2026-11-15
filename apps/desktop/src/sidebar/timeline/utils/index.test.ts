@@ -747,7 +747,7 @@ describe("timeline utils", () => {
     expect(buckets.map((bucket) => bucket.label)).toEqual([
       "CS 101",
       "work",
-      "No folder",
+      "No project",
     ]);
     expect(buckets[0]?.items.map((item) => item.id)).toEqual(["session-class"]);
     expect(buckets[2]?.items.map((item) => item.id)).toEqual([

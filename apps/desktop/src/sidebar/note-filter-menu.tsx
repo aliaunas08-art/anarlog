@@ -37,7 +37,7 @@ export function SidebarNoteFilterMenu() {
   const setShowDateFilter = useSidebarNotes((state) => state.setShowDateFilter);
   const isDefaultView =
     groupBy === "date" && sortOrder === "newest" && !hasDateFilter;
-  const groupingLabel = groupBy === "folder" ? t`Folder` : t`Date`;
+  const groupingLabel = groupBy === "folder" ? t`Project` : t`Date`;
   const orderingLabel = sortOrder === "oldest" ? t`Oldest` : t`Newest`;
 
   return (
@@ -100,7 +100,7 @@ export function SidebarNoteFilterMenu() {
                       aria-hidden="true"
                     />
                     <span className="flex-1">
-                      <Trans>Folder</Trans>
+                      <Trans>Project</Trans>
                     </span>
                     {groupBy === "folder" ? (
                       <Check className="size-4" aria-hidden="true" />

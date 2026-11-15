@@ -244,20 +244,18 @@ describe("SessionBottomBar", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the ⌘K shortcut on Ask", () => {
+  it("shows the ⌘P shortcut on Ask", () => {
     renderBar();
 
     const ask = screen.getByRole("button", { name: "Ask Notes anything" });
-    expect(ask.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
-    expect(ask.textContent).toContain("⌘K");
+    expect(ask.getAttribute("aria-keyshortcuts")).toBe("Meta+P");
+    expect(ask.textContent).toContain("⌘P");
   });
 
   it("opens chat from Ask", () => {
     renderBar();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Ask Notes anything" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Ask Notes anything" }));
 
     expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
   });

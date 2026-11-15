@@ -204,11 +204,7 @@ export function RecordingPill({
         title={stopTitle ?? t`Stop listening`}
         disabled={disabled}
         onClick={onStop}
-        className="cf-motion rounded-pill inline-flex h-7 shrink-0 items-center px-3 text-xs font-semibold text-white shadow-[inset_1px_1px_0_rgba(255,255,255,0.35),0_2px_8px_rgba(255,59,48,0.35)] transition-[filter] [corner-shape:round] hover:brightness-105 focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-default disabled:opacity-60"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 60%), var(--cf-record)",
-        }}
+        className="cf-motion rounded-pill inline-flex h-7 shrink-0 items-center bg-[var(--cf-label)] px-3 text-xs font-medium text-[var(--cf-window)] transition-opacity [corner-shape:round] hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-default disabled:opacity-60"
       >
         {t`Stop`}
       </button>

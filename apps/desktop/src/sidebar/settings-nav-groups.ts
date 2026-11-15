@@ -103,7 +103,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
         { id: "meetings", label: t`Meetings`, icon: VideoCamera },
         {
           id: "folders",
-          label: t`Folders`,
+          label: t`Projects`,
           icon: FolderSimple,
           destination: { type: "folders" },
         },
