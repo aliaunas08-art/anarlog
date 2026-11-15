@@ -18,7 +18,7 @@ import { useConfigValues } from "~/shared/config";
 const QUICK_TOGGLES = [
   {
     key: "floating_bar_enabled",
-    label: "Floating bar",
+    label: "Floating recording bar",
     description: "Show the floating recording bar while a meeting is active.",
   },
   {

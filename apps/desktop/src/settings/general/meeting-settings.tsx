@@ -104,9 +104,12 @@ export function MeetingSettingsView({
         />
       )}
       <SettingSwitchRow
-        title={<Trans>Show floating bar</Trans>}
+        title={<Trans>Show floating recording bar</Trans>}
         description={
-          <Trans>Control listening without reopening {APP_NAME}.</Trans>
+          <Trans>
+            While you record with {APP_NAME} in the background, a small bar with
+            the timer and Stop stays at the bottom of the screen.
+          </Trans>
         }
         checked={floatingBar.value}
         onChange={floatingBar.onChange}

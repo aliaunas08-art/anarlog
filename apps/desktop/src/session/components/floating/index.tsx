@@ -57,10 +57,9 @@ export function SessionBottomBar({
   // of the bar (tabs, recording pill) stays reachable.
   const showAsk = chat.mode === "FloatingClosed";
   const showTrailingGroup = showAsk || Boolean(action?.showInPerson);
-  const isRecording = action?.kind === "stop";
   // The recorder writes and fsyncs the audio file about once a second
   // (listener-core recorder/chunks.rs); with retention "none" it is deleted
-  // after the meeting, so only claim it is saved when it is kept.
+  // after the meeting, so the pill only shows its "saved" mark when kept.
   const audioKept =
     normalizeAudioRetention(useConfigValue("audio_retention")) !== "none";
 
@@ -93,14 +92,6 @@ export function SessionBottomBar({
           </div>
         ) : null}
         {viewSwitcher && (action || showTrailingGroup) ? <BarDivider /> : null}
-        {isRecording && audioKept ? (
-          <p
-            data-session-audio-saved
-            className="pointer-events-none absolute top-full left-1/2 m-0 mt-1 -translate-x-1/2 text-[11px] whitespace-nowrap text-[var(--cf-tertiary)]"
-          >
-            {t`Audio saved to this Mac`}
-          </p>
-        ) : null}
         {action?.kind === "stop" ? (
           <RecordingPill
             sessionId={tab.id}
@@ -109,6 +100,7 @@ export function SessionBottomBar({
             stopTitle={action.title}
             onStop={action.onClick}
             onBookmark={onBookmark}
+            audioSaved={audioKept}
           />
         ) : action ? (
           <PrimaryAction action={action} />

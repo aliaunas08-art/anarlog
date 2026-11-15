@@ -6,10 +6,6 @@ import { FloatingBarOverlay } from "./bar";
 import { getDictationPanelState } from "~/dictation/panel";
 import { useDictationStatus } from "~/dictation/state";
 
-vi.mock("@anlg/ui/components/ui/dancing-sticks", () => ({
-  DancingSticks: () => <span>Microphone activity</span>,
-}));
-
 function state() {
   return {
     ...getDictationPanelState()!,

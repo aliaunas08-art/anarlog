@@ -1,20 +1,19 @@
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@anlg/utils";
 
 import { formatElapsed } from "~/session/bookmark";
+import { LevelMeter } from "~/shared/level-meter";
 import { primaryHotkey } from "~/shared/primary-hotkey";
 import { useListener } from "~/stt/contexts";
-
-const METER_BARS = 14;
-const METER_SAMPLE_MS = 120;
 
 /**
  * Recording controls that take Record's place inside the session bottom
  * bar's glass capsule while listening:
- * pulsing dot · elapsed time · live level meter · pause · bookmark · Stop.
+ * pulsing dot · elapsed time · live level meter · (audio saved) · pause ·
+ * bookmark · Stop.
  * While paused the dot goes gray and still, the timer freezes under a
  * "Paused" label and the meter is hidden.
  */
@@ -25,6 +24,7 @@ export function RecordingPill({
   stopTitle,
   onStop,
   onBookmark,
+  audioSaved = false,
 }: {
   sessionId: string;
   /** Whether this session tab is the visible one (gates the ⌘B shortcut). */
@@ -33,22 +33,15 @@ export function RecordingPill({
   stopTitle?: string;
   onStop: () => void;
   onBookmark?: (elapsedSeconds: number) => void;
+  /** The recording's audio is kept on disk after the meeting. */
+  audioSaved?: boolean;
 }) {
   const { t } = useLingui();
-  const { seconds, level, muted, paused, canPause, setPaused } = useListener(
+  const { seconds, muted, paused, canPause, setPaused } = useListener(
     (state) => {
       const isLive = state.live.sessionId === sessionId;
       return {
         seconds: isLive ? state.live.seconds : 0,
-        level: isLive
-          ? Math.min(
-              Math.hypot(
-                state.live.amplitude.mic,
-                state.live.amplitude.speaker,
-              ),
-              1,
-            )
-          : 0,
         muted: isLive && state.live.muted,
         paused: isLive && state.live.paused,
         canPause: isLive && state.live.status === "active",
@@ -56,7 +49,6 @@ export function RecordingPill({
       };
     },
   );
-  const bars = useLevelHistory(level);
   const secondsRef = useRef(seconds);
   secondsRef.current = seconds;
   const elapsed = formatElapsed(seconds);
@@ -122,26 +114,36 @@ export function RecordingPill({
         {elapsed}
       </span>
       {paused ? null : (
-        <span
-          aria-hidden="true"
+        <PillLevelMeter
+          sessionId={sessionId}
+          muted={muted}
           data-recording-level-meter
-          className={cn([
-            "flex h-[18px] items-center gap-[2px] motion-reduce:hidden @max-[560px]:hidden",
-            muted && "opacity-40",
-          ])}
-        >
-          {bars.map((value, index) => (
-            <span
-              key={index}
-              className="w-[2px] rounded-[1px] bg-[var(--cf-label)]"
-              style={{
-                height: `${Math.max(3, Math.round(value * 18))}px`,
-                opacity: 0.35 + value * 0.65,
-              }}
-            />
-          ))}
-        </span>
+          className="motion-reduce:hidden @max-[560px]:hidden"
+        />
       )}
+      {audioSaved ? (
+        <span
+          role="img"
+          data-session-audio-saved
+          aria-label={t`Audio saved to this Mac`}
+          title={t`Audio saved to this Mac`}
+          className="flex shrink-0 items-center text-[var(--cf-secondary)]"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-3"
+          >
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+        </span>
+      ) : null}
       <button
         type="button"
         data-tauri-drag-region="false"
@@ -212,20 +214,26 @@ export function RecordingPill({
   );
 }
 
-/** Rolling window of recent input levels (newest on the right). */
-function useLevelHistory(level: number) {
-  const levelRef = useRef(level);
-  levelRef.current = level;
-  const [bars, setBars] = useState<number[]>(() =>
-    Array.from({ length: METER_BARS }, () => 0),
-  );
+/**
+ * Subscribes to the input level on its own, so amplitude updates (many a
+ * second) re-render only the meter, not the whole pill.
+ */
+function PillLevelMeter({
+  sessionId,
+  ...props
+}: { sessionId: string } & Omit<
+  React.ComponentProps<typeof LevelMeter>,
+  "level"
+>) {
+  const { level } = useListener((state) => ({
+    level:
+      state.live.sessionId === sessionId
+        ? Math.min(
+            Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
+            1,
+          )
+        : 0,
+  }));
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setBars((previous) => [...previous.slice(1), levelRef.current]);
-    }, METER_SAMPLE_MS);
-    return () => window.clearInterval(id);
-  }, []);
-
-  return bars;
+  return <LevelMeter level={level} {...props} />;
 }

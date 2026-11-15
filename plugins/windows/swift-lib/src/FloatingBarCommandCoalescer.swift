@@ -148,7 +148,8 @@ extension FloatingBarStatePayload {
       liveCaptionMinimized: liveCaptionMinimized,
       liveCaptionToggleVisible: liveCaptionToggleVisible,
       transcriptBubbles: transcriptBubbles,
-      transcriptNotice: transcriptNotice)
+      transcriptNotice: transcriptNotice,
+      elapsedSeconds: elapsedSeconds)
   }
 
   fileprivate func replacingAmplitude(with amplitude: Double) -> FloatingBarStatePayload {
@@ -166,6 +167,7 @@ extension FloatingBarStatePayload {
       liveCaptionMinimized: liveCaptionMinimized,
       liveCaptionToggleVisible: liveCaptionToggleVisible,
       transcriptBubbles: transcriptBubbles,
-      transcriptNotice: transcriptNotice)
+      transcriptNotice: transcriptNotice,
+      elapsedSeconds: elapsedSeconds)
   }
 }

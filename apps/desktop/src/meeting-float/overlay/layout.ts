@@ -1,7 +1,9 @@
 export const FLOATING_BAR_INSET = 4;
 export const FLOATING_BAR_COMPACT_HEIGHT = 38;
-export const FLOATING_BAR_COMPACT_STOP_WIDTH = 62;
-export const FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH = 68;
+// The "stop" segment holds the live dot, timer, level meter and Stop button.
+// Keep these in sync with FloatingBarLayout (Swift) and layout (Rust).
+export const FLOATING_BAR_COMPACT_STOP_WIDTH = 176;
+export const FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH = 180;
 export const FLOATING_BAR_COMPACT_ICON_SIZE = 30;
 export const FLOATING_BAR_COMPACT_GAP = 0;
 export const FLOATING_BAR_COMPACT_HORIZONTAL_PADDING = 4;
@@ -12,8 +14,8 @@ export const FLOATING_BAR_HOVER_HANDLE_RESERVED_HEIGHT =
   FLOATING_BAR_HOVER_HANDLE_TOP_PADDING +
   FLOATING_BAR_HOVER_HANDLE_HEIGHT +
   FLOATING_BAR_HOVER_HANDLE_GAP;
-export const FLOATING_BAR_CONTROL_RADIUS = 10;
-export const FLOATING_BAR_COMPACT_RADIUS = 14;
+export const FLOATING_BAR_CONTROL_RADIUS = 15;
+export const FLOATING_BAR_COMPACT_RADIUS = 19;
 export const FLOATING_BAR_EXPANDED_RADIUS = 21;
 
 export function compactControlsWidth(showsExpand: boolean) {

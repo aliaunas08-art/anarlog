@@ -703,20 +703,34 @@ describe("SessionBottomBar", () => {
     it.each([
       ["kept", "forever", true],
       ["deleted after the meeting", "none", false],
-    ])("says audio is saved only when it is %s", (_label, retention, shown) => {
-      recording();
-      mocks.audioRetention = retention;
-      renderBar();
+    ])(
+      "marks audio as saved only when it is %s",
+      (_label, retention, shown) => {
+        recording();
+        mocks.audioRetention = retention;
+        renderBar();
 
-      expect(screen.queryByText("Audio saved to this Mac") !== null).toBe(
-        shown,
-      );
-    });
+        const mark = screen.queryByRole("img", {
+          name: "Audio saved to this Mac",
+        });
+        expect(mark !== null).toBe(shown);
+        if (mark) {
+          // A quiet mark inside the pill, not a caption floating under the bar.
+          expect(mark.closest("[data-session-recording-pill]")).not.toBeNull();
+          expect(mark.getAttribute("title")).toBe("Audio saved to this Mac");
+          expect(mark.className).toContain("text-[var(--cf-secondary)]");
+        }
+        expect(screen.queryByText("Audio saved to this Mac")).toBeNull();
+      },
+    );
 
     it("does not claim audio is saved before recording", () => {
+      mocks.audioRetention = "forever";
       renderBar();
 
-      expect(screen.queryByText("Audio saved to this Mac")).toBeNull();
+      expect(
+        screen.queryByRole("img", { name: "Audio saved to this Mac" }),
+      ).toBeNull();
     });
   });
 });

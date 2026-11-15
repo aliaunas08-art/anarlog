@@ -120,6 +120,9 @@ final class FloatingBarManager {
       model.status = state.status
     }
     applyAmplitude(state.amplitude)
+    if model.elapsedSeconds != state.elapsedSeconds {
+      model.elapsedSeconds = state.elapsedSeconds
+    }
     if model.colorScheme != state.colorScheme {
       model.colorScheme = state.colorScheme
     }

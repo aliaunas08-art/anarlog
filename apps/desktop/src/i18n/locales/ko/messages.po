@@ -221,6 +221,14 @@ msgstr ""
 msgid "{months} months ago"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
+msgid "{notice}; stop listening"
+msgstr ""
+
+#: src/meeting-float/overlay/bar.tsx
+msgid "{notice}. Open {APP_NAME} to retry or change devices."
+msgstr ""
+
 #: src/sidebar/tasks-link.tsx
 msgid "{open} open"
 msgstr ""
@@ -835,7 +843,7 @@ msgstr ""
 msgid "Audio is not available on this device."
 msgstr ""
 
-#: src/session/components/floating/index.tsx
+#: src/session/components/floating/recording-pill.tsx
 msgid "Audio saved to this Mac"
 msgstr ""
 
@@ -1484,6 +1492,10 @@ msgstr ""
 msgid "Collaborator"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
+msgid "Collapse live transcript"
+msgstr ""
+
 #: src/automations/starters.tsx
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Collect action items"
@@ -1748,10 +1760,6 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
-msgstr ""
-
-#: src/settings/general/meeting-settings.tsx
-msgid "Control listening without reopening {APP_NAME}."
 msgstr ""
 
 #: src/settings/stats/index.tsx
@@ -2375,6 +2383,7 @@ msgstr ""
 msgid "Don't save"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
 #: src/resource-sharing/share-dialog.tsx
 #: src/settings/sync/index.tsx
 #: src/task/tasks-view.tsx
@@ -2659,6 +2668,10 @@ msgstr ""
 msgid "Exclude apps from detection"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
+msgid "Expand live transcript"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Expected output"
 msgstr ""
@@ -2758,6 +2771,10 @@ msgstr ""
 msgid "Finish checkout in your browser to unlock more, then return to {APP_NAME}."
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
+msgid "Finish dictation"
+msgstr ""
+
 #: src/settings/general/account.tsx
 #: src/settings/referrals.tsx
 msgid "Finish in your browser, then return to {APP_NAME}."
@@ -2769,6 +2786,10 @@ msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Finishing connection…"
+msgstr ""
+
+#: src/meeting-float/overlay/bar.tsx
+msgid "Finishing…"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -2892,6 +2913,10 @@ msgstr ""
 
 #: src/shared/open-note-dialog.tsx
 msgid "Go to"
+msgstr ""
+
+#: src/meeting-float/overlay/bar.tsx
+msgid "Go to bottom"
 msgstr ""
 
 #: src/shared/control.tsx
@@ -4941,6 +4966,10 @@ msgstr ""
 msgid "Reconnect Slack"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
+msgid "Reconnecting…"
+msgstr ""
+
 #: src/main/home.tsx
 #: src/session/components/floating/meeting-action.tsx
 msgid "Record"
@@ -4966,6 +4995,10 @@ msgstr ""
 msgid "Recording"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
+msgid "Recording needs attention"
+msgstr ""
+
 #: src/session/components/note-input/transcript/actions.ts
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Recording not found. It may have been deleted."
@@ -4983,6 +5016,7 @@ msgstr ""
 msgid "Recording status prompts"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
 #: src/session/components/floating/recording-pill.tsx
 msgid "Recording time {elapsed}"
 msgstr ""
@@ -5823,7 +5857,7 @@ msgid "Show Event"
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
-msgid "Show floating bar"
+msgid "Show floating recording bar"
 msgstr ""
 
 #: src/calendar/components/session-chip.tsx
@@ -6237,6 +6271,7 @@ msgid "Stone"
 msgstr ""
 
 #: src/composer/index.tsx
+#: src/meeting-float/overlay/bar.tsx
 #: src/session/components/floating/meeting-action.tsx
 #: src/session/components/floating/recording-pill.tsx
 msgid "Stop"
@@ -6246,6 +6281,7 @@ msgstr ""
 msgid "Stop auto-add"
 msgstr ""
 
+#: src/meeting-float/overlay/bar.tsx
 #: src/session/components/floating/meeting-action.tsx
 #: src/session/components/floating/recording-pill.tsx
 #: src/sidebar/timeline/item.tsx
@@ -7159,6 +7195,10 @@ msgstr "친구가 무료 체험을 시작하면 내 체험이 한 달 더 연장
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
+msgstr ""
+
+#: src/settings/general/meeting-settings.tsx
+msgid "While you record with {APP_NAME} in the background, a small bar with the timer and Stop stays at the bottom of the screen."
 msgstr ""
 
 #: src/settings/ai/stt/local-file-model.tsx
