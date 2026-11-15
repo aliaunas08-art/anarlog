@@ -1,19 +1,30 @@
 import { create } from "zustand";
 
-import type { AskScope, AskThreadKey } from "~/chat/guardrails/scope";
+import {
+  type AskScope,
+  type AskThreadKey,
+  askThreadKey,
+  resolveAskScope,
+} from "~/chat/guardrails/scope";
 import type { ChatScope } from "~/chat/types";
 import { id } from "~/shared/utils";
 
 export type ChatSelection = {
   groupId: string | undefined;
   sessionId: string;
+  /** A pre-scope chat opened read-only in General (shown unfiltered). */
+  legacy?: boolean;
 };
 
 export type AskResendRequest = {
   scope: AskScope;
   text: string;
   requestId: string;
+  createdAt: number;
 };
+
+/** A re-ask that has not been sent within this window is dropped. */
+export const ASK_RESEND_TTL_MS = 15_000;
 
 interface ChatContextState {
   chatByScope: Record<ChatScope, ChatSelection>;
@@ -22,8 +33,12 @@ interface ChatContextState {
    * with no entry yet starts a fresh, empty thread.
    */
   askThreads: Record<AskThreadKey, ChatSelection>;
-  /** The user's explicit Ask scope choice; null = default for the context. */
+  /**
+   * The user's explicit Ask scope choice, valid only while the same meeting
+   * (or no meeting) is open; on a meeting change the default applies again.
+   */
   askScopePreference: AskScope | null;
+  askScopePreferenceMeetingId: string | null;
   /** A redirect button asked to re-send a query in another scope. */
   pendingAskResend: AskResendRequest | null;
 }
@@ -45,9 +60,39 @@ interface ChatContextActions {
     groupId: string,
     askKey?: AskThreadKey,
   ) => void;
-  setAskScope: (scope: AskScope) => void;
-  requestAskResend: (scope: AskScope, text: string) => void;
+  setAskScope: (scope: AskScope, openMeetingId: string | undefined) => void;
+  requestAskResend: (
+    scope: AskScope,
+    text: string,
+    openMeetingId: string | undefined,
+  ) => void;
+  /**
+   * Selects `scope` for the given open meeting and returns that thread's chat
+   * session id, so a prompt can be queued into the right thread.
+   */
+  prepareAskThread: (
+    scope: AskScope,
+    openMeetingId: string | undefined,
+  ) => string;
+  /** Opens a pre-scope chat in the General thread, shown read-only. */
+  openPreviousChat: (
+    groupId: string,
+    openMeetingId: string | undefined,
+  ) => void;
   clearAskResend: (requestId: string) => void;
+}
+
+/** The user's choice if it was made for the meeting now open, else null. */
+export function effectiveAskPreference(
+  state: Pick<
+    ChatContextState,
+    "askScopePreference" | "askScopePreferenceMeetingId"
+  >,
+  openMeetingId: string | undefined,
+): AskScope | null {
+  return state.askScopePreferenceMeetingId === (openMeetingId ?? null)
+    ? state.askScopePreference
+    : null;
 }
 
 /** Deterministic id so a key without a stored thread renders consistently. */
@@ -88,13 +133,14 @@ function updateSelection(
   return { chatByScope: { ...state.chatByScope, [scope]: updated } };
 }
 
-export const useChatContext = create<State>((set) => ({
+export const useChatContext = create<State>((set, get) => ({
   chatByScope: {
     general: createChatSelection(),
     automations: createChatSelection(),
   },
   askThreads: {},
   askScopePreference: null,
+  askScopePreferenceMeetingId: null,
   pendingAskResend: null,
   setGroupId: (scope, groupId, askKey) =>
     set((state) =>
@@ -124,12 +170,39 @@ export const useChatContext = create<State>((set) => ({
         sessionId: groupId,
       })),
     ),
-  setAskScope: (askScopePreference) => set({ askScopePreference }),
-  requestAskResend: (scope, text) =>
+  setAskScope: (askScopePreference, openMeetingId) =>
+    set({
+      askScopePreference,
+      askScopePreferenceMeetingId: openMeetingId ?? null,
+    }),
+  // One-off: the scope switch lasts until the open meeting changes.
+  requestAskResend: (scope, text, openMeetingId) =>
     set({
       askScopePreference: scope,
-      pendingAskResend: { scope, text, requestId: id() },
+      askScopePreferenceMeetingId: openMeetingId ?? null,
+      pendingAskResend: { scope, text, requestId: id(), createdAt: Date.now() },
     }),
+  openPreviousChat: (groupId, openMeetingId) =>
+    set((state) => ({
+      askScopePreference: "general",
+      askScopePreferenceMeetingId: openMeetingId ?? null,
+      askThreads: {
+        ...state.askThreads,
+        general: { groupId, sessionId: groupId, legacy: true },
+      },
+    })),
+  prepareAskThread: (scope, openMeetingId) => {
+    set({
+      askScopePreference: scope,
+      askScopePreferenceMeetingId: openMeetingId ?? null,
+    });
+    const effective = resolveAskScope(scope, openMeetingId);
+    const key = askThreadKey(
+      effective,
+      effective === "meeting" ? openMeetingId : undefined,
+    );
+    return selectChatSelection(get(), "general", key).sessionId;
+  },
   clearAskResend: (requestId) =>
     set((state) =>
       state.pendingAskResend?.requestId === requestId

@@ -23,17 +23,22 @@ import {
 import {
   type AskModelClassifier,
   type AskClassification,
-  classifyAskQueryWithFallback,
+  applyModelFallback,
+  classifyAskQuery,
 } from "../guardrails/classifier";
 import {
   type AskContextDeps,
   assembleAskContext,
   meetingTermsFromContext,
+  searchLibrarySafely,
   selectHistoryForModel,
 } from "../guardrails/context";
 import {
   buildAskScopePrompt,
   composeAskSystemPrompt,
+  filterToolGuidance,
+  KNOWN_TOOL_NAMES,
+  stripAskIrrelevantBaseLines,
 } from "../guardrails/prompt";
 import {
   ASK_REDIRECT_LIBRARY_UNRELATED,
@@ -62,6 +67,7 @@ import {
 
 import {
   isAiUsageLimitReached,
+  recordAskQuery,
   recordAskRedirect,
   usageProviderOptions,
 } from "~/ai/usage";
@@ -403,17 +409,20 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       }
     }
 
-    const classification = await classifyAskQueryWithFallback(
-      query,
-      scope,
-      {
-        meetingTitle: meeting?.title ?? null,
-        meetingTerms: meetingTermsFromContext(meeting),
-        otherMeetingTitles,
-        hasPriorTurns,
-      },
-      deps.classifyWithModel,
-    );
+    // Library scope: the local search runs first; a hit makes the request
+    // relevant, so it can never be redirected by rules alone.
+    const excerpts =
+      scope === "library" ? await searchLibrarySafely(query, deps) : undefined;
+    const explicitIntent = lastUserMessage.metadata?.askIntent;
+    const classifierContext = {
+      meetingTitle: meeting?.title ?? null,
+      meetingTerms: meetingTermsFromContext(meeting),
+      otherMeetingTitles,
+      hasPriorTurns,
+      libraryHits: excerpts?.length ?? 0,
+      explicitIntent,
+    };
+    let classification = classifyAskQuery(query, scope, classifierContext);
 
     const redirect = (
       reply: string,
@@ -434,19 +443,26 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
         askRedirect: { query, actions },
       });
     };
+    const redirectIfOutOfScope = () => {
+      if (scope === "meeting" && classification.mentionsOtherMeeting) {
+        return redirect(ASK_REDIRECT_OTHER_MEETING, ["library"]);
+      }
+      if (scope !== "general" && classification.intent === "unrelated") {
+        return scope === "meeting"
+          ? redirect(ASK_REDIRECT_MEETING_UNRELATED, ["library", "general"])
+          : redirect(ASK_REDIRECT_LIBRARY_UNRELATED, ["general"]);
+      }
+      return null;
+    };
 
-    if (scope === "meeting" && classification.mentionsOtherMeeting) {
-      return redirect(ASK_REDIRECT_OTHER_MEETING, ["library"]);
-    }
-    if (scope !== "general" && classification.intent === "unrelated") {
-      return scope === "meeting"
-        ? redirect(ASK_REDIRECT_MEETING_UNRELATED, ["library", "general"])
-        : redirect(ASK_REDIRECT_LIBRARY_UNRELATED, ["general"]);
-    }
+    const ruleRedirect = redirectIfOutOfScope();
+    if (ruleRedirect) return ruleRedirect;
 
+    // Usage gate: before any model call, including the classifier fallback.
+    const providerId = deps.getProviderId?.();
     if (
       await isAiUsageLimitReached({
-        providerId: deps.getProviderId?.(),
+        providerId,
         limit: deps.getDailyLimit?.(),
       })
     ) {
@@ -464,21 +480,36 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
         askNotice: "usage_limit",
       });
     }
+    recordAskQuery({ providerId, askScope: scope });
+
+    classification = await applyModelFallback(
+      classification,
+      query,
+      scope,
+      classifierContext,
+      deps.classifyWithModel,
+    );
+    const modelRedirect = redirectIfOutOfScope();
+    if (modelRedirect) return modelRedirect;
 
     const context = await assembleAskContext(
-      { scope, meetingId, query, meeting },
+      { scope, meetingId, query, meeting, excerpts },
       deps,
     );
     const tools = selectToolsForScope(this.tools, {
       scope,
       meetingId,
-      explicitEdit: classification.explicitEdit,
+      explicitEdit:
+        classification.explicitEdit || explicitIntent === "edit_summary",
     });
-    const hasTools = Object.keys(tools).length > 0;
+    const toolNames = Object.keys(tools);
     const basePrompt = [
-      deps.baseSystemPrompt ?? this.systemPrompt,
-      hasTools && deps.baseSystemPrompt !== undefined
-        ? deps.toolGuidance
+      stripAskIrrelevantBaseLines(deps.baseSystemPrompt ?? this.systemPrompt),
+      deps.baseSystemPrompt !== undefined && deps.toolGuidance
+        ? filterToolGuidance(deps.toolGuidance, toolNames, [
+            ...Object.keys(this.tools),
+            ...KNOWN_TOOL_NAMES,
+          ])
         : undefined,
     ]
       .filter(Boolean)
@@ -490,24 +521,39 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
         intent: classification.intent,
         emptyLibrary: context.emptyLibrary,
         meetingMissing: context.meetingMissing,
+        refersToPrior: classification.refersToPrior,
       }),
     );
 
+    // The model always gets exactly one user message: the current question,
+    // prefixed by the scope's sources and, for a follow-up, the one earlier
+    // reply it refers to (as quoted data, never as a live conversation turn).
     const history = selectHistoryForModel(options.messages, {
       threadKey,
       refersToPrior: classification.refersToPrior,
-    }).map(toTextOnlyTurn);
-    const modelMessages = history.map((message, index) =>
-      index === history.length - 1 && context.sourcesBlock
+    });
+    const current = history[history.length - 1]!;
+    const priorReply =
+      history.length > 1 ? messageText(toTextOnlyTurn(history[0]!)) : "";
+    const prefix = [
+      context.sourcesBlock,
+      priorReply
+        ? `<previous_reply>\n${priorReply.replace(/<\s*\/?\s*previous_reply/gi, (m) => m.replace("<", "&lt;"))}\n</previous_reply>`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    const modelMessages: AnlgUIMessage[] = [
+      prefix
         ? {
-            ...message,
+            ...current,
             parts: [
-              { type: "text" as const, text: `${context.sourcesBlock}\n\n` },
-              ...message.parts,
+              { type: "text" as const, text: `${prefix}\n\n` },
+              ...current.parts,
             ],
           }
-        : message,
-    );
+        : current,
+    ];
 
     report({
       scope,
@@ -519,7 +565,7 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       instructions,
       sourcesBlock: context.sourcesBlock,
       includedMeetingIds: context.includedMeetingIds,
-      toolNames: Object.keys(tools),
+      toolNames,
       modelMessages,
     });
 

@@ -40,6 +40,36 @@ export function useChatGroups(chatScope: ChatScope): ChatGroupRecord[] {
   return useChatGroupsQuery(chatScope);
 }
 
+/**
+ * General chats from before scoped Ask threads (no user message carries an
+ * askScope). Listed under "Previous chats"; opened read-only in General and
+ * never part of a keyed thread's model context.
+ */
+export function usePreviousChatGroups(
+  enabled: boolean,
+  limit = 5,
+): ChatGroupRecord[] {
+  const { data = EMPTY_CHAT_GROUPS } = useLiveQuery<
+    ChatGroupSqlRow,
+    ChatGroupRecord[]
+  >({
+    sql: `
+      SELECT g.id, g.owner_user_id, g.title, g.created_at, g.updated_at
+      FROM chat_groups AS g
+      WHERE g.deleted_at IS NULL
+        AND ${chatGroupScopePredicate("general")}
+        AND NOT ${ANY_ASK_SCOPE_PREDICATE}
+      ORDER BY g.created_at DESC, g.id DESC
+      LIMIT ?
+    `,
+    params: [limit],
+    enabled,
+    mapRows: (rows) => rows.map(mapChatGroupRow),
+  });
+
+  return enabled ? data : EMPTY_CHAT_GROUPS;
+}
+
 function useChatGroupsQuery(
   chatScope: ChatScope,
   limit?: number,
@@ -320,6 +350,18 @@ const ASK_THREAD_PREDICATE = `
       AND json_valid(am.metadata_json)
       AND json_extract(am.metadata_json, '$.askScope') = ?
       AND COALESCE(json_extract(am.metadata_json, '$.askMeetingId'), '') = ?
+  )
+`;
+
+const ANY_ASK_SCOPE_PREDICATE = `
+  EXISTS (
+    SELECT 1
+    FROM chat_messages AS am
+    WHERE am.chat_group_id = g.id
+      AND am.deleted_at IS NULL
+      AND am.role = 'user'
+      AND json_valid(am.metadata_json)
+      AND json_extract(am.metadata_json, '$.askScope') IS NOT NULL
   )
 `;
 

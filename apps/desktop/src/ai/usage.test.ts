@@ -5,6 +5,7 @@ import {
   isAiUsageLimitReached,
   loadAiUsage,
   recordAiCall,
+  recordAskQuery,
   recordAskRedirect,
   resetAiUsageForTests,
   todayKey,
@@ -30,9 +31,14 @@ describe("ai usage counter", () => {
     expect(usage.askRedirects).toBe(1);
   });
 
-  it("limits only the developer key, and only when a limit is configured", async () => {
-    recordAiCall({ task: "chat", providerId: "anarlog" });
-    recordAiCall({ task: "chat", providerId: "anarlog" });
+  it("limits Ask questions on the developer key only, and only when a limit is configured", async () => {
+    recordAskQuery({ providerId: "anarlog", askScope: "general" });
+    recordAskQuery({ providerId: "anarlog", askScope: "meeting" });
+    // Background model calls (summaries, titles) never consume the Ask limit.
+    for (let i = 0; i < 5; i += 1) {
+      recordAiCall({ task: "enhance", providerId: "anarlog" });
+    }
+    expect(getAiUsage().askQueriesByScope).toEqual({ general: 1, meeting: 1 });
 
     await expect(
       isAiUsageLimitReached({ providerId: "anarlog", limit: 2 }),

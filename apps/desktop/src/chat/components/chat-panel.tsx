@@ -12,7 +12,11 @@ import { useHasEditableSummary } from "./use-summary-quick-actions";
 
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
-import { selectChatSelection, useChatContext } from "~/chat/state/chat-context";
+import {
+  ASK_RESEND_TTL_MS,
+  selectChatSelection,
+  useChatContext,
+} from "~/chat/state/chat-context";
 import { useAskThread } from "~/chat/state/use-ask-thread";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { chatFloatingPanelClassNames } from "~/chat/surface";
@@ -50,18 +54,59 @@ function ScopedChatSession({
   children: (sessionProps: ChatSessionRenderProps | null) => ReactNode;
 }) {
   const askThread = useAskThread();
-  const askKey = scope === "general" ? askThread.threadKey : undefined;
+  const activeKey = scope === "general" ? askThread.threadKey : scope;
+  // A thread that is still answering stays mounted after a key switch so its
+  // stream finishes and onFinish persists the reply; it unmounts once idle.
+  const [mountedKeys, setMountedKeys] = useState<string[]>([activeKey]);
+  if (!mountedKeys.includes(activeKey)) {
+    setMountedKeys([...mountedKeys, activeKey]);
+  }
+  const releaseKey = useCallback((key: string) => {
+    setMountedKeys((keys) => keys.filter((candidate) => candidate !== key));
+  }, []);
+
+  return mountedKeys.map((key) => (
+    <KeyedChatSession
+      key={key}
+      scope={scope}
+      threadKey={key}
+      active={key === activeKey}
+      onIdle={releaseKey}
+    >
+      {children}
+    </KeyedChatSession>
+  ));
+}
+
+function KeyedChatSession({
+  scope,
+  threadKey,
+  active,
+  onIdle,
+  children,
+}: {
+  scope: ChatScope;
+  threadKey: string;
+  active: boolean;
+  onIdle: (key: string) => void;
+  children: (sessionProps: ChatSessionRenderProps | null) => ReactNode;
+}) {
+  const askKey = scope === "general" ? threadKey : undefined;
   const groupId = useChatContext(
     (state) => selectChatSelection(state, scope, askKey).groupId,
   );
   const sessionId = useChatContext(
     (state) => selectChatSelection(state, scope, askKey).sessionId,
   );
+  const legacy = useChatContext(
+    (state) => selectChatSelection(state, scope, askKey).legacy === true,
+  );
   const noteFilter = useSidebarNotes((state) => state.noteFilter);
   const folderFilter = useSidebarNotes((state) => state.folderFilter);
-  // Only a "This meeting" thread is tied to the open meeting.
-  const contextSessionId =
-    scope === "automations" ? undefined : askThread.meetingId;
+  // Only a "This meeting" thread is tied to a meeting: the one in its key.
+  const contextSessionId = askKey?.startsWith("meeting:")
+    ? askKey.slice("meeting:".length)
+    : undefined;
   const folderId =
     scope === "automations"
       ? undefined
@@ -82,24 +127,49 @@ function ScopedChatSession({
   });
 
   if (!ownerUserId) {
-    return <>{children(null)}</>;
+    return <>{active ? children(null) : null}</>;
   }
 
   return (
     <ChatSession
-      key={askKey ?? scope}
       sessionId={sessionId}
       chatGroupId={groupId}
-      askThreadKey={askKey}
+      // A pre-scope chat is shown unfiltered; its turns still never reach the
+      // model (the transport only sends turns with this thread's key).
+      askThreadKey={legacy ? undefined : askKey}
       currentSessionId={contextSessionId}
       folderId={folderId}
       hasAvailableTranscript={hasAvailableTranscript}
       isBatchTranscriptionPending={batchTranscriptionPending}
       unstyled
     >
-      {children}
+      {(sessionProps) =>
+        active ? (
+          children(sessionProps)
+        ) : (
+          <IdleRelease
+            status={sessionProps.status}
+            onIdle={() => onIdle(threadKey)}
+          />
+        )
+      }
     </ChatSession>
   );
+}
+
+function IdleRelease({
+  status,
+  onIdle,
+}: {
+  status: ChatSessionRenderProps["status"];
+  onIdle: () => void;
+}) {
+  useEffect(() => {
+    if (status === "ready" || status === "error") {
+      onIdle();
+    }
+  }, [status, onIdle]);
+  return null;
 }
 
 export function ChatPanelFrame({
@@ -137,6 +207,7 @@ export function ChatPanelFrame({
   const pendingAskResend = useChatContext((state) => state.pendingAskResend);
   const clearAskResend = useChatContext((state) => state.clearAskResend);
   const requestAskResend = useChatContext((state) => state.requestAskResend);
+  const openPreviousChat = useChatContext((state) => state.openPreviousChat);
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
@@ -164,10 +235,18 @@ export function ChatPanelFrame({
   // A redirect button re-asks the same text once the target scope's own
   // thread is mounted.
   useEffect(() => {
+    if (!pendingAskResend) return;
+    // A re-ask belongs to the scope it was requested for; drop it if the
+    // thread moved elsewhere or it went stale.
     if (
-      !pendingAskResend ||
-      !sessionProps ||
       askScope !== pendingAskResend.scope ||
+      Date.now() - pendingAskResend.createdAt > ASK_RESEND_TTL_MS
+    ) {
+      clearAskResend(pendingAskResend.requestId);
+      return;
+    }
+    if (
+      !sessionProps ||
       sessionProps.sessionId !== chat.sessionId ||
       !sessionProps.isSystemPromptReady ||
       !model
@@ -211,6 +290,9 @@ export function ChatPanelFrame({
           <ChatToolbarControls
             chatScope={chat.scope}
             askThreadKey={chat.askThreadKey}
+            onSelectPreviousChat={(previousGroupId) =>
+              openPreviousChat(previousGroupId, chat.openMeetingId)
+            }
             currentChatGroupId={groupId}
             layout={layout}
             onClose={() => chat.sendEvent({ type: "CLOSE" })}
@@ -255,13 +337,16 @@ export function ChatPanelFrame({
             isLiveMeeting={isLiveMeeting}
             hasSummary={hasSummary && sessionProps.contextEntities.length > 0}
             askScope={askScope}
-            onAskRedirect={(scope, text) => requestAskResend(scope, text)}
-            onSendMessage={(content, parts) => {
+            onAskRedirect={(scope, text) =>
+              requestAskResend(scope, text, chat.openMeetingId)
+            }
+            onSendMessage={(content, parts, _contextRefs, options) => {
               handleSendMessage(
                 content,
                 parts,
                 sessionProps.sendMessage,
                 sessionProps.pendingRefs,
+                options,
               );
             }}
           />

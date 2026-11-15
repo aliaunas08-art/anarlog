@@ -21,14 +21,14 @@ export function AiUsageLine() {
 
   if (!usage) return null;
 
+  const questions = usage.askQueries;
   const calls = usage.calls;
-  const hosted = usage.developerKeyCalls;
   const redirects = usage.askRedirects;
 
   return (
     <p data-ai-usage-line className="text-muted-foreground text-xs">
       <Trans>
-        Today: {calls} AI calls ({hosted} on the built-in key), {redirects} Ask
+        Today: {questions} Ask questions, {calls} AI calls, {redirects}{" "}
         redirects.
       </Trans>
     </p>

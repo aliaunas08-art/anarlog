@@ -8,6 +8,7 @@ import {
 import { useShowSessionShare } from "./outer-header";
 
 import { queueChatPrompt } from "~/chat/components/input/hooks";
+import { useChatContext } from "~/chat/state/chat-context";
 import { useShell } from "~/contexts/shell";
 import { useEnhancedNote } from "~/session/queries";
 
@@ -41,8 +42,12 @@ export function SessionActionCapsules({
   if (!markdown) return null;
 
   const draftFollowUp = () => {
+    // The draft needs this meeting's transcript: use its "This meeting" thread.
+    const threadSessionId = useChatContext
+      .getState()
+      .prepareAskThread("meeting", sessionId);
     queueChatPrompt(
-      chat.sessionId,
+      threadSessionId,
       t`Draft a follow-up email to the participants`,
     );
     chat.sendEvent({ type: "OPEN" });

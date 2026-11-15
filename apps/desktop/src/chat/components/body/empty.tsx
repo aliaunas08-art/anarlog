@@ -14,10 +14,19 @@ import {
 import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
+import type { AskExplicitIntent } from "~/chat/guardrails/classifier";
 import type { AskScope } from "~/chat/guardrails/scope";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { APP_NAME } from "~/shared/app-name";
 import { useTabs } from "~/store/zustand/tabs";
+
+type Suggestion = {
+  label: string;
+  icon: typeof Envelope;
+  prompt: string;
+  /** Summary chips are explicit edit requests (edit tools stay available). */
+  askIntent?: AskExplicitIntent;
+};
 
 export function ChatBodyEmpty({
   isModelConfigured = true,
@@ -36,11 +45,12 @@ export function ChatBodyEmpty({
     content: string,
     parts: Array<{ type: "text"; text: string }>,
     contextRefs?: ContextRef[],
+    options?: { askIntent?: AskExplicitIntent },
   ) => void;
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
-  const liveMeetingSuggestions = [
+  const liveMeetingSuggestions: Suggestion[] = [
     {
       label: t`Recap the last 5 minutes.`,
       icon: ClockCounterClockwise,
@@ -57,21 +67,23 @@ export function ChatBodyEmpty({
       prompt: t`What action items have come up so far in this meeting?`,
     },
   ];
-  const summarySuggestions = hasSummary
+  const summarySuggestions: Suggestion[] = hasSummary
     ? [
         {
           label: t`Make the summary shorter.`,
           icon: ArrowsInSimple,
+          askIntent: "edit_summary",
           prompt: t`Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail.`,
         },
         {
           label: t`Make the summary longer.`,
           icon: ArrowsOutSimple,
+          askIntent: "edit_summary",
           prompt: t`Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything.`,
         },
       ]
     : [];
-  const meetingSuggestions = [
+  const meetingSuggestions: Suggestion[] = [
     ...summarySuggestions,
     {
       label: t`List action items.`,
@@ -116,8 +128,13 @@ export function ChatBodyEmpty({
   }, [openNew]);
 
   const handleSuggestionClick = useCallback(
-    (prompt: string) => {
-      onSendMessage?.(prompt, [{ type: "text", text: prompt }]);
+    (prompt: string, askIntent?: AskExplicitIntent) => {
+      onSendMessage?.(
+        prompt,
+        [{ type: "text", text: prompt }],
+        undefined,
+        askIntent ? { askIntent } : undefined,
+      );
     },
     [onSendMessage],
   );
@@ -181,10 +198,10 @@ export function ChatBodyEmpty({
           </p>
         ) : null}
         <div className="flex flex-col gap-0.5">
-          {suggestions.map(({ label, icon: Icon, prompt }) => (
+          {suggestions.map(({ label, icon: Icon, prompt, askIntent }) => (
             <button
               key={label}
-              onClick={() => handleSuggestionClick(prompt)}
+              onClick={() => handleSuggestionClick(prompt, askIntent)}
               className={cn([
                 "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
                 isDarkAppearance

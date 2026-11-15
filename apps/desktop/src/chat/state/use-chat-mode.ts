@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { startAskThreadPersistence } from "./ask-thread-persistence";
 import { selectChatSelection, useChatContext } from "./chat-context";
 import { useAskThread } from "./use-ask-thread";
 
@@ -9,6 +10,7 @@ import { primaryHotkey } from "~/shared/primary-hotkey";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useChatMode() {
+  startAskThreadPersistence();
   const mode = useTabs((state) => state.chatMode);
   const transitionChatMode = useTabs((state) => state.transitionChatMode);
   const scope = useTabs(

@@ -220,7 +220,7 @@ describe("HomeView", () => {
     fireEvent.change(input, { target: { value: "What changed?" } });
     fireEvent.keyDown(input, { key: "Enter", metaKey: true });
     expect(mocks.queueChatPrompt).toHaveBeenCalledWith(
-      "chat-1",
+      "ask:library",
       "What changed?",
     );
     expect(mocks.createSession).not.toHaveBeenCalled();
@@ -257,7 +257,7 @@ describe("HomeView", () => {
     render(<HomeView />);
     fireEvent.click(screen.getByRole("button", { name: "Recap yesterday" }));
     expect(mocks.queueChatPrompt).toHaveBeenCalledWith(
-      "chat-1",
+      "ask:library",
       "Recap yesterday",
     );
     expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });

@@ -54,7 +54,7 @@ export function formatMeetingDate(date: string | null | undefined): string {
 
 // Source text can never close the data block early.
 function escapeSourceText(text: string): string {
-  return text.replace(/<\/?\s*meeting_sources/gi, (match) =>
+  return text.replace(/<\s*\/?\s*meeting_sources/gi, (match) =>
     match.replace("<", "&lt;"),
   );
 }
@@ -155,6 +155,21 @@ export function meetingTermsFromContext(ctx: SessionContext | null) {
   ]);
 }
 
+/** Top-k library search; failures yield no excerpts. */
+export async function searchLibrarySafely(
+  query: string,
+  deps: Pick<AskContextDeps, "searchLibrary">,
+): Promise<LibraryExcerpt[]> {
+  try {
+    return (
+      await deps.searchLibrary(buildLibrarySearchQuery(query), LIBRARY_TOP_K)
+    ).slice(0, LIBRARY_TOP_K);
+  } catch (error) {
+    console.error("[ask-guardrails] library search failed", error);
+    return [];
+  }
+}
+
 /**
  * Builds the only meeting context a model sees for one Ask request.
  * - meeting: that one meeting (transcript with timestamps, notes, summary).
@@ -168,12 +183,15 @@ export async function assembleAskContext(
     meetingId,
     query,
     meeting,
+    excerpts: prefetched,
   }: {
     scope: AskScope;
     meetingId?: string | null;
     query: string;
     /** Pre-hydrated meeting (the transport loads it once for the classifier). */
     meeting?: SessionContext | null;
+    /** Pre-fetched library excerpts (the transport searches before classifying). */
+    excerpts?: LibraryExcerpt[];
   },
   deps: AskContextDeps,
 ): Promise<AssembledAskContext> {
@@ -215,14 +233,9 @@ export async function assembleAskContext(
     };
   }
 
-  let excerpts: LibraryExcerpt[] = [];
-  try {
-    excerpts = (
-      await deps.searchLibrary(buildLibrarySearchQuery(query), LIBRARY_TOP_K)
-    ).slice(0, LIBRARY_TOP_K);
-  } catch (error) {
-    console.error("[ask-guardrails] library search failed", error);
-  }
+  const excerpts = (
+    prefetched ?? (await searchLibrarySafely(query, deps))
+  ).slice(0, LIBRARY_TOP_K);
   return {
     ...base,
     sourcesBlock: renderLibrarySources(excerpts),
@@ -244,8 +257,9 @@ export function getMessageAskThreadKey(metadata: unknown): string | null {
 }
 
 /**
- * History rule: send only the current message, unless it refers to a prior
- * output — then send earlier turns from the same thread key only.
+ * History rule: send only the current message. When it refers to a prior
+ * output, add just the most recent assistant turn of the same thread key —
+ * never older turns, never other keys.
  */
 export function selectHistoryForModel<T extends HistoryMessage>(
   messages: T[],
@@ -262,15 +276,16 @@ export function selectHistoryForModel<T extends HistoryMessage>(
   const current = messages[lastUserIndex]!;
   if (!refersToPrior) return [current];
 
-  const prior: T[] = [];
-  let include = false;
+  let turnKey: string | null = null;
+  let lastAssistant: T | undefined;
   for (const message of messages.slice(0, lastUserIndex)) {
     if (message.role === "user") {
-      include = getMessageAskThreadKey(message.metadata) === threadKey;
+      turnKey = getMessageAskThreadKey(message.metadata);
+    } else if (message.role === "assistant" && turnKey === threadKey) {
+      lastAssistant = message;
     }
-    if (include) prior.push(message);
   }
-  return [...prior, current];
+  return lastAssistant ? [lastAssistant, current] : [current];
 }
 
 /** Keeps only turns whose user message belongs to `threadKey`. */

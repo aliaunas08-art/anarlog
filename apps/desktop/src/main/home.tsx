@@ -26,6 +26,7 @@ import {
   useUpcomingMeetings,
 } from "~/calendar/upcoming-meetings";
 import { queueChatPrompt } from "~/chat/components/input/hooks";
+import { useChatContext } from "~/chat/state/chat-context";
 import { usePersonalContact } from "~/contacts/queries";
 import { useShell } from "~/contexts/shell";
 import { useLiveQuery } from "~/db";
@@ -228,7 +229,13 @@ export function HomeView() {
   const ask = useCallback(
     (text: string) => {
       const prompt = text.trim();
-      if (prompt) queueChatPrompt(chat.sessionId, prompt);
+      if (prompt) {
+        // Home has no open meeting: ask across all meetings.
+        const threadSessionId = useChatContext
+          .getState()
+          .prepareAskThread("library", undefined);
+        queueChatPrompt(threadSessionId, prompt);
+      }
       chat.sendEvent({ type: "OPEN" });
     },
     [chat],

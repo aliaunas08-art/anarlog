@@ -17,6 +17,7 @@ import {
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
+import type { AskExplicitIntent } from "~/chat/guardrails/classifier";
 import type { AskScope } from "~/chat/guardrails/scope";
 import type { ChatMessageSender, ChatScope, AnlgUIMessage } from "~/chat/types";
 import { useOwnerUserId } from "~/shared/owner-user";
@@ -102,6 +103,7 @@ export function useChatActions({
       parts: AnlgUIMessage["parts"],
       sendMessage: ChatMessageSender,
       contextRefs?: ContextRef[],
+      sendOptions?: { askIntent?: AskExplicitIntent },
     ) => {
       if (!ownerUserId) {
         console.error("Cannot persist chat message without an owner user id");
@@ -115,6 +117,9 @@ export function useChatActions({
         ...(chatScope === "general" && askScope ? { askScope } : {}),
         ...(chatScope === "general" && askScope === "meeting" && askMeetingId
           ? { askMeetingId }
+          : {}),
+        ...(chatScope === "general" && sendOptions?.askIntent
+          ? { askIntent: sendOptions.askIntent }
           : {}),
         ...(contextRefs && contextRefs.length > 0 ? { contextRefs } : {}),
       };

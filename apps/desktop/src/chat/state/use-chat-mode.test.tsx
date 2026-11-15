@@ -19,6 +19,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 
 vi.mock("./chat-context", () => ({
+  effectiveAskPreference: () => null,
   selectChatSelection: (
     state: { chatByScope: Record<string, unknown> },
     scope: string,

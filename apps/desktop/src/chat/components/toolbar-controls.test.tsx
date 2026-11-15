@@ -35,6 +35,7 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
 
 vi.mock("~/chat/store/queries", () => ({
   useRecentChatGroups: mocks.useRecentChatGroups,
+  usePreviousChatGroups: () => [],
 }));
 
 import { ChatToolbarControls } from "./toolbar-controls";

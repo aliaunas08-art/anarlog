@@ -1,4 +1,4 @@
-import { useChatContext } from "./chat-context";
+import { effectiveAskPreference, useChatContext } from "./chat-context";
 
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import {
@@ -21,8 +21,10 @@ export type AskThread = {
 /** The active Ask thread: scope from the user's choice + the open meeting. */
 export function useAskThread(): AskThread {
   const { currentSessionId } = useSessionTab();
-  const preference = useChatContext((state) => state.askScopePreference);
-  const setAskScope = useChatContext((state) => state.setAskScope);
+  const preference = useChatContext((state) =>
+    effectiveAskPreference(state, currentSessionId),
+  );
+  const setScope = useChatContext((state) => state.setAskScope);
   const askScope = resolveAskScope(preference, currentSessionId);
   const meetingId = askScope === "meeting" ? currentSessionId : undefined;
 
@@ -31,6 +33,6 @@ export function useAskThread(): AskThread {
     meetingId,
     openMeetingId: currentSessionId,
     threadKey: askThreadKey(askScope, meetingId),
-    setAskScope,
+    setAskScope: (scope: AskScope) => setScope(scope, currentSessionId),
   };
 }

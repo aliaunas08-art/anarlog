@@ -2,9 +2,18 @@ import type { LanguageModelMiddleware } from "ai";
 
 import { commands as store2Commands } from "@anlg/plugin-store2";
 
-// Local per-day AI usage counter (store2 key-value, no schema). Every model
-// call made through createLanguageModel is recorded. Only the hosted developer
-// key ("anarlog") can be limited; BYOK providers record but never block.
+// Local per-day AI usage counter (store2 key-value, no schema).
+//
+// Two kinds of counts:
+// - Ask queries: one per Ask question that reaches the model path (counted in
+//   the chat transport, after rule redirects and before the classifier's
+//   model fallback). General-scope questions always count. The daily limit
+//   (`ai_usage_daily_limit`) applies to these, and only on the built-in
+//   developer key ("anarlog"); BYOK providers record but never block.
+// - Model calls: every call made through createLanguageModel (Ask steps,
+//   classifier fallback, titles, summaries…), recorded by the middleware as
+//   telemetry. Background tasks therefore never consume the Ask limit.
+// Redirects make no model call; they are counted separately.
 
 export const DEVELOPER_KEY_PROVIDER_ID = "anarlog";
 const STORE_SCOPE = "ai-usage";
@@ -20,6 +29,11 @@ export type AiUsageDay = {
   byAskScope: Record<string, number>;
   /** Ask redirects answered locally; they make no model call. */
   askRedirects: number;
+  /** Ask questions that reached the model path. */
+  askQueries: number;
+  /** Ask questions on the built-in developer key (what the limit counts). */
+  developerKeyAskQueries: number;
+  askQueriesByScope: Record<string, number>;
 };
 
 export type AiUsageStorage = {
@@ -62,6 +76,9 @@ function emptyDay(date: string): AiUsageDay {
     byProvider: {},
     byAskScope: {},
     askRedirects: 0,
+    askQueries: 0,
+    developerKeyAskQueries: 0,
+    askQueriesByScope: {},
   };
 }
 
@@ -118,6 +135,9 @@ function mergeDays(a: AiUsageDay, b: AiUsageDay): AiUsageDay {
     byProvider: mergeCounts(a.byProvider, b.byProvider),
     byAskScope: mergeCounts(a.byAskScope, b.byAskScope),
     askRedirects: a.askRedirects + b.askRedirects,
+    askQueries: a.askQueries + b.askQueries,
+    developerKeyAskQueries: a.developerKeyAskQueries + b.developerKeyAskQueries,
+    askQueriesByScope: mergeCounts(a.askQueriesByScope, b.askQueriesByScope),
   };
 }
 
@@ -167,6 +187,24 @@ export function recordAiCall(record: AiCallRecord, now: Date = new Date()) {
   });
 }
 
+/** One Ask question that reached the model path (see header comment). */
+export function recordAskQuery(
+  {
+    providerId,
+    askScope,
+  }: { providerId: string | null | undefined; askScope: string },
+  now: Date = new Date(),
+) {
+  update(todayKey(now), (day) => {
+    day.askQueries += 1;
+    if (providerId === DEVELOPER_KEY_PROVIDER_ID) {
+      day.developerKeyAskQueries += 1;
+    }
+    day.askQueriesByScope[askScope] =
+      (day.askQueriesByScope[askScope] ?? 0) + 1;
+  });
+}
+
 export function recordAskRedirect(now: Date = new Date()) {
   update(todayKey(now), (day) => {
     day.askRedirects += 1;
@@ -174,8 +212,10 @@ export function recordAskRedirect(now: Date = new Date()) {
 }
 
 /**
- * Whether Ask must stop calling the model. Only the developer key is limited;
- * `limit` null/undefined/<= 0 means unlimited.
+ * Whether Ask must stop calling the model: today's Ask questions on the
+ * developer key have reached `limit`. BYOK is never limited; `limit`
+ * null/undefined/<= 0 means unlimited. Model calls from background tasks do
+ * not count.
  */
 export async function isAiUsageLimitReached({
   providerId,
@@ -189,7 +229,7 @@ export async function isAiUsageLimitReached({
     return false;
   }
   const day = await loadAiUsage();
-  return day.developerKeyCalls >= limit;
+  return day.developerKeyAskQueries >= limit;
 }
 
 // Ask passes its scope to the middleware through provider options.

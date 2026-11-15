@@ -4789,6 +4789,10 @@ msgstr "Prevent selected apps from triggering meeting detection."
 msgid "Preview"
 msgstr "Preview"
 
+#: src/chat/components/toolbar-controls.tsx
+msgid "Previous chats"
+msgstr "Previous chats"
+
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr "Previous match"
@@ -6721,8 +6725,8 @@ msgid "Today"
 msgstr "Today"
 
 #: src/settings/ai/llm/usage-line.tsx
-msgid "Today: {calls} AI calls ({hosted} on the built-in key), {redirects} Ask redirects."
-msgstr "Today: {calls} AI calls ({hosted} on the built-in key), {redirects} Ask redirects."
+msgid "Today: {questions} Ask questions, {calls} AI calls, {redirects} redirects."
+msgstr "Today: {questions} Ask questions, {calls} AI calls, {redirects} redirects."
 
 #: src/sidebar/timeline/utils/index.ts
 #: src/task/task-cell-pickers.tsx

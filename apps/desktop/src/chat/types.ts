@@ -14,6 +14,8 @@ const messageMetadataSchema = z.object({
   // neither and are never loaded into a keyed thread.
   askScope: z.enum(ASK_SCOPES).optional(),
   askMeetingId: z.string().optional(),
+  // User only: an explicit intent from a UI action (the summary chips).
+  askIntent: z.literal("edit_summary").optional(),
   // Assistant only: a one-line redirect with buttons to re-ask elsewhere.
   askRedirect: z
     .object({
