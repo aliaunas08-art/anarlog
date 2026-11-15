@@ -24,7 +24,17 @@ vi.mock("~/db", () => ({
 }));
 
 vi.mock("~/editor-bridge/task-storage", () => ({
+  resolvedTaskSessionIdSql: () => "''",
   setActionItemStatus: mocks.setActionItemStatus,
+}));
+
+vi.mock("~/calendar/hooks", () => ({
+  useTimezone: () => "UTC",
+  useWeekStartsOn: () => 1,
+}));
+
+vi.mock("~/shared/hooks/useCurrentDay", () => ({
+  useCurrentDay: () => "2026-11-15",
 }));
 
 vi.mock("~/shared/owner-user", () => ({
@@ -53,8 +63,6 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 import { TabContentTasks, TasksView } from "./tasks-view";
 
-const NOW = new Date(2026, 10, 15, 10, 0);
-
 function row(overrides: Partial<TaskRow>): TaskRow {
   return {
     id: "t",
@@ -68,7 +76,7 @@ function row(overrides: Partial<TaskRow>): TaskRow {
     session_title: "Product sync",
     session_date: "2026-11-12T10:00:00.000Z",
     source_order: 0,
-    updated_at: "2026-11-12T10:00:00.000Z",
+    done_at: "2026-11-12T10:00:00.000Z",
     ...overrides,
   };
 }
@@ -101,7 +109,7 @@ describe("TasksView", () => {
   });
 
   it("renders open rows grouped by due date", () => {
-    render(<TasksView view="all" now={NOW} />);
+    render(<TasksView view="all" />);
 
     expect(screen.getAllByTestId("task-row")).toHaveLength(3);
     const week = screen.getByTestId("task-group-due:this_week");
@@ -123,22 +131,29 @@ describe("TasksView", () => {
   it("switches views with the segmented control", () => {
     render(<TabContentTasks />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "By person" }));
+    fireEvent.click(screen.getByRole("radio", { name: "By person" }));
     expect(screen.getByTestId("task-group-person:h1")).toBeTruthy();
     expect(screen.getByTestId("task-group-person:")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("tab", { name: "By meeting" }));
+    fireEvent.keyDown(screen.getByRole("radio", { name: "By person" }), {
+      key: "ArrowRight",
+    });
     expect(screen.getByTestId("task-group-meeting:s1")).toBeTruthy();
     expect(screen.getByTestId("task-group-meeting:s2")).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole("radio", { name: "By meeting" }),
+    );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Done" }));
-    expect(screen.getByRole("tab", { name: "Done" }).ariaSelected).toBe("true");
+    fireEvent.click(screen.getByRole("radio", { name: "Done" }));
+    expect(
+      (screen.getByRole("radio", { name: "Done" }) as HTMLElement).ariaChecked,
+    ).toBe("true");
     expect(screen.getAllByTestId("task-row")).toHaveLength(1);
     expect(screen.getByText("Book venue")).toBeTruthy();
   });
 
   it("toggles done through the action item mutation", () => {
-    render(<TasksView view="all" now={NOW} />);
+    render(<TasksView view="all" />);
 
     const checkbox = screen.getByRole("checkbox", { name: "Review pricing" });
     fireEvent.click(checkbox);
@@ -157,8 +172,22 @@ describe("TasksView", () => {
     ).toBe(true);
   });
 
+  it("restores an in-progress task when it is unchecked again", () => {
+    mocks.rows = [row({ id: "p", text: "Draft memo", status: "in_progress" })];
+    render(<TasksView view="all" />);
+
+    const checkbox = screen.getByRole("checkbox", { name: "Draft memo" });
+    fireEvent.click(checkbox);
+    fireEvent.click(checkbox);
+    expect(mocks.setActionItemStatus).toHaveBeenLastCalledWith(
+      "p",
+      "in_progress",
+      "user-1",
+    );
+  });
+
   it("opens the meeting from the row", () => {
-    render(<TasksView view="all" now={NOW} />);
+    render(<TasksView view="all" />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "March Launch Planning" }),
@@ -171,7 +200,7 @@ describe("TasksView", () => {
 
   it("shows a friendly empty state", () => {
     mocks.rows = [];
-    render(<TasksView view="all" now={NOW} />);
+    render(<TasksView view="all" />);
 
     expect(screen.getByTestId("tasks-empty")).toBeTruthy();
     expect(screen.getByText("No tasks yet")).toBeTruthy();

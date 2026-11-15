@@ -17,7 +17,7 @@ import {
 } from "./timeline/utils";
 
 import { useWeekStartsOn } from "~/calendar/hooks";
-import { useTimelineTables } from "~/calendar/queries";
+import { useTimelineSessionsTable } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
 
@@ -111,7 +111,7 @@ export function SidebarDateFilter({
   const todayKey = useCurrentDay(timezone);
   const dateFilter = useSidebarNotes((state) => state.dateFilter);
   const setDateFilter = useSidebarNotes((state) => state.setDateFilter);
-  const { timelineSessionsTable } = useTimelineTables();
+  const timelineSessionsTable = useTimelineSessionsTable();
 
   const [view, setView] = useState<MonthView>(() =>
     monthOf(dateFilter ?? todayKey),

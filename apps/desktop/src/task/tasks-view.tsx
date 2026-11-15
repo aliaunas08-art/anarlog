@@ -1,26 +1,52 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
+import type { TaskStatus } from "@anlg/editor/tasks";
 import { ListChecks, MagnifyingGlass } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import {
+  addDays,
+  dayKeyToUtcDate,
+  diffDays,
+  getDueDayKey,
   getWeekRange,
   groupTasks,
   matchesTaskQuery,
-  parseDueDate,
+  type TaskDateContext,
   type TaskGroup,
   type TaskItem,
   type TaskView,
   useTaskItems,
 } from "./tasks-data";
 
+import { useTimezone, useWeekStartsOn } from "~/calendar/hooks";
 import { setActionItemStatus } from "~/editor-bridge/task-storage";
 import { StandardContentWrapper } from "~/shared/main";
+import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { useTabs } from "~/store/zustand/tabs";
 
-type Toggled = Map<string, { groupAsDone: boolean; done: boolean }>;
+type Toggled = Map<
+  string,
+  {
+    groupAsDone: boolean;
+    done: boolean;
+    /** Status to restore when unchecking a task checked off in this view. */
+    previousStatus: TaskStatus;
+  }
+>;
+
+function toOpenStatus(status: string): TaskStatus {
+  return status === "in_progress" ? "in_progress" : "todo";
+}
 
 export function TabContentTasks() {
   const [view, setView] = useState<TaskView>("all");
@@ -38,13 +64,7 @@ export function TabContentTasks() {
   );
 }
 
-export function TasksView({
-  view,
-  now: nowProp,
-}: {
-  view: TaskView;
-  now?: Date;
-}) {
+export function TasksView({ view }: { view: TaskView }) {
   const { t, i18n } = useLingui();
   const { tasks, isLoading } = useTaskItems();
   const ownerUserId = useOwnerUserId();
@@ -57,7 +77,13 @@ export function TasksView({
     map: new Map(),
   });
   const toggledMap = toggled.view === view ? toggled.map : null;
-  const now = useMemo(() => nowProp ?? new Date(), [nowProp]);
+  const timezone = useTimezone();
+  const weekStartsOn = useWeekStartsOn();
+  const todayKey = useCurrentDay(timezone);
+  const dateContext = useMemo<TaskDateContext>(
+    () => ({ todayKey, weekStartsOn, timezone }),
+    [todayKey, weekStartsOn, timezone],
+  );
 
   const groups = useMemo(() => {
     const visible = tasks
@@ -66,25 +92,29 @@ export function TasksView({
         const entry = toggledMap?.get(task.id);
         return entry ? { ...task, done: entry.groupAsDone } : task;
       });
-    return groupTasks(visible, view, now);
-  }, [tasks, query, toggledMap, view, now]);
+    return groupTasks(visible, view, dateContext);
+  }, [tasks, query, toggledMap, view, dateContext]);
 
   const handleToggle = useCallback(
     (task: TaskItem, displayedDone: boolean) => {
       const nextDone = !displayedDone;
+      const entry = toggledMap?.get(task.id);
+      const previousStatus =
+        entry?.previousStatus ??
+        (task.done ? "todo" : toOpenStatus(task.status));
       setToggled((prev) => {
         const map = new Map(prev.view === view ? prev.map : undefined);
         const groupAsDone = map.get(task.id)?.groupAsDone ?? task.done;
-        map.set(task.id, { groupAsDone, done: nextDone });
+        map.set(task.id, { groupAsDone, done: nextDone, previousStatus });
         return { view, map };
       });
-      setActionItemStatus(
+      void setActionItemStatus(
         task.id,
-        nextDone ? "done" : "todo",
+        nextDone ? "done" : previousStatus,
         ownerUserId ?? undefined,
       );
     },
-    [ownerUserId, view],
+    [ownerUserId, toggledMap, view],
   );
 
   const openMeeting = useCallback(
@@ -94,22 +124,33 @@ export function TasksView({
     [openCurrent],
   );
 
+  // Day keys are formatted at noon UTC so the calendar day never shifts;
+  // meeting timestamps are formatted in the configured timezone.
   const formatDay = useCallback(
-    (date: Date, withWeekday = true) =>
+    (dayKey: string, withWeekday = true) =>
       new Intl.DateTimeFormat(i18n.locale || undefined, {
         ...(withWeekday ? { weekday: "short" } : {}),
         month: "short",
         day: "numeric",
-      }).format(date),
+        timeZone: "UTC",
+      }).format(dayKeyToUtcDate(dayKey)),
     [i18n.locale],
   );
+  const formatInstant = useCallback(
+    (date: Date) =>
+      new Intl.DateTimeFormat(i18n.locale || undefined, {
+        month: "short",
+        day: "numeric",
+        timeZone: timezone,
+      }).format(date),
+    [i18n.locale, timezone],
+  );
 
-  const week = getWeekRange(now);
-  const weekLast = new Date(week.end);
-  weekLast.setDate(weekLast.getDate() - 1);
+  const week = getWeekRange(todayKey, weekStartsOn);
+  const weekLast = addDays(week.end, -1);
   const weekLabel = `${formatDay(week.start, false)} – ${
-    week.start.getMonth() === weekLast.getMonth()
-      ? weekLast.getDate()
+    week.start.slice(0, 7) === weekLast.slice(0, 7)
+      ? Number(weekLast.slice(8))
       : formatDay(weekLast, false)
   }`;
 
@@ -149,7 +190,7 @@ export function TasksView({
               <Trans>Not from a meeting</Trans>
             )}
             {date && !Number.isNaN(date.getTime()) ? (
-              <GroupMeta>· {formatDay(date, false)}</GroupMeta>
+              <GroupMeta>· {formatInstant(date)}</GroupMeta>
             ) : null}
           </>
         );
@@ -165,22 +206,18 @@ export function TasksView({
   };
 
   const formatDue = (task: TaskItem) => {
-    const due = parseDueDate(task.dueAt);
+    const due = getDueDayKey(task.dueAt, timezone);
     if (!due) return { label: task.dueAt ? task.dueAt : "—", overdue: false };
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-    const diffDays = Math.round(
-      (dueDay.getTime() - today.getTime()) / 86400000,
-    );
+    const days = diffDays(todayKey, due);
     const label =
-      diffDays === 0
+      days === 0
         ? t`Today`
-        : diffDays === 1
+        : days === 1
           ? t`Tomorrow`
-          : diffDays === -1
+          : days === -1
             ? t`Yesterday`
             : formatDay(due);
-    return { label, overdue: diffDays < 0 };
+    return { label, overdue: days < 0 };
   };
 
   const hasAnyTasks = tasks.length > 0;
@@ -411,27 +448,60 @@ export function TaskViewSwitcher({
   onChange: (view: TaskView) => void;
 }) {
   const { t } = useLingui();
+  const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const options: Array<{ value: TaskView; label: string }> = [
     { value: "all", label: t`All` },
     { value: "person", label: t`By person` },
     { value: "meeting", label: t`By meeting` },
     { value: "done", label: t`Done` },
   ];
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+
+  // Radio group pattern: one tab stop, arrows move and select, Home/End jump.
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const last = options.length - 1;
+    const nextIndex =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? selectedIndex === last
+          ? 0
+          : selectedIndex + 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? selectedIndex === 0
+            ? last
+            : selectedIndex - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? last
+              : null;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    onChange(options[nextIndex]!.value);
+    buttonsRef.current[nextIndex]?.focus();
+  };
 
   return (
     <div
-      role="tablist"
+      role="radiogroup"
       aria-label={t`Task views`}
+      onKeyDown={handleKeyDown}
       className="cf-glass rounded-pill pointer-events-auto flex items-center gap-0.5 p-[5px]"
     >
-      {options.map((option) => {
-        const selected = option.value === value;
+      {options.map((option, index) => {
+        const selected = index === selectedIndex;
         return (
           <button
             key={option.value}
+            ref={(element) => {
+              buttonsRef.current[index] = element;
+            }}
             type="button"
-            role="tab"
-            aria-selected={selected}
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn([
               "cf-motion rounded-pill h-9 px-4 text-[13px] whitespace-nowrap transition-colors",

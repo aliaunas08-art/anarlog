@@ -1,4 +1,6 @@
 import { useLiveQuery } from "~/db";
+import { resolvedTaskSessionIdSql } from "~/editor-bridge/task-storage";
+import { toTimelineDayKey } from "~/sidebar/timeline/utils";
 
 /**
  * One row of the Tasks database: an `action_items` row joined to its meeting
@@ -8,6 +10,7 @@ import { useLiveQuery } from "~/db";
 export type TaskItem = {
   id: string;
   text: string;
+  status: string;
   done: boolean;
   dueAt: string;
   ownerId: string;
@@ -16,7 +19,7 @@ export type TaskItem = {
   sessionTitle: string;
   sessionDate: string;
   sourceOrder: number;
-  updatedAt: string;
+  doneAt: string;
 };
 
 export type TaskRow = {
@@ -31,55 +34,102 @@ export type TaskRow = {
   session_title: string | null;
   session_date: string | null;
   source_order: number | null;
-  updated_at: string | null;
+  done_at: string | null;
 };
-
-// Rows whose meeting was deleted are hidden; standalone rows (no session) stay.
-const TASK_FROM_SQL = `
-  FROM action_items AS item
-  LEFT JOIN sessions AS session
-    ON session.id = item.session_id
-    AND item.session_id <> ''
-    AND session.deleted_at IS NULL
-  WHERE item.deleted_at IS NULL
-    AND TRIM(item.text) <> ''
-    AND (item.session_id = '' OR session.id IS NOT NULL)
-`;
 
 const DONE_STATUSES_SQL = `('done', 'completed')`;
 
-export const TASKS_SQL = `
-  SELECT
-    item.id,
-    item.status,
-    item.text,
-    item.due_at,
-    item.assignee_human_id,
-    human.name AS owner_name,
-    human.email AS owner_email,
-    item.session_id,
-    session.title AS session_title,
-    COALESCE(NULLIF(session.started_at, ''), session.created_at, '') AS session_date,
-    item.source_order,
-    item.updated_at
-  FROM action_items AS item
+/** Done items older than the most recent ones aren't loaded. */
+export const DONE_TASK_LIMIT = 200;
+
+// Rows whose meeting (or source summary) was deleted are hidden; standalone
+// rows (no session) stay. Editor rows may have an empty `session_id`, so the
+// meeting is resolved from the row's source.
+const VISIBLE_TASKS_FROM_SQL = `
+  FROM (
+    SELECT
+      item.id,
+      item.status,
+      item.text,
+      item.due_at,
+      item.assignee_human_id,
+      item.source_type,
+      item.source_id,
+      item.source_order,
+      item.completed_at,
+      item.updated_at,
+      ${resolvedTaskSessionIdSql("item")} AS session_id
+    FROM action_items AS item
+    WHERE item.deleted_at IS NULL
+      AND TRIM(item.text) <> ''
+  ) AS item
   LEFT JOIN sessions AS session
     ON session.id = item.session_id
     AND item.session_id <> ''
     AND session.deleted_at IS NULL
+  WHERE (item.session_id = '' OR session.id IS NOT NULL)
+    AND (
+      item.source_type <> 'enhanced_note'
+      OR EXISTS (
+        SELECT 1
+        FROM session_documents AS source_document
+        WHERE source_document.id = item.source_id
+          AND source_document.deleted_at IS NULL
+      )
+    )
+`;
+
+const VISIBLE_TASK_COLUMNS_SQL = `
+  item.id,
+  item.status,
+  item.text,
+  item.due_at,
+  item.assignee_human_id,
+  item.session_id,
+  session.title AS session_title,
+  COALESCE(NULLIF(session.started_at, ''), session.created_at, '') AS session_date,
+  item.source_order,
+  COALESCE(NULLIF(item.completed_at, ''), item.updated_at, '') AS done_at
+`;
+
+// Open items are all loaded; done items only the most recent ones.
+export const TASKS_SQL = `
+  SELECT
+    task.id,
+    task.status,
+    task.text,
+    task.due_at,
+    task.assignee_human_id,
+    human.name AS owner_name,
+    human.email AS owner_email,
+    task.session_id,
+    task.session_title,
+    task.session_date,
+    task.source_order,
+    task.done_at
+  FROM (
+    SELECT ${VISIBLE_TASK_COLUMNS_SQL}
+    ${VISIBLE_TASKS_FROM_SQL}
+      AND item.status NOT IN ${DONE_STATUSES_SQL}
+    UNION ALL
+    SELECT * FROM (
+      SELECT ${VISIBLE_TASK_COLUMNS_SQL}
+      ${VISIBLE_TASKS_FROM_SQL}
+        AND item.status IN ${DONE_STATUSES_SQL}
+      ORDER BY done_at DESC, item.id
+      LIMIT ${DONE_TASK_LIMIT}
+    )
+  ) AS task
   LEFT JOIN humans AS human
-    ON human.id = item.assignee_human_id
-    AND item.assignee_human_id <> ''
+    ON human.id = task.assignee_human_id
+    AND task.assignee_human_id <> ''
     AND human.deleted_at IS NULL
-  WHERE item.deleted_at IS NULL
-    AND TRIM(item.text) <> ''
-    AND (item.session_id = '' OR session.id IS NOT NULL)
-  ORDER BY session_date DESC, item.session_id, item.source_order, item.id
+  ORDER BY task.session_date DESC, task.session_id, task.source_order, task.id
 `;
 
 export const OPEN_TASK_COUNT_SQL = `
   SELECT COUNT(*) AS count
-  ${TASK_FROM_SQL}
+  ${VISIBLE_TASKS_FROM_SQL}
     AND item.status NOT IN ${DONE_STATUSES_SQL}
 `;
 
@@ -91,6 +141,7 @@ export function mapTaskRows(rows: TaskRow[]): TaskItem[] {
   return rows.map((row) => ({
     id: row.id,
     text: (row.text ?? "").trim(),
+    status: row.status,
     done: isDoneStatus(row.status),
     dueAt: (row.due_at ?? "").trim(),
     ownerId: row.assignee_human_id ?? "",
@@ -99,7 +150,7 @@ export function mapTaskRows(rows: TaskRow[]): TaskItem[] {
     sessionTitle: (row.session_title ?? "").trim(),
     sessionDate: row.session_date ?? "",
     sourceOrder: Number(row.source_order ?? 0),
-    updatedAt: row.updated_at ?? "",
+    doneAt: row.done_at ?? "",
   }));
 }
 
@@ -124,46 +175,76 @@ export function useOpenTaskCount(): number {
 
 // ---------------------------------------------------------------------------
 // Due dates & grouping (pure helpers, unit tested)
+//
+// Dates are compared as `YYYY-MM-DD` day keys in the configured timezone, the
+// same rule the sidebar timeline and date filter use.
+
+export type TaskDateContext = {
+  /** Today as a `YYYY-MM-DD` key in `timezone`. */
+  todayKey: string;
+  weekStartsOn: 0 | 1;
+  timezone?: string;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Noon UTC of the day: formatting with timeZone "UTC" never shifts the day. */
+export function dayKeyToUtcDate(dayKey: string): Date {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return new Date(Date.UTC(year!, month! - 1, day!, 12));
+}
+
+function toUtcDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function addDays(dayKey: string, days: number): string {
+  return toUtcDayKey(new Date(dayKeyToUtcDate(dayKey).getTime() + days * DAY_MS));
+}
+
+export function diffDays(fromKey: string, toKey: string): number {
+  return Math.round(
+    (dayKeyToUtcDate(toKey).getTime() - dayKeyToUtcDate(fromKey).getTime()) /
+      DAY_MS,
+  );
+}
 
 /**
- * `due_at` is free-form TEXT in the schema. Accept a plain `YYYY-MM-DD` (as a
- * local calendar day) or any ISO timestamp; anything else is treated as
- * "no date" so we never guess.
+ * `due_at` is free-form TEXT in the schema. Accept a plain `YYYY-MM-DD` (a
+ * calendar day) or any ISO timestamp (its day in `timezone`); anything else is
+ * treated as "no date" so we never guess.
  */
-export function parseDueDate(dueAt: string): Date | null {
+export function getDueDayKey(dueAt: string, timezone?: string): string | null {
   if (!dueAt) return null;
-  const dayOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dueAt);
-  if (dayOnly) {
-    const [, y, m, d] = dayOnly;
-    return new Date(Number(y), Number(m) - 1, Number(d));
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dueAt)) {
+    return toUtcDayKey(dayKeyToUtcDate(dueAt)) === dueAt ? dueAt : null;
   }
   if (!/^\d{4}-\d{2}-\d{2}T/.test(dueAt)) return null;
   const parsed = new Date(dueAt);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return Number.isNaN(parsed.getTime())
+    ? null
+    : toTimelineDayKey(parsed, timezone);
 }
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-/** Monday 00:00 → next Monday 00:00 (local), containing `now`. */
-export function getWeekRange(now: Date): { start: Date; end: Date } {
-  const today = startOfDay(now);
-  const mondayOffset = (today.getDay() + 6) % 7;
-  const start = new Date(today);
-  start.setDate(today.getDate() - mondayOffset);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 7);
-  return { start, end };
+/** First day of the week containing `todayKey` → first day of the next week. */
+export function getWeekRange(
+  todayKey: string,
+  weekStartsOn: 0 | 1,
+): { start: string; end: string } {
+  const weekday = dayKeyToUtcDate(todayKey).getUTCDay();
+  const start = addDays(todayKey, -((weekday - weekStartsOn + 7) % 7));
+  return { start, end: addDays(start, 7) };
 }
 
 export type DueBucket = "this_week" | "later" | "no_date";
 
 /** Overdue items count as "this week" so they stay in sight. */
-export function getDueBucket(dueAt: string, now: Date): DueBucket {
-  const due = parseDueDate(dueAt);
+export function getDueBucket(dueAt: string, context: TaskDateContext): DueBucket {
+  const due = getDueDayKey(dueAt, context.timezone);
   if (!due) return "no_date";
-  return due < getWeekRange(now).end ? "this_week" : "later";
+  return due < getWeekRange(context.todayKey, context.weekStartsOn).end
+    ? "this_week"
+    : "later";
 }
 
 export type TaskView = "all" | "person" | "meeting" | "done";
@@ -178,10 +259,15 @@ export type TaskGroup = {
   tasks: TaskItem[];
 };
 
-function compareDue(a: TaskItem, b: TaskItem): number {
-  const left = parseDueDate(a.dueAt)?.getTime() ?? Number.POSITIVE_INFINITY;
-  const right = parseDueDate(b.dueAt)?.getTime() ?? Number.POSITIVE_INFINITY;
-  return left - right;
+function compareDue(timezone: string | undefined) {
+  return (a: TaskItem, b: TaskItem): number => {
+    const left = getDueDayKey(a.dueAt, timezone);
+    const right = getDueDayKey(b.dueAt, timezone);
+    if (left === right) return 0;
+    if (left === null) return 1;
+    if (right === null) return -1;
+    return left < right ? -1 : 1;
+  };
 }
 
 export function matchesTaskQuery(task: TaskItem, query: string): boolean {
@@ -197,12 +283,13 @@ export function matchesTaskQuery(task: TaskItem, query: string): boolean {
 export function groupTasks(
   tasks: TaskItem[],
   view: TaskView,
-  now: Date,
+  context: TaskDateContext,
 ): TaskGroup[] {
+  const byDue = compareDue(context.timezone);
   if (view === "done") {
     const done = tasks
       .filter((task) => task.done)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      .sort((a, b) => b.doneAt.localeCompare(a.doneAt));
     return done.length > 0
       ? [{ key: "done", kind: "done", label: "", tasks: done }]
       : [];
@@ -220,8 +307,8 @@ export function groupTasks(
           label: bucket,
           bucket,
           tasks: open
-            .filter((task) => getDueBucket(task.dueAt, now) === bucket)
-            .sort(compareDue),
+            .filter((task) => getDueBucket(task.dueAt, context) === bucket)
+            .sort(byDue),
         }),
       )
       .filter((group) => group.tasks.length > 0);
@@ -241,7 +328,7 @@ export function groupTasks(
       byOwner.set(key, group);
     }
     return [...byOwner.values()]
-      .map((group) => ({ ...group, tasks: group.tasks.sort(compareDue) }))
+      .map((group) => ({ ...group, tasks: group.tasks.sort(byDue) }))
       .sort((a, b) => {
         // Unassigned last, otherwise alphabetical.
         if (!a.label) return 1;

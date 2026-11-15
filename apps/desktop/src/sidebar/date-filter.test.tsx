@@ -42,10 +42,7 @@ vi.mock("~/calendar/hooks", () => ({
 }));
 
 vi.mock("~/calendar/queries", () => ({
-  useTimelineTables: () => ({
-    timelineEventsTable: {},
-    timelineSessionsTable: mocks.timelineSessionsTable,
-  }),
+  useTimelineSessionsTable: () => mocks.timelineSessionsTable,
 }));
 
 import { SidebarDateFilter } from "./date-filter";

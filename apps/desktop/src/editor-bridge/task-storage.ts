@@ -4,9 +4,11 @@ import type { JSONContent } from "@anlg/editor/note";
 import type { TaskStorage } from "@anlg/editor/task-storage";
 import {
   createTaskSourceKey,
+  createTaskStatusAttrs,
   isSameTask,
   type TaskRecord,
   type TaskSource,
+  type TaskStatus,
 } from "@anlg/editor/tasks";
 
 import { executeTransaction, liveQueryClient } from "~/db";
@@ -27,6 +29,7 @@ export type SqliteTaskRow = {
 
 export type TaskStorageDependencies = {
   subscribe: typeof liveQueryClient.subscribe;
+  execute: typeof liveQueryClient.execute;
   executeTransaction: typeof executeTransaction;
   enqueueWrite: (key: string, write: () => Promise<void>) => Promise<void>;
   now: () => string;
@@ -57,6 +60,7 @@ const resolvedOwnerSql = `
 
 const defaultDependencies: TaskStorageDependencies = {
   subscribe: liveQueryClient.subscribe.bind(liveQueryClient),
+  execute: liveQueryClient.execute.bind(liveQueryClient),
   executeTransaction,
   enqueueWrite: enqueueDatabaseWrite,
   now: () => new Date().toISOString(),
@@ -278,7 +282,7 @@ export function createSqliteTaskStorage(
           sql: `
             UPDATE action_items
             SET
-              session_id = ?,
+              session_id = ${taskSessionIdSql(nextSource.type)},
               source_type = ?,
               source_id = ?,
               source_order = ?,
@@ -287,7 +291,7 @@ export function createSqliteTaskStorage(
             WHERE id = ? AND deleted_at IS NULL
           `,
           params: [
-            nextSource.type === "session" ? nextSource.id : "",
+            taskSessionIdParam(nextSource),
             nextSource.type,
             nextSource.id,
             insertionOrder + index,
@@ -335,6 +339,11 @@ function buildTaskUpsertStatement(
   ownerUserId: string,
   now: string,
 ) {
+  const sessionIdSql = taskSessionIdSql(task.sourceType);
+  const sessionIdParam = taskSessionIdParam({
+    type: task.sourceType,
+    id: task.sourceId,
+  });
   return {
     sql: `
       INSERT INTO action_items (
@@ -349,6 +358,7 @@ function buildTaskUpsertStatement(
         text,
         body_json,
         due_at,
+        completed_at,
         created_by,
         updated_by,
         metadata_json,
@@ -361,14 +371,14 @@ function buildTaskUpsertStatement(
           (
             SELECT NULLIF(workspace_id, '')
             FROM sessions
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ${sessionIdSql} AND deleted_at IS NULL
           ),
           (
             SELECT NULLIF(json_extract(value_json, '$.workspace_id'), '')
             FROM app_settings
             WHERE id = 'cloudsync_workspace_binding'
           )
-        ), ?, ?, ?, ?, '', ?, ?, ?, ?, ${resolvedOwnerSql}, ${resolvedOwnerSql}, '{}', ?, ?, NULL
+        ), ${sessionIdSql}, ?, ?, ?, '', ?, ?, ?, ?, ?, ${resolvedOwnerSql}, ${resolvedOwnerSql}, '{}', ?, ?, NULL
       )
       ON CONFLICT(id) DO UPDATE SET
         session_id = excluded.session_id,
@@ -379,14 +389,19 @@ function buildTaskUpsertStatement(
         text = excluded.text,
         body_json = excluded.body_json,
         due_at = excluded.due_at,
+        completed_at = CASE
+          WHEN excluded.status = 'done'
+            THEN COALESCE(action_items.completed_at, excluded.completed_at)
+          ELSE NULL
+        END,
         updated_by = excluded.updated_by,
         updated_at = excluded.updated_at,
         deleted_at = NULL
     `,
     params: [
       task.taskId,
-      task.sourceType === "session" ? task.sourceId : "",
-      task.sourceType === "session" ? task.sourceId : "",
+      sessionIdParam,
+      sessionIdParam,
       task.sourceType,
       task.sourceId,
       task.sourceOrder,
@@ -394,6 +409,7 @@ function buildTaskUpsertStatement(
       task.textPreview,
       JSON.stringify(task.body),
       task.dueDate ?? "",
+      task.status === "done" ? now : null,
       ownerUserId,
       DEFAULT_USER_ID,
       ownerUserId,
@@ -478,32 +494,186 @@ function getNodeText(node: JSONContent | undefined): string {
   return (node.content ?? []).map((child) => getNodeText(child)).join(" ");
 }
 
+// Editor sources are `session_raw_note` (id = session id) and `enhanced_note`
+// (id = session_documents id); `session` is the legacy source type.
+const SESSION_ID_SOURCE_TYPES = new Set(["session", "session_raw_note"]);
+
+function taskSessionIdSql(sourceType: string) {
+  return sourceType === "enhanced_note"
+    ? `COALESCE((SELECT NULLIF(session_id, '') FROM session_documents WHERE id = ?), '')`
+    : "?";
+}
+
+function taskSessionIdParam(source: TaskSource) {
+  return source.type === "enhanced_note" ||
+    SESSION_ID_SOURCE_TYPES.has(source.type)
+    ? source.id
+    : "";
+}
+
 /**
- * Sets the status of a single action item (e.g. from the Tasks view) without
- * touching its siblings. Goes through the same "tasks" write queue and
- * owner resolution as the editor-backed storage above.
+ * The meeting an `action_items` row belongs to. Rows written before
+ * `session_id` was filled for editor sources still resolve through their
+ * source.
  */
-export function setActionItemStatus(
+export function resolvedTaskSessionIdSql(alias: string) {
+  return `
+    COALESCE(
+      NULLIF(${alias}.session_id, ''),
+      CASE ${alias}.source_type
+        WHEN 'session_raw_note' THEN ${alias}.source_id
+        WHEN 'session' THEN ${alias}.source_id
+        WHEN 'enhanced_note' THEN (
+          SELECT NULLIF(document.session_id, '')
+          FROM session_documents AS document
+          WHERE document.id = ${alias}.source_id
+        )
+      END,
+      ''
+    )
+  `;
+}
+
+type ActionItemSourceRow = {
+  source_type: string;
+  source_id: string;
+  session_id: string;
+};
+
+/**
+ * Sets the status of a single action item (e.g. from the Tasks view) and the
+ * matching `taskItem` in its source note, so the editor doesn't revert the
+ * change from the note's stored copy the next time it syncs. The note is
+ * written through its session's write queue (like note saves) and in the same
+ * transaction as the action item.
+ */
+export async function setActionItemStatus(
   taskId: string,
-  status: "todo" | "done",
+  status: TaskStatus,
   ownerUserId = DEFAULT_USER_ID,
   dependencies: TaskStorageDependencies = defaultDependencies,
-) {
-  const now = dependencies.now();
-  persistTaskStatements(dependencies, [
-    {
-      sql: `
-        UPDATE action_items
-        SET status = ?, updated_at = ?, updated_by = ${resolvedOwnerSql}
+): Promise<void> {
+  try {
+    const [item] = await dependencies.execute<ActionItemSourceRow>(
+      `
+        SELECT
+          source_type,
+          source_id,
+          ${resolvedTaskSessionIdSql("item")} AS session_id
+        FROM action_items AS item
         WHERE id = ? AND deleted_at IS NULL
       `,
-      params: [
-        status,
-        now,
-        ownerUserId || DEFAULT_USER_ID,
-        DEFAULT_USER_ID,
-        taskId,
-      ],
-    },
-  ]);
+      [taskId],
+    );
+    if (!item) return;
+
+    const write = async () => {
+      const now = dependencies.now();
+      const statements: Array<{ sql: string; params: unknown[] }> = [
+        {
+          sql: `
+            UPDATE action_items
+            SET
+              status = ?,
+              completed_at = CASE
+                WHEN ? = 'done' THEN COALESCE(completed_at, ?)
+                ELSE NULL
+              END,
+              updated_at = ?,
+              updated_by = ${resolvedOwnerSql}
+            WHERE id = ? AND deleted_at IS NULL
+          `,
+          params: [
+            status,
+            status,
+            now,
+            now,
+            ownerUserId || DEFAULT_USER_ID,
+            DEFAULT_USER_ID,
+            taskId,
+          ],
+        },
+      ];
+
+      const documentId = getTaskDocumentId(item);
+      if (documentId) {
+        const [document] = await dependencies.execute<{
+          body: string;
+          body_format: string;
+        }>(
+          `
+            SELECT body, body_format
+            FROM session_documents
+            WHERE id = ? AND deleted_at IS NULL
+          `,
+          [documentId],
+        );
+        const nextBody =
+          document?.body_format === "prosemirror_json"
+            ? setTaskStatusInDocumentBody(document.body, taskId, status)
+            : null;
+        if (document && nextBody !== null) {
+          statements.push({
+            sql: `
+              UPDATE session_documents
+              SET body = ?, updated_at = ?
+              WHERE id = ? AND body = ? AND deleted_at IS NULL
+            `,
+            params: [nextBody, now, documentId, document.body],
+          });
+        }
+      }
+
+      await dependencies.executeTransaction(statements);
+    };
+
+    await dependencies.enqueueWrite(
+      item.session_id ? `session:${item.session_id}` : "tasks",
+      item.session_id ? () => dependencies.enqueueWrite("tasks", write) : write,
+    );
+  } catch (error) {
+    console.error("[tasks] failed to persist task status", error);
+  }
+}
+
+function getTaskDocumentId(item: ActionItemSourceRow): string | null {
+  if (item.source_type === "session_raw_note") return item.source_id;
+  if (item.source_type === "enhanced_note") return item.source_id;
+  return null;
+}
+
+/**
+ * Returns the serialized document with the task's `taskItem` set to `status`,
+ * or null when the body isn't readable or has nothing to change.
+ */
+export function setTaskStatusInDocumentBody(
+  body: string,
+  taskId: string,
+  status: TaskStatus,
+): string | null {
+  let parsed: JSONContent;
+  try {
+    parsed = JSON.parse(body) as JSONContent;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const attrs = createTaskStatusAttrs(status);
+  let changed = false;
+  const visit = (node: JSONContent) => {
+    if (node.type === "taskItem" && node.attrs?.taskId === taskId) {
+      if (
+        node.attrs.status !== attrs.status ||
+        node.attrs.checked !== attrs.checked
+      ) {
+        node.attrs = { ...node.attrs, ...attrs };
+        changed = true;
+      }
+    }
+    node.content?.forEach(visit);
+  };
+  visit(parsed);
+
+  return changed ? JSON.stringify(parsed) : null;
 }

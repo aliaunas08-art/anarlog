@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createRequire } from "node:module";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskRecord, TaskSource } from "@anlg/editor/tasks";
 
@@ -11,11 +12,14 @@ import {
 
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
-const sessionSource: TaskSource = { type: "session", id: "session-1" };
+const sessionSource: TaskSource = {
+  type: "session_raw_note",
+  id: "session-1",
+};
 const task: TaskRecord = {
   taskId: "task-1",
   sourceId: "session-1",
-  sourceType: "session",
+  sourceType: "session_raw_note",
   sourceOrder: 0,
   status: "todo",
   textPreview: "Follow up",
@@ -31,7 +35,7 @@ const task: TaskRecord = {
 function sqliteTaskRow(overrides: Partial<SqliteTaskRow> = {}): SqliteTaskRow {
   return {
     id: "task-1",
-    source_type: "session",
+    source_type: "session_raw_note",
     source_id: "session-1",
     source_order: 0,
     status: "todo",
@@ -68,6 +72,7 @@ function createHarness() {
   }) as TaskStorageDependencies["subscribe"];
   const dependencies: TaskStorageDependencies = {
     subscribe,
+    execute: vi.fn().mockResolvedValue([]),
     executeTransaction,
     enqueueWrite,
     now: () => "2026-07-10T10:00:00.000Z",
@@ -215,7 +220,7 @@ describe("SQLite task storage", () => {
     expect(removal.sql).toContain("source_type = ?");
     expect(removal.sql).toContain("id IN (SELECT value FROM json_each(?))");
     expect(removal.params.slice(-3)).toEqual([
-      "session",
+      "session_raw_note",
       "session-1",
       '["task-1"]',
     ]);
@@ -250,27 +255,160 @@ describe("SQLite task storage", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it("updates one action item status through the tasks write queue", async () => {
-    const harness = createHarness();
+});
 
-    setActionItemStatus("task-1", "done", "user-1", harness.dependencies);
-    await vi.waitFor(() => {
-      expect(harness.executeTransaction).toHaveBeenCalledTimes(1);
+describe("SQLite task storage persistence", () => {
+  const { DatabaseSync } = createRequire(import.meta.url)(
+    "node:sqlite",
+  ) as typeof import("node:sqlite");
+  let db: InstanceType<typeof DatabaseSync>;
+  let dependencies: TaskStorageDependencies;
+
+  const noteBody = (status: string, checked: boolean) =>
+    JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { status, checked, taskId: "task-1", taskItemId: "i1" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Follow up" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
-    expect(harness.enqueueWrite).toHaveBeenCalledWith(
-      "tasks",
-      expect.any(Function),
-    );
-    const [statement] = harness.executeTransaction.mock.calls[0][0];
-    expect(statement.sql).toContain("UPDATE action_items");
-    expect(statement.sql).toContain("SET status = ?");
-    expect(statement.params).toEqual([
-      "done",
-      "2026-07-10T10:00:00.000Z",
-      "user-1",
-      DEFAULT_USER_ID,
-      "task-1",
+  beforeEach(() => {
+    db = new DatabaseSync(":memory:");
+    db.exec(`
+      CREATE TABLE app_settings (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
+      CREATE TABLE sessions (
+        id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL DEFAULT '', deleted_at TEXT
+      );
+      CREATE TABLE session_documents (
+        id TEXT PRIMARY KEY, session_id TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        body_format TEXT NOT NULL DEFAULT 'prosemirror_json',
+        updated_at TEXT NOT NULL DEFAULT '', deleted_at TEXT
+      );
+      CREATE TABLE action_items (
+        id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL DEFAULT '',
+        session_id TEXT NOT NULL DEFAULT '', source_type TEXT NOT NULL DEFAULT '',
+        source_id TEXT NOT NULL DEFAULT '', source_order INTEGER NOT NULL DEFAULT 0,
+        assignee_human_id TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'todo', text TEXT NOT NULL DEFAULT '',
+        body_json TEXT NOT NULL DEFAULT '{}', due_at TEXT NOT NULL DEFAULT '',
+        completed_at TEXT, created_by TEXT NOT NULL DEFAULT '',
+        updated_by TEXT NOT NULL DEFAULT '',
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '',
+        deleted_at TEXT
+      );
+      INSERT INTO sessions (id, workspace_id) VALUES ('session-1', 'ws-1');
+    `);
+    db.prepare(
+      "INSERT INTO session_documents (id, session_id, body) VALUES (?, ?, ?)",
+    ).run("session-1", "session-1", noteBody("todo", false));
+    db.prepare(
+      "INSERT INTO session_documents (id, session_id, body) VALUES (?, ?, ?)",
+    ).run("summary-1", "session-1", noteBody("todo", false));
+    dependencies = {
+      subscribe: vi.fn() as unknown as TaskStorageDependencies["subscribe"],
+      execute: (async (sql: string, params: unknown[] = []) =>
+        db
+          .prepare(sql)
+          .all(
+            ...(params as Array<string | number | null>),
+          )) as TaskStorageDependencies["execute"],
+      executeTransaction: (async (
+        statements: Array<{ sql: string; params: unknown[] }>,
+      ) => {
+        db.exec("BEGIN");
+        for (const statement of statements) {
+          db.prepare(statement.sql).run(
+            ...(statement.params as Array<string | number | null>),
+          );
+        }
+        db.exec("COMMIT");
+        return [];
+      }) as unknown as TaskStorageDependencies["executeTransaction"],
+      enqueueWrite: (_key, write) => write(),
+      now: () => "2026-07-10T10:00:00.000Z",
+    };
+  });
+  afterEach(() => db.close());
+
+  const actionItem = () =>
+    db
+      .prepare(
+        "SELECT session_id, workspace_id, status, completed_at FROM action_items WHERE id = 'task-1'",
+      )
+      .get() as {
+      session_id: string;
+      workspace_id: string;
+      status: string;
+      completed_at: string | null;
+    };
+  const documentTaskAttrs = (id: string) => {
+    const { body } = db
+      .prepare("SELECT body FROM session_documents WHERE id = ?")
+      .get(id) as { body: string };
+    return JSON.parse(body).content[0].content[0].attrs;
+  };
+
+  it("stores the meeting of raw-note and summary tasks", async () => {
+    const storage = createSqliteTaskStorage("user-1", dependencies);
+    storage.upsertTasksForSource({ type: "enhanced_note", id: "summary-1" }, [
+      { ...task, sourceType: "enhanced_note", sourceId: "summary-1" },
     ]);
+    await vi.waitFor(() =>
+      expect(actionItem()).toMatchObject({
+        session_id: "session-1",
+        workspace_id: "ws-1",
+      }),
+    );
+
+    storage.upsertTasksForSource(sessionSource, [task]);
+    await vi.waitFor(() =>
+      expect(actionItem()).toMatchObject({ session_id: "session-1" }),
+    );
+  });
+
+  it("checks a task off in its note so the editor keeps the new status", async () => {
+    createSqliteTaskStorage("user-1", dependencies).upsertTasksForSource(
+      sessionSource,
+      [task],
+    );
+    await vi.waitFor(() => expect(actionItem()).toBeTruthy());
+
+    await setActionItemStatus("task-1", "done", "user-1", dependencies);
+    expect(actionItem()).toMatchObject({
+      status: "done",
+      completed_at: "2026-07-10T10:00:00.000Z",
+    });
+    expect(documentTaskAttrs("session-1")).toMatchObject({
+      status: "done",
+      checked: true,
+      taskId: "task-1",
+    });
+    expect(documentTaskAttrs("summary-1")).toMatchObject({ status: "todo" });
+
+    await setActionItemStatus("task-1", "in_progress", "user-1", dependencies);
+    expect(actionItem()).toMatchObject({
+      status: "in_progress",
+      completed_at: null,
+    });
+    expect(documentTaskAttrs("session-1")).toMatchObject({
+      status: "in_progress",
+      checked: false,
+    });
   });
 });
