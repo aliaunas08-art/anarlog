@@ -27,6 +27,7 @@ export const RETURN_ORIGIN_TAB_TYPES: Tab["type"][] = [
   "contacts",
   "folders",
   "settings",
+  "tasks",
   "templates",
 ];
 

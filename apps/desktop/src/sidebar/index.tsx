@@ -11,6 +11,7 @@ import { FoldersNav } from "./folders";
 import { type SidebarNoteFilter, useSidebarNotes } from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
+import { SidebarTasksLink } from "./tasks-link";
 import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 import { hasOwnSidebarHeaderTab } from "./use-custom-sidebar";
@@ -106,6 +107,7 @@ export function LeftSidebar({
                       }
                     />
                   </div>
+                  <SidebarTasksLink />
                 </>
               ) : (
                 <SharedNotesNav />

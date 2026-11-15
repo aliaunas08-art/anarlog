@@ -477,3 +477,33 @@ function getNodeText(node: JSONContent | undefined): string {
 
   return (node.content ?? []).map((child) => getNodeText(child)).join(" ");
 }
+
+/**
+ * Sets the status of a single action item (e.g. from the Tasks view) without
+ * touching its siblings. Goes through the same "tasks" write queue and
+ * owner resolution as the editor-backed storage above.
+ */
+export function setActionItemStatus(
+  taskId: string,
+  status: "todo" | "done",
+  ownerUserId = DEFAULT_USER_ID,
+  dependencies: TaskStorageDependencies = defaultDependencies,
+) {
+  const now = dependencies.now();
+  persistTaskStatements(dependencies, [
+    {
+      sql: `
+        UPDATE action_items
+        SET status = ?, updated_at = ?, updated_by = ${resolvedOwnerSql}
+        WHERE id = ? AND deleted_at IS NULL
+      `,
+      params: [
+        status,
+        now,
+        ownerUserId || DEFAULT_USER_ID,
+        DEFAULT_USER_ID,
+        taskId,
+      ],
+    },
+  ]);
+}

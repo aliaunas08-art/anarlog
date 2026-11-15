@@ -4,6 +4,7 @@ import type { TaskRecord, TaskSource } from "@anlg/editor/tasks";
 
 import {
   createSqliteTaskStorage,
+  setActionItemStatus,
   type SqliteTaskRow,
   type TaskStorageDependencies,
 } from "./task-storage";
@@ -247,5 +248,29 @@ describe("SQLite task storage", () => {
     expect(storage.getTasksForSource(sessionSource)).toEqual([]);
     expect(storage.getTask("task-1")).toBeNull();
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("updates one action item status through the tasks write queue", async () => {
+    const harness = createHarness();
+
+    setActionItemStatus("task-1", "done", "user-1", harness.dependencies);
+    await vi.waitFor(() => {
+      expect(harness.executeTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    expect(harness.enqueueWrite).toHaveBeenCalledWith(
+      "tasks",
+      expect.any(Function),
+    );
+    const [statement] = harness.executeTransaction.mock.calls[0][0];
+    expect(statement.sql).toContain("UPDATE action_items");
+    expect(statement.sql).toContain("SET status = ?");
+    expect(statement.params).toEqual([
+      "done",
+      "2026-07-10T10:00:00.000Z",
+      "user-1",
+      DEFAULT_USER_ID,
+      "task-1",
+    ]);
   });
 });
