@@ -252,14 +252,37 @@ describe("SessionBottomBar", () => {
     ).toBeNull();
   });
 
-  it("hides the bar under the floating chat panel", () => {
+  it("keeps tabs and the recording pill usable while floating chat is open", () => {
+    recording();
     mocks.chatMode = "FloatingOpen";
+    renderBar(
+      <div role="group" aria-label="Session note views">
+        <button type="button">Transcript</button>
+      </div>,
+    );
+
+    const toolbar = screen.getByRole("toolbar", { name: "Meeting controls" });
+    expect(toolbar.hasAttribute("inert")).toBe(false);
+    expect(toolbar.getAttribute("aria-hidden")).toBeNull();
+    expect(toolbar.className).not.toContain("invisible");
+    expect(screen.getByRole("button", { name: "Transcript" })).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(mocks.stopListening).toHaveBeenCalledTimes(1);
+
+    expect(
+      screen.queryByRole("button", { name: "Ask Anarlog anything" }),
+    ).toBeNull();
+  });
+
+  it("anchors the floating chat just above the bar", () => {
     renderBar();
 
-    const toolbar = document.querySelector("[data-session-bottom-bar]");
-    expect(toolbar?.getAttribute("aria-hidden")).toBe("true");
-    expect(toolbar?.hasAttribute("data-chat-cta-trigger")).toBe(true);
-    expect(toolbar?.className).toContain("invisible");
+    const marker = document.querySelector("[data-chat-cta-trigger]");
+    expect(marker?.parentElement?.hasAttribute("data-session-bottom-bar")).toBe(
+      true,
+    );
+    expect(marker?.className).toContain("bottom-full");
   });
 
   it("keeps a selection slot stacked above the bar", () => {

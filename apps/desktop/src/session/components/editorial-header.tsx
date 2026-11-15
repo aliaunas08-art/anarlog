@@ -10,6 +10,7 @@ import { useAudioPlayer } from "~/audio-player";
 import { getRemoteMeeting } from "~/session/hooks/useRemoteMeeting";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useSession } from "~/session/queries";
+import { useConfigValue } from "~/shared/config";
 import type { Tab } from "~/store/zustand/tabs";
 import { isSessionMarkedInPerson } from "~/stt/useStartListening";
 
@@ -23,10 +24,11 @@ export const EditorialHeader = forwardRef<
     tab: Extract<Tab, { type: "sessions" }>;
     /** False when the view renders the title itself (summary first-line H1). */
     showTitle?: boolean;
-    onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
+    onFocusEditorAtStart?: () => void;
+    onTransferContentToEditor?: (content: string) => void;
   }
 >(function EditorialHeader(
-  { tab, showTitle = true, onFocusEditorAtPixelWidth },
+  { tab, showTitle = true, onFocusEditorAtStart, onTransferContentToEditor },
   ref,
 ) {
   const eyebrow = useSessionEyebrow(tab.id);
@@ -49,7 +51,11 @@ export const EditorialHeader = forwardRef<
           ref={ref}
           tab={tab}
           variant="editorial"
-          onFocusEditorAtPixelWidth={onFocusEditorAtPixelWidth}
+          onFocusEditorAtStart={onFocusEditorAtStart}
+          onTransferContentToEditor={onTransferContentToEditor}
+          onFocusEditorAtPixelWidth={
+            onFocusEditorAtStart ? () => onFocusEditorAtStart() : undefined
+          }
         />
       ) : null}
     </header>
@@ -61,6 +67,7 @@ function useSessionEyebrow(sessionId: string) {
   const session = useSession(sessionId);
   const event = useSessionEvent(sessionId);
   const { timeStore } = useAudioPlayer();
+  const timezone = useConfigValue("timezone") || undefined;
   // Subscribe to the total only so playback progress does not re-render.
   const audioSeconds = useSyncExternalStore(
     timeStore.subscribe,
@@ -73,13 +80,7 @@ function useSessionEyebrow(sessionId: string) {
   const parts: string[] = [];
 
   if (startedAt) {
-    parts.push(
-      startedAt.toLocaleDateString(i18n.locale, {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      }),
-    );
+    parts.push(formatEyebrowDate(startedAt, i18n.locale, timezone));
   }
 
   const remote = getRemoteMeeting(event?.meeting_link);
@@ -99,6 +100,24 @@ function useSessionEyebrow(sessionId: string) {
   }
 
   return parts.join(" · ");
+}
+
+export function formatEyebrowDate(
+  date: Date,
+  locale: string,
+  timeZone?: string,
+): string {
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  };
+  try {
+    return date.toLocaleDateString(locale, { ...options, timeZone });
+  } catch {
+    // An unknown stored timezone falls back to the system one.
+    return date.toLocaleDateString(locale, options);
+  }
 }
 
 export function getDurationMinutes({

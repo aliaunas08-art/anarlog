@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => ({
   event: null as Record<string, string | undefined> | null,
   audioTotal: 0,
   inPerson: false,
+  timezone: undefined as string | undefined,
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.timezone,
 }));
 
 vi.mock("./title-input", () => ({
@@ -39,7 +44,11 @@ vi.mock("~/stt/useStartListening", () => ({
   isSessionMarkedInPerson: () => mocks.inPerson,
 }));
 
-import { EditorialHeader, getDurationMinutes } from "./editorial-header";
+import {
+  EditorialHeader,
+  formatEyebrowDate,
+  getDurationMinutes,
+} from "./editorial-header";
 
 const tab = {
   type: "sessions",
@@ -61,6 +70,7 @@ describe("EditorialHeader", () => {
     mocks.event = null;
     mocks.audioTotal = 0;
     mocks.inPerson = false;
+    mocks.timezone = undefined;
   });
 
   afterEach(() => {
@@ -95,6 +105,15 @@ describe("EditorialHeader", () => {
     expect(eyebrow()).toContain(" · Google Meet · 45 min");
   });
 
+  it("dates the eyebrow in the app's configured timezone", () => {
+    // 01:30 UTC on Nov 15 is still Nov 14 in Los Angeles.
+    mocks.session = { created_at: "2026-11-15T01:30:00.000Z" };
+    mocks.timezone = "America/Los_Angeles";
+    render(<EditorialHeader tab={tab} />);
+
+    expect(eyebrow()).toMatch(/Nov 14/);
+  });
+
   it("omits the eyebrow parts it does not know", () => {
     mocks.session = null;
     render(<EditorialHeader tab={tab} />);
@@ -122,5 +141,15 @@ describe("getDurationMinutes", () => {
         startedAt: "2026-11-14T14:00:00.000Z",
       }),
     ).toBeNull();
+  });
+});
+
+describe("formatEyebrowDate", () => {
+  it("falls back to the system timezone for an unknown one", () => {
+    const date = new Date("2026-11-14T12:00:00.000Z");
+
+    expect(formatEyebrowDate(date, "en-US", "Not/AZone")).toBe(
+      formatEyebrowDate(date, "en-US"),
+    );
   });
 });

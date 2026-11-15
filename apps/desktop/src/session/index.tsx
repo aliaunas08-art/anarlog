@@ -242,21 +242,17 @@ function TabContentNoteInner({
     },
     [tab, updateSessionTabState],
   );
-  const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
-    const title = titleInputRef.current;
-    if (!title) return;
-    if (pixelWidth === undefined) {
-      title.focusAtEnd();
-    } else {
-      title.focusAtPixelWidth(pixelWidth);
-    }
+  // The title is set far larger than the body, so caret x-positions don't map
+  // between them; moving across lands at the title's end or the note's start.
+  const handleNavigateToTitle = React.useCallback(() => {
+    titleInputRef.current?.focusAtEnd();
   }, []);
-  const handleFocusEditorAtPixelWidth = React.useCallback(
-    (pixelWidth: number) => {
-      noteInputRef.current?.focusAtPixelWidth(pixelWidth);
-    },
-    [],
-  );
+  const handleFocusEditorAtStart = React.useCallback(() => {
+    noteInputRef.current?.focusAtStart();
+  }, []);
+  const handleTransferTitleToEditor = React.useCallback((content: string) => {
+    noteInputRef.current?.insertAtStartAndFocus(content);
+  }, []);
   const handleTranscriptEditModeChange = React.useCallback(
     (editMode: boolean) => {
       if (!editMode) {
@@ -358,9 +354,11 @@ function TabContentNoteInner({
                     key={tab.id}
                     ref={titleInputRef}
                     tab={tab}
-                    // The summary carries the title as its first-line heading.
-                    showTitle={view.type !== "enhanced"}
-                    onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+                    // Summary and shared views carry the title as their own
+                    // first-line heading; Transcript has no leading content.
+                    showTitle={view.type === "raw"}
+                    onFocusEditorAtStart={handleFocusEditorAtStart}
+                    onTransferContentToEditor={handleTransferTitleToEditor}
                   />
                 )}
                 hideHeader

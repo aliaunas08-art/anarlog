@@ -41,8 +41,9 @@ export function SessionBottomBar({
   const { t } = useLingui();
   const { chat } = useShell();
   const action = useSessionMeetingAction(tab.id);
-  const isFloatingChatOpen = chat.mode === "FloatingOpen";
-  const showAsk = chat.mode !== "RightPanelOpen";
+  // Ask is the chat's entry point, so it leaves while chat is open; the rest
+  // of the bar (tabs, recording pill) stays reachable.
+  const showAsk = chat.mode === "FloatingClosed";
   const showTrailingGroup = showAsk || Boolean(action?.showInPerson);
   const isRecording = action?.kind === "stop";
   // The recorder writes and fsyncs the audio file about once a second
@@ -57,15 +58,15 @@ export function SessionBottomBar({
         role="toolbar"
         aria-label={t`Meeting controls`}
         data-session-bottom-bar
-        // The floating chat panel aligns its bottom edge with this element.
-        data-chat-cta-trigger
-        aria-hidden={isFloatingChatOpen || undefined}
-        inert={isFloatingChatOpen}
-        className={cn([
-          "cf-motion pointer-events-auto relative flex max-w-full items-center gap-2.5 transition-opacity",
-          isFloatingChatOpen && "invisible opacity-0",
-        ])}
+        className="pointer-events-auto relative flex max-w-full items-center gap-2.5"
       >
+        <span
+          aria-hidden="true"
+          // The floating chat panel rests its bottom edge on this marker, so it
+          // opens just above the bar instead of covering it.
+          data-chat-cta-trigger
+          className="pointer-events-none absolute bottom-full left-0 mb-2 h-0 w-full"
+        />
         {viewSwitcher ? (
           <div data-session-bottom-bar-views className="min-w-0 shrink">
             {viewSwitcher}
