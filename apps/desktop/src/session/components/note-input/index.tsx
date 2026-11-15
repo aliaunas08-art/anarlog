@@ -25,6 +25,7 @@ import {
   registerCanonicalSessionEditor,
   unregisterCanonicalSessionEditor,
 } from "~/session-sharing/editor-activity";
+import { appendParagraphToView } from "~/session/bookmark";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { SharedNoteSummary } from "~/shared-notes";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
@@ -42,6 +43,11 @@ export interface NoteInputHandle {
   replaceContent: (content: JSONContent) => void;
   flushPendingChanges: () => void;
   prepareForTabChange: () => void;
+  /**
+   * Appends a plain paragraph to the end of the memo when the memo editor is
+   * the mounted view. Returns false (and does nothing) otherwise.
+   */
+  appendMemoParagraph: (text: string) => boolean;
 }
 
 type NoteInputProps = {
@@ -172,6 +178,9 @@ const NoteInputContent = forwardRef<
       ? deferredCurrentTab
       : currentTab;
 
+    const renderedCurrentTabTypeRef = useRef(renderedCurrentTab.type);
+    renderedCurrentTabTypeRef.current = renderedCurrentTab.type;
+
     const isMeetingInProgress =
       sessionMode === "active" ||
       sessionMode === "finalizing" ||
@@ -200,6 +209,10 @@ const NoteInputContent = forwardRef<
         flushPendingChanges: () =>
           internalEditorRef.current?.flushPendingChanges(),
         prepareForTabChange: onBeforeTabChange,
+        appendMemoParagraph: (text) =>
+          renderedCurrentTabTypeRef.current === "raw"
+            ? appendParagraphToView(internalEditorRef.current?.view, text)
+            : false,
       }),
       [currentTab, onBeforeTabChange],
     );

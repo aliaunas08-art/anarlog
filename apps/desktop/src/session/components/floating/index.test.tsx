@@ -28,6 +28,17 @@ const mocks = vi.hoisted(() => ({
   audioExists: false,
   hasTranscriptBySession: {} as Record<string, boolean>,
   meetingMicInUse: false,
+  live: {
+    sessionId: null as string | null,
+    seconds: 0,
+    amplitude: { mic: 0, speaker: 0 },
+    muted: false,
+  },
+  audioRetention: undefined as unknown,
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.audioRetention,
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -77,6 +88,7 @@ vi.mock("~/stt/contexts", () => ({
       getSessionMode: (sessionId: string) =>
         mocks.sessionModes[sessionId] ?? "inactive",
       stop: mocks.stopListening,
+      live: mocks.live,
     }),
   ),
 }));
@@ -141,8 +153,23 @@ function arrange({
   mocks.meetingMicInUse = !!micInUse;
 }
 
-function renderBar(viewSwitcher?: React.ReactNode) {
-  return render(<SessionBottomBar tab={tab} viewSwitcher={viewSwitcher} />);
+function renderBar(
+  viewSwitcher?: React.ReactNode,
+  props: Partial<React.ComponentProps<typeof SessionBottomBar>> = {},
+) {
+  return render(
+    <SessionBottomBar tab={tab} viewSwitcher={viewSwitcher} {...props} />,
+  );
+}
+
+function recording(seconds = 754) {
+  arrange({ mode: "active" });
+  mocks.live = {
+    sessionId: "session-1",
+    seconds,
+    amplitude: { mic: 0.4, speaker: 0.2 },
+    muted: false,
+  };
 }
 
 const ACTIONS = ["Record", "Join & record", "Stop"] as const;
@@ -174,6 +201,13 @@ describe("SessionBottomBar", () => {
     mocks.audioExists = false;
     mocks.hasTranscriptBySession = {};
     mocks.meetingMicInUse = false;
+    mocks.live = {
+      sessionId: null,
+      seconds: 0,
+      amplitude: { mic: 0, speaker: 0 },
+      muted: false,
+    };
+    mocks.audioRetention = undefined;
   });
 
   afterEach(() => {
@@ -497,5 +531,86 @@ describe("SessionBottomBar", () => {
 
     expect(mocks.startListening).not.toHaveBeenCalled();
     expect(mocks.openUrl).not.toHaveBeenCalled();
+  });
+  describe("recording pill", () => {
+    it("replaces Record with a pill that shows the elapsed time", () => {
+      recording(754);
+      renderBar();
+
+      const pill = screen.getByRole("group", { name: "Recording" });
+      expect(screen.getByRole("timer").textContent).toBe("12:34");
+      expect(pill.querySelector(".cf-record-dot")).not.toBeNull();
+      expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    });
+
+    it("ignores the timer of a different live session", () => {
+      recording(754);
+      mocks.live.sessionId = "other-session";
+      renderBar();
+
+      expect(screen.getByRole("timer").textContent).toBe("0:00");
+    });
+
+    it("stops listening from the pill", () => {
+      recording();
+      renderBar();
+
+      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+      expect(mocks.stopListening).toHaveBeenCalledTimes(1);
+    });
+
+    it("bookmarks the current moment from the button and from ⌘B", () => {
+      recording(754);
+      const onBookmark = vi.fn();
+      renderBar(undefined, { onBookmark });
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Bookmark this moment" }),
+      );
+      fireEvent.keyDown(document.body, {
+        key: "b",
+        code: "KeyB",
+        metaKey: true,
+        ctrlKey: true,
+      });
+
+      expect(onBookmark).toHaveBeenCalledWith(754);
+      expect(onBookmark).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not bind ⌘B for a background session tab", () => {
+      recording();
+      const onBookmark = vi.fn();
+      renderBar(undefined, { onBookmark, tab: { ...tab, active: false } });
+
+      fireEvent.keyDown(document.body, {
+        key: "b",
+        code: "KeyB",
+        metaKey: true,
+        ctrlKey: true,
+      });
+
+      expect(onBookmark).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["kept", "forever", true],
+      ["deleted after the meeting", "none", false],
+    ])("says audio is saved only when it is %s", (_label, retention, shown) => {
+      recording();
+      mocks.audioRetention = retention;
+      renderBar();
+
+      expect(screen.queryByText("Audio saved to this Mac") !== null).toBe(
+        shown,
+      );
+    });
+
+    it("does not claim audio is saved before recording", () => {
+      renderBar();
+
+      expect(screen.queryByText("Audio saved to this Mac")).toBeNull();
+    });
   });
 });

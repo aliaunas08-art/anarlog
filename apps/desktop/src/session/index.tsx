@@ -26,6 +26,7 @@ import { getCanShowTranscript, useHasTranscript } from "./components/shared";
 import type { TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useEnhancedNotes } from "./hooks/useEnhancedNotes";
+import { useSessionBookmark } from "./hooks/useSessionBookmark";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 import { getSessionEvent } from "./utils";
 
@@ -160,6 +161,7 @@ function TabContentNoteInner({
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
   const titleInputRef = React.useRef<TitleInputHandle>(null);
+  const handleBookmark = useSessionBookmark(tab.id, noteInputRef);
 
   const sessionId = tab.id;
   const [editingTranscriptSessionId, setEditingTranscriptSessionId] =
@@ -297,6 +299,7 @@ function TabContentNoteInner({
           lockOverlay ? undefined : (
             <SessionBottomBar
               tab={tab}
+              onBookmark={standaloneWindow ? undefined : handleBookmark}
               viewSwitcher={
                 editorTabs.length > 1 ? (
                   <SessionViewSwitcher

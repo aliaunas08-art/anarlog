@@ -28,6 +28,8 @@ export function SegmentHeader({
     "flex items-center gap-2",
     "[--segment-color:var(--segment-color-light)]",
     "dark:[--segment-color:var(--segment-color-dark)]",
+    "[--speaker-dot:var(--speaker-dot-light)]",
+    "dark:[--speaker-dot:var(--speaker-dot-dark)]",
   ]);
 
   return (
@@ -45,11 +47,17 @@ export function SegmentHeader({
           {selected ? <Check className="size-2.5" weight="bold" /> : null}
         </span>
       ) : null}
+      <span
+        aria-hidden="true"
+        data-speaker-dot
+        className="rounded-pill size-2 shrink-0 bg-[var(--speaker-dot)]"
+      />
       <SpeakerAssignPopover
         segment={segment}
         transcriptId={transcriptId}
         sessionId={sessionId}
-        color="var(--segment-color)"
+        color="var(--cf-label)"
+        className="-ml-1 font-medium"
         label={label}
       />
     </div>

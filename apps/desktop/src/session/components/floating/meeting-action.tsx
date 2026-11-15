@@ -33,7 +33,7 @@ export type SessionMeetingAction = {
   kind: "record" | "join" | "stop";
   label: string;
   title: string;
-  /** Leading icon for join (meeting app logo) and stop; record draws its own dot. */
+  /** Meeting app logo for join; record draws its own dot. */
   icon?: React.ReactNode;
   onClick: () => void;
   disabled: boolean;
@@ -157,12 +157,6 @@ export function useSessionMeetingAction(
         kind: "stop" as const,
         label: t`Stop`,
         title: t`Stop listening`,
-        icon: (
-          <span
-            aria-hidden="true"
-            className="size-2.5 shrink-0 rounded-[2px] bg-[var(--cf-record)]"
-          />
-        ),
         onClick: stopListening,
       };
     }

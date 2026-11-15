@@ -5,6 +5,7 @@ import {
   getActiveLineIndex,
   getSegmentColor,
   getSegmentColorVars,
+  getSpeakerDotColor,
 } from "./utils";
 
 import type { SegmentKey, SegmentWord } from "~/stt/live-segment";
@@ -73,7 +74,26 @@ describe("transcript renderer utils", () => {
     expect(getSegmentColorVars(key)).toEqual({
       "--segment-color-light": getSegmentColor(key),
       "--segment-color-dark": getSegmentColor(key, "dark"),
+      "--speaker-dot-light": getSpeakerDotColor(key),
+      "--speaker-dot-dark": getSpeakerDotColor(key, "dark"),
     });
+  });
+
+  it("gives each speaker a stable dot color from the palette", () => {
+    const mic: SegmentKey = {
+      channel: "DirectMic",
+      speaker_index: 0,
+      speaker_human_id: null,
+    };
+    const remote: SegmentKey = { ...mic, channel: "RemoteParty" };
+    const person: SegmentKey = { ...mic, speaker_human_id: "person-1" };
+
+    expect(getSpeakerDotColor(mic)).toBe("#0071E3");
+    expect(getSpeakerDotColor(mic, "dark")).toBe("#0A84FF");
+    expect(getSpeakerDotColor(remote)).not.toBe(getSpeakerDotColor(mic));
+    expect(getSpeakerDotColor(person)).toBe(
+      getSpeakerDotColor({ ...person, speaker_index: 4 }),
+    );
   });
 
   it("finds the active transcript line without building line groups", () => {

@@ -12,9 +12,12 @@ import {
   type SessionMeetingAction,
   useSessionMeetingAction,
 } from "./meeting-action";
+import { RecordingPill } from "./recording-pill";
 import { setSessionFabSelectionHost } from "./selection-slot";
 
 import { useShell } from "~/contexts/shell";
+import { normalizeAudioRetention } from "~/services/audio-retention-policy";
+import { useConfigValue } from "~/shared/config";
 import type { Tab } from "~/store/zustand/tabs/schema";
 
 const GLASS_GROUP =
@@ -29,9 +32,11 @@ const GLASS_ITEM =
 export function SessionBottomBar({
   tab,
   viewSwitcher,
+  onBookmark,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
   viewSwitcher?: React.ReactNode;
+  onBookmark?: (elapsedSeconds: number) => void;
 }) {
   const { t } = useLingui();
   const { chat } = useShell();
@@ -39,6 +44,12 @@ export function SessionBottomBar({
   const isFloatingChatOpen = chat.mode === "FloatingOpen";
   const showAsk = chat.mode !== "RightPanelOpen";
   const showTrailingGroup = showAsk || Boolean(action?.showInPerson);
+  const isRecording = action?.kind === "stop";
+  // The recorder writes and fsyncs the audio file about once a second
+  // (listener-core recorder/chunks.rs); with retention "none" it is deleted
+  // after the meeting, so only claim it is saved when it is kept.
+  const audioKept =
+    normalizeAudioRetention(useConfigValue("audio_retention")) !== "none";
 
   return (
     <div className="pointer-events-none absolute bottom-[22px] left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col-reverse items-center">
@@ -51,7 +62,7 @@ export function SessionBottomBar({
         aria-hidden={isFloatingChatOpen || undefined}
         inert={isFloatingChatOpen}
         className={cn([
-          "cf-motion pointer-events-auto flex max-w-full items-center gap-2.5 transition-opacity",
+          "cf-motion pointer-events-auto relative flex max-w-full items-center gap-2.5 transition-opacity",
           isFloatingChatOpen && "invisible opacity-0",
         ])}
       >
@@ -60,7 +71,26 @@ export function SessionBottomBar({
             {viewSwitcher}
           </div>
         ) : null}
-        {action ? <PrimaryAction action={action} /> : null}
+        {isRecording && audioKept ? (
+          <p
+            data-session-audio-saved
+            className="pointer-events-none absolute top-full left-1/2 m-0 mt-1 -translate-x-1/2 text-[11px] whitespace-nowrap text-[var(--cf-tertiary)]"
+          >
+            {t`Audio saved to this Mac`}
+          </p>
+        ) : null}
+        {action?.kind === "stop" ? (
+          <RecordingPill
+            sessionId={tab.id}
+            active={tab.active}
+            disabled={action.disabled}
+            stopTitle={action.title}
+            onStop={action.onClick}
+            onBookmark={onBookmark}
+          />
+        ) : action ? (
+          <PrimaryAction action={action} />
+        ) : null}
         {showTrailingGroup ? (
           <div className={GLASS_GROUP}>
             {action?.showInPerson ? (
@@ -110,7 +140,6 @@ export function SessionBottomBar({
 function PrimaryAction({ action }: { action: SessionMeetingAction }) {
   const { t } = useLingui();
   const isRecord = action.kind === "record";
-  const isStop = action.kind === "stop";
 
   return (
     <Popover open={action.showWelcomeDemoPrompt}>
@@ -128,9 +157,7 @@ function PrimaryAction({ action }: { action: SessionMeetingAction }) {
               "cf-motion rounded-pill inline-flex h-[46px] max-w-56 shrink-0 items-center gap-2 px-5 text-[13px] font-semibold whitespace-nowrap transition-[opacity,filter] [corner-shape:round]",
               "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-none",
               "disabled:cursor-default disabled:opacity-60",
-              isStop
-                ? "cf-glass text-[var(--cf-label)] hover:brightness-95"
-                : "cf-glass-tint hover:brightness-105",
+              "cf-glass-tint hover:brightness-105",
             ])}
           >
             {isRecord ? (

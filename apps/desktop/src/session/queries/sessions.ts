@@ -94,6 +94,18 @@ export function useSession(sessionId: string): SessionRecord | null {
     : null;
 }
 
+/** Reads the session's current memo body, uncached. */
+export async function loadSessionRawMd(
+  sessionId: string,
+): Promise<string | null> {
+  const rows = await liveQueryClient.execute<SessionSqlRow>(
+    SESSION_SELECT_SQL,
+    [sessionId],
+  );
+  const row = rows[0];
+  return row ? mapSessionRow(row).raw_md : null;
+}
+
 export function preloadSession(
   sessionId: string,
 ): Promise<SessionRecord | null> {
