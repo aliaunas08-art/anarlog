@@ -33,28 +33,16 @@ export function OuterHeader({
   standaloneWindow?: boolean;
 }) {
   const { leftsidebar } = useShell();
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const sessionEvent = useSessionEvent(sessionId);
-  const hasTranscript = useHasTranscript(sessionId);
-  const { audioExists } = useAudioPlayer();
-  const now = useNow();
+  const showShare = useShowSessionShare(sessionId);
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded && !usesWindowsStyleTitleBar();
-  const endedAt = sessionEvent?.ended_at
-    ? safeParseDate(sessionEvent.ended_at)
-    : null;
-  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
-  const isRecording =
-    sessionMode === "active" || sessionMode === "running_batch";
-  const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
-  const showShare = meetingOver && sessionMode !== "finalizing";
 
   return (
     <div
       data-tauri-drag-region
       className={cn([
-        "relative flex w-full items-center gap-[2px]",
+        "relative flex w-full items-center gap-1",
         // 46px content box centers the 28px controls at 23px, matching the
         // sidebar toggle row (pt-[9px] + size-7).
         "h-12 pb-0.5",
@@ -74,17 +62,16 @@ export function OuterHeader({
       />
       <div
         data-tauri-drag-region
-        className="relative z-10 flex shrink-0 items-center pr-1"
+        // Board: quiet 32px icon buttons, 4px apart, 20px from the edge.
+        className="relative z-10 flex shrink-0 items-center gap-1 pr-3"
       >
-        <FolderPicker sessionId={sessionId} align="end" />
+        <FolderPicker sessionId={sessionId} align="end" appearance="toolbar" />
         {showShare ? (
-          <div className="relative mr-1 ml-1 flex min-w-0 shrink-0 items-center">
-            <SessionShareButton
-              key={sessionId}
-              sessionId={sessionId}
-              variant="cta"
-            />
-          </div>
+          <SessionShareButton
+            key={sessionId}
+            sessionId={sessionId}
+            variant="toolbar"
+          />
         ) : null}
         <OverflowButton
           standaloneWindow={standaloneWindow}
@@ -94,4 +81,21 @@ export function OuterHeader({
       </div>
     </div>
   );
+}
+
+/** Share is offered once the meeting is over (and not while finalizing). */
+export function useShowSessionShare(sessionId: string) {
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const sessionEvent = useSessionEvent(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
+  const { audioExists } = useAudioPlayer();
+  const now = useNow();
+  const endedAt = sessionEvent?.ended_at
+    ? safeParseDate(sessionEvent.ended_at)
+    : null;
+  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+  const isRecording =
+    sessionMode === "active" || sessionMode === "running_batch";
+  const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
+  return meetingOver && sessionMode !== "finalizing";
 }

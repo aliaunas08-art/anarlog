@@ -361,11 +361,12 @@ export function HomeView() {
               </span>
               <button
                 type="submit"
-                className="cf-glass-tint cf-motion rounded-pill inline-flex h-8 shrink-0 items-center gap-1.5 px-3.5 text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+                title={`${mod}N`}
+                aria-keyshortcuts={mod === "⌘" ? "Meta+N" : "Control+N"}
+                className="cf-motion rounded-pill inline-flex h-7 shrink-0 items-center gap-1 bg-[var(--cf-label)] pr-3 pl-2.5 text-[13px] font-medium whitespace-nowrap text-[var(--cf-window)] transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--cf-surface)] focus-visible:outline-hidden"
               >
                 <Plus weight="bold" className="size-3" />
                 <Trans>New note</Trans>
-                <span className="text-xs font-medium opacity-75">{mod}N</span>
               </button>
             </div>
           </form>

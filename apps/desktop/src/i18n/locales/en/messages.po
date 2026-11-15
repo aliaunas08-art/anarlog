@@ -224,6 +224,10 @@ msgstr "{months} months ago"
 msgid "{open} open"
 msgstr "{open} open"
 
+#: src/main/sidebar-timeline-chrome.tsx
+msgid "{openTasks} open"
+msgstr "{openTasks} open"
+
 #: src/settings/stats/insights.tsx
 msgid "{peakCount} of {total} conversations ({share}) started on this weekday in the selected period."
 msgstr "{peakCount} of {total} conversations ({share}) started on this weekday in the selected period."
@@ -264,6 +268,10 @@ msgstr "{value} / {target} conversations"
 #: src/sidebar/timeline/utils/index.ts
 msgid "{weeks} weeks ago"
 msgstr "{weeks} weeks ago"
+
+#: src/session/components/session-meta.tsx
+msgid "+{count} more"
+msgstr "+{count} more"
 
 #. placeholder {0}: proPrice.monthly
 #: src/settings/general/billing.tsx
@@ -755,7 +763,6 @@ msgstr "Apply to summary"
 msgid "Approve"
 msgstr "Approve"
 
-#: src/main/home.tsx
 #: src/session/components/floating/index.tsx
 msgid "Ask"
 msgstr "Ask"
@@ -845,6 +852,10 @@ msgstr "Authenticating…"
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to {APP_NAME}."
 msgstr "Authorize access in your browser, then return to {APP_NAME}."
+
+#: src/main/home.tsx
+msgid "Auto"
+msgstr "Auto"
 
 #: src/templates/auto-form.tsx
 msgid "Auto summary format"
@@ -1010,6 +1021,7 @@ msgstr "By meeting"
 msgid "By person"
 msgstr "By person"
 
+#: src/main/sidebar-timeline-chrome.tsx
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Calendar"
@@ -1761,6 +1773,10 @@ msgstr "Conversations: {total}"
 msgid "Copied"
 msgstr "Copied"
 
+#: src/session/components/session-actions.tsx
+msgid "Copied as Markdown"
+msgstr "Copied as Markdown"
+
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -1772,6 +1788,10 @@ msgstr "Copy"
 #: src/settings/developers/cloud-api.tsx
 msgid "Copy {label} URL"
 msgstr "Copy {label} URL"
+
+#: src/session/components/session-actions.tsx
+msgid "Copy as Markdown"
+msgstr "Copy as Markdown"
 
 #: src/settings/developers/cli.tsx
 msgid "Copy config"
@@ -1994,6 +2014,10 @@ msgstr "Couldn’t check availability. You can still try Save."
 #: src/settings/referrals.tsx
 msgid "Couldn't copy the invite link. Try again."
 msgstr "Couldn't copy the invite link. Try again."
+
+#: src/session/components/session-actions.tsx
+msgid "Couldn't copy the summary"
+msgstr "Couldn't copy the summary"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
@@ -2392,8 +2416,13 @@ msgid "Draft a follow-up email for my most recent meeting."
 msgstr "Draft a follow-up email for my most recent meeting."
 
 #: src/chat/components/body/empty.tsx
+#: src/session/components/session-actions.tsx
 msgid "Draft a follow-up email to the participants"
 msgstr "Draft a follow-up email to the participants"
+
+#: src/session/components/session-actions.tsx
+msgid "Draft follow-up email"
+msgstr "Draft follow-up email"
 
 #: src/chat/components/body/empty.tsx
 msgid "Draft follow-up email."
@@ -3138,6 +3167,10 @@ msgstr "in {weeks} weeks"
 msgid "In person"
 msgstr "In person"
 
+#: src/main/home.tsx
+msgid "In person · record with the mic only"
+msgstr "In person · record with the mic only"
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
@@ -3683,6 +3716,10 @@ msgstr "Medium"
 #: src/sidebar/timeline/index.tsx
 msgid "Meeting"
 msgstr "Meeting"
+
+#: src/session/components/session-actions.tsx
+msgid "Meeting actions"
+msgstr "Meeting actions"
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "Meeting chat"
@@ -4433,6 +4470,10 @@ msgstr "Open Teams"
 msgid "Open the meeting link when a scheduled meeting begins."
 msgstr "Open the meeting link when a scheduled meeting begins."
 
+#: src/session/components/session-actions.tsx
+msgid "Open transcript"
+msgstr "Open transcript"
+
 #: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
 msgstr "Open web copy"
@@ -4940,6 +4981,10 @@ msgstr "Recording time {elapsed}"
 msgid "Recordings and notes stay on this Mac"
 msgstr "Recordings and notes stay on this Mac"
 
+#: src/main/home.tsx
+msgid "Recovered recording"
+msgstr "Recovered recording"
+
 #: src/main/windows-title-bar.tsx
 msgid "Redo"
 msgstr "Redo"
@@ -5242,6 +5287,10 @@ msgstr "Retry Google Drive export"
 #: src/settings/dictation.tsx
 msgid "Retry setup"
 msgstr "Retry setup"
+
+#: src/main/home.tsx
+msgid "Return to start"
+msgstr "Return to start"
 
 #: src/session/components/pending-proposals-banner.tsx
 msgid "Review memo"
@@ -5629,6 +5678,10 @@ msgstr "Share a meeting recap in Slack"
 msgid "Share audio"
 msgstr "Share audio"
 
+#: src/session/components/session-actions.tsx
+msgid "Share link"
+msgstr "Share link"
+
 #: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Share link copied."
@@ -5821,6 +5874,10 @@ msgstr "Show when initial cloud sync finishes."
 #: src/settings/dictation.tsx
 msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
 msgstr "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
+
+#: src/main/sidebar-timeline-chrome.tsx
+msgid "Sidebar"
+msgstr "Sidebar"
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
@@ -6378,6 +6435,7 @@ msgstr "Task"
 msgid "Task views"
 msgstr "Task views"
 
+#: src/main/sidebar-timeline-chrome.tsx
 #: src/sidebar/tasks-link.tsx
 #: src/task/tasks-view.tsx
 msgid "Tasks"
@@ -6425,6 +6483,11 @@ msgstr "Template actions"
 #: src/templates/sections-editor.tsx
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr "Template content with Jinja2: {{ variable }}, {% if condition %}"
+
+#. placeholder {0}: homeTemplate.title ?? t`Auto`
+#: src/main/home.tsx
+msgid "Template: {0}"
+msgstr "Template: {0}"
 
 #: src/sidebar/settings-nav-groups.ts
 msgid "Templates"
@@ -6565,6 +6628,7 @@ msgstr "Tip: Add teammate names, acronyms, company jargon, and product terms."
 msgid "Tip: The Notes team loves our users!"
 msgstr "Tip: The Notes team loves our users!"
 
+#: src/main/home.tsx
 #: src/sidebar/date-filter.tsx
 #: src/sidebar/timeline/utils/index.ts
 #: src/task/task-cell-pickers.tsx
@@ -6763,6 +6827,7 @@ msgid "Untitled automation"
 msgstr "Untitled automation"
 
 #: src/main/home.tsx
+#: src/sidebar/up-next.tsx
 #: src/task/tasks-view.tsx
 msgid "Untitled meeting"
 msgstr "Untitled meeting"
@@ -6782,6 +6847,11 @@ msgstr "Untitled session"
 #: src/templates/template-form.tsx
 msgid "Untitled template"
 msgstr "Untitled template"
+
+#: src/main/home.tsx
+#: src/sidebar/up-next.tsx
+msgid "Up next"
+msgstr "Up next"
 
 #: src/main/home.tsx
 msgid "Up next from your calendar"
@@ -7121,6 +7191,7 @@ msgstr "Yearly · ${yearlyPrice}/yr"
 msgid "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 msgstr "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 
+#: src/main/home.tsx
 #: src/sidebar/timeline/utils/index.ts
 #: src/task/tasks-view.tsx
 msgid "Yesterday"

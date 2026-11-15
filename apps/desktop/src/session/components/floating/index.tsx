@@ -20,14 +20,26 @@ import { normalizeAudioRetention } from "~/services/audio-retention-policy";
 import { useConfigValue } from "~/shared/config";
 import type { Tab } from "~/store/zustand/tabs/schema";
 
-const GLASS_GROUP =
-  "cf-glass rounded-pill flex h-[46px] shrink-0 items-center gap-[2px] p-[5px] [corner-shape:round]";
+// One continuous Liquid Glass capsule; everything inside is a 36px segment.
+const GLASS_BAR =
+  "cf-glass rounded-pill pointer-events-auto relative flex h-[46px] max-w-full items-center gap-[2px] p-[5px] [corner-shape:round]";
 const GLASS_ITEM =
-  "cf-motion rounded-pill inline-flex h-9 shrink-0 items-center gap-[7px] px-4 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors select-none [corner-shape:round] hover:bg-[var(--cf-glass-sel)] focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none disabled:cursor-default disabled:opacity-60";
+  "cf-motion rounded-pill inline-flex h-9 shrink-0 items-center gap-[7px] px-4 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors select-none [corner-shape:round] hover:bg-[var(--cf-fill)] focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none disabled:cursor-default disabled:opacity-60";
+
+function BarDivider() {
+  return (
+    <span
+      aria-hidden="true"
+      data-session-bar-divider
+      className="mx-1 h-5 w-px shrink-0 bg-[var(--cf-separator)]"
+    />
+  );
+}
 
 /**
- * Liquid Glass bar floating at the bottom of the session view:
- * view tabs · primary recording action · In person / Ask.
+ * Liquid Glass bar floating at the bottom of the session view, one capsule:
+ * view segments (sliding lens) | Record or the live recording controls ·
+ * In person | Ask.
  */
 export function SessionBottomBar({
   tab,
@@ -61,7 +73,12 @@ export function SessionBottomBar({
         role="toolbar"
         aria-label={t`Meeting controls`}
         data-session-bottom-bar
-        className="pointer-events-auto relative flex max-w-full items-center gap-2.5"
+        // No glass shell around nothing (e.g. chat open with no actions).
+        className={
+          viewSwitcher || action || showTrailingGroup
+            ? GLASS_BAR
+            : "pointer-events-auto relative flex"
+        }
       >
         <span
           aria-hidden="true"
@@ -75,6 +92,7 @@ export function SessionBottomBar({
             {viewSwitcher}
           </div>
         ) : null}
+        {viewSwitcher && (action || showTrailingGroup) ? <BarDivider /> : null}
         {isRecording && audioKept ? (
           <p
             data-session-audio-saved
@@ -96,7 +114,7 @@ export function SessionBottomBar({
           <PrimaryAction action={action} />
         ) : null}
         {showTrailingGroup ? (
-          <div className={GLASS_GROUP}>
+          <div className="flex shrink-0 items-center gap-[2px]">
             {action?.showInPerson ? (
               <button
                 type="button"
@@ -111,12 +129,7 @@ export function SessionBottomBar({
                 <span className="@max-[640px]:sr-only">{t`In person`}</span>
               </button>
             ) : null}
-            {action?.showInPerson && showAsk ? (
-              <span
-                aria-hidden="true"
-                className="h-5 w-px shrink-0 bg-[var(--cf-separator)]"
-              />
-            ) : null}
+            {action?.showInPerson && showAsk ? <BarDivider /> : null}
             {showAsk ? (
               <button
                 type="button"
@@ -166,8 +179,8 @@ function PrimaryAction({ action }: { action: SessionMeetingAction }) {
             disabled={action.disabled}
             onClick={action.onClick}
             className={cn([
-              "cf-motion rounded-pill inline-flex h-[46px] max-w-56 shrink-0 items-center gap-2 px-5 text-[13px] font-semibold whitespace-nowrap transition-[opacity,filter] [corner-shape:round]",
-              "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-none",
+              "cf-motion rounded-pill inline-flex h-9 max-w-56 shrink-0 items-center gap-2 px-4 text-[13px] font-semibold whitespace-nowrap transition-[opacity,filter] [corner-shape:round]",
+              "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-1 focus-visible:outline-none",
               "disabled:cursor-default disabled:opacity-60",
               "cf-glass-tint hover:brightness-105",
             ])}

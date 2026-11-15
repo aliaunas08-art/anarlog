@@ -76,7 +76,8 @@ export function SessionShareButton({
   variant = "icon",
 }: {
   sessionId: string;
-  variant?: "icon" | "cta";
+  /** "toolbar": the session header's quiet 32px square-and-arrow-up glyph. */
+  variant?: "icon" | "cta" | "toolbar";
 }) {
   const auth = useAuth();
   const latestAuthRef = useRef(auth);
@@ -624,6 +625,7 @@ export function SessionShareButton({
           size={variant === "cta" ? "sm" : "icon"}
           variant={variant === "cta" ? "outline" : "ghost"}
           data-tauri-drag-region="false"
+          data-session-share-trigger={sessionId}
           aria-label={t`Share note`}
           aria-expanded={sharePopoverOpen}
           title={t`Share note`}
@@ -634,16 +636,38 @@ export function SessionShareButton({
                   "max-w-56 gap-1.5 overflow-hidden border pr-2.5 pl-1.5 text-sm shadow-none",
                   "border-border text-foreground bg-transparent",
                 ]
-              : [
-                  "text-muted-foreground hover:text-foreground rounded-full [&_svg]:size-4",
-                  sharePopoverOpen && "bg-accent text-foreground",
-                ],
+              : variant === "toolbar"
+                ? [
+                    "size-8 rounded-lg text-[var(--cf-secondary)] hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)] [&_svg]:size-4",
+                    sharePopoverOpen &&
+                      "bg-[var(--cf-fill)] text-[var(--cf-label)]",
+                  ]
+                : [
+                    "text-muted-foreground hover:text-foreground rounded-full [&_svg]:size-4",
+                    sharePopoverOpen && "bg-accent text-foreground",
+                  ],
           ])}
         >
-          <ShareNetwork
-            className={variant === "cta" ? "size-3.5" : "size-4"}
-            aria-hidden="true"
-          />
+          {variant === "toolbar" ? (
+            <svg
+              aria-hidden="true"
+              data-icon="share"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-4"
+            >
+              <path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" />
+            </svg>
+          ) : (
+            <ShareNetwork
+              className={variant === "cta" ? "size-3.5" : "size-4"}
+              aria-hidden="true"
+            />
+          )}
           {variant === "cta" ? (
             <span className="truncate">{t`Share`}</span>
           ) : null}

@@ -11,7 +11,6 @@ import { FoldersNav } from "./folders";
 import { type SidebarNoteFilter, useSidebarNotes } from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
-import { SidebarTasksLink } from "./tasks-link";
 import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 import { SidebarUpNext } from "./up-next";
@@ -60,7 +59,7 @@ export function LeftSidebar({
   return (
     <div
       data-sidebar-panel-frame
-      className="flex h-full w-full shrink-0 flex-col py-2 pr-1 pl-1"
+      className="flex h-full w-full shrink-0 flex-col"
     >
       <div
         data-sidebar-panel
@@ -98,7 +97,7 @@ export function LeftSidebar({
                         folderFilter={folderFilter}
                         // Clear the title-bar chrome that would otherwise
                         // overlay the top of the timeline.
-                        className={timelineTopChromeInset ? "pt-12" : "pt-1"}
+                        className={timelineTopChromeInset ? "pt-12" : "pt-3"}
                       />
                     ) : null}
                     <SidebarUpNext />
@@ -117,7 +116,6 @@ export function LeftSidebar({
                         }
                       />
                     </div>
-                    <SidebarTasksLink />
                   </>
                 ) : (
                   <SharedNotesNav />
@@ -131,9 +129,9 @@ export function LeftSidebar({
   );
 }
 
-// The panel sits 8px in from the window's top-left corner (body frame pl-1 +
-// pl-1, py-2); rows aligned to the traffic lights subtract this inset.
+// The flat panel starts at the window's top-left corner, so rows aligned to
+// the traffic lights need no inset correction.
 const SIDEBAR_PANEL_CHROME_INSET = {
-  "--cf-chrome-inset-x": "8px",
-  "--cf-chrome-inset-y": "8px",
+  "--cf-chrome-inset-x": "0px",
+  "--cf-chrome-inset-y": "0px",
 } as CSSProperties;

@@ -21,6 +21,7 @@ import {
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { PendingProposalsBanner } from "./components/pending-proposals-banner";
+import { SessionActionCapsules } from "./components/session-actions";
 import { SessionSurface } from "./components/session-surface";
 import { getCanShowTranscript, useHasTranscript } from "./components/shared";
 import type { TitleInputHandle } from "./components/title-input";
@@ -357,10 +358,30 @@ function TabContentNoteInner({
                     // Summary and shared views carry the title as their own
                     // first-line heading; Transcript has no leading content.
                     showTitle={view.type === "raw"}
+                    meta={
+                      view.type === "raw"
+                        ? "inline"
+                        : view.type === "enhanced"
+                          ? "editor-title"
+                          : "none"
+                    }
                     onFocusEditorAtStart={handleFocusEditorAtStart}
                     onTransferContentToEditor={handleTransferTitleToEditor}
                   />
                 )}
+                renderTrailingContent={(view) =>
+                  view.type === "enhanced" ? (
+                    <SessionActionCapsules
+                      sessionId={sessionId}
+                      enhancedNoteId={view.id}
+                      onOpenTranscript={
+                        editorTabs.some((tab) => tab.type === "transcript")
+                          ? () => handleTabChange({ type: "transcript" })
+                          : undefined
+                      }
+                    />
+                  ) : null
+                }
                 hideHeader
               />
             ) : (

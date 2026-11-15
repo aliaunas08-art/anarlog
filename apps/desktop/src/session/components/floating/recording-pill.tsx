@@ -12,7 +12,8 @@ const METER_BARS = 14;
 const METER_SAMPLE_MS = 120;
 
 /**
- * Glass recording pill shown in the session bottom bar while listening:
+ * Recording controls that take Record's place inside the session bottom
+ * bar's glass capsule while listening:
  * pulsing dot · elapsed time · live level meter · pause · bookmark · Stop.
  * While paused the dot goes gray and still, the timer freezes under a
  * "Paused" label and the meter is hidden.
@@ -88,7 +89,7 @@ export function RecordingPill({
       aria-label={paused ? t`Recording paused` : t`Recording`}
       data-session-recording-pill
       data-paused={paused || undefined}
-      className="cf-glass rounded-pill flex h-[46px] shrink-0 items-center gap-3 pr-[6px] pl-4 whitespace-nowrap [corner-shape:round]"
+      className="flex h-9 shrink-0 items-center gap-3 pr-1 pl-3 whitespace-nowrap"
     >
       <span
         aria-hidden="true"

@@ -1,5 +1,6 @@
 import { type Node as PMNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
+import { Decoration, DecorationSet } from "prosemirror-view";
 
 import { schema } from "./schema";
 
@@ -75,6 +76,23 @@ export function titleHeadingPlugin() {
       }
 
       return tr;
+    },
+    props: {
+      // Marks the title heading while the selection sits in it, so styles can
+      // clamp a long title to a few lines and still unfold it for editing.
+      decorations(state) {
+        const first = state.doc.firstChild;
+        if (
+          !first ||
+          first.type !== state.schema.nodes.heading ||
+          state.selection.from > first.nodeSize - 1
+        ) {
+          return null;
+        }
+        return DecorationSet.create(state.doc, [
+          Decoration.node(0, first.nodeSize, { class: "note-title-active" }),
+        ]);
+      },
     },
   });
 }

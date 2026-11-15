@@ -64,6 +64,8 @@ type NoteInputProps = {
   hideHeader?: boolean;
   /** Rendered above the note body inside the scroll area (not on transcript). */
   renderLeadingContent?: (view: TabEditorView) => React.ReactNode;
+  /** Rendered under the note body inside the scroll area (not on transcript). */
+  renderTrailingContent?: (view: TabEditorView) => React.ReactNode;
   sessionMode?: SessionMode;
   transcriptEditMode?: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
@@ -163,6 +165,7 @@ const NoteInputContent = forwardRef<
       commitTabChange,
       hideHeader = false,
       renderLeadingContent,
+      renderTrailingContent,
       sessionMode,
       transcriptEditMode = false,
       onTranscriptEditModeChange,
@@ -384,7 +387,9 @@ const NoteInputContent = forwardRef<
             onMouseDown={handleContainerMouseDown}
             onScroll={onScroll}
             className={cn([
-              "h-full px-3 @3xl:px-8",
+              // The column carries the board's side padding; the editor's
+              // hover rows bleed 0.75rem into it.
+              "h-full",
               "pt-2",
               // Bottom padding clears the floating glass bar (46px capsules
               // 22px off the bottom) with room to spare.
@@ -398,8 +403,9 @@ const NoteInputContent = forwardRef<
               // Editorial title, section heads and prose sizes for this view
               // live in styles/c-final.css, keyed off data-cf-view.
               data-cf-view={renderedCurrentTab.type}
+              // Board: 720px column with 32px sides (border-box).
               className={cn([
-                "mx-auto w-full max-w-[720px]",
+                "relative mx-auto box-border w-full max-w-[720px] px-5 @3xl:px-8",
                 renderedCurrentTab.type === "transcript" && "h-full",
               ])}
             >
@@ -441,6 +447,9 @@ const NoteInputContent = forwardRef<
                   onEditModeChange={onTranscriptEditModeChange}
                 />
               )}
+              {renderTrailingContent && renderedCurrentTab.type !== "transcript"
+                ? renderTrailingContent(renderedCurrentTab)
+                : null}
             </div>
           </div>
         </div>

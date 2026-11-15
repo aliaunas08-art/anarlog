@@ -4,6 +4,11 @@ import { forwardRef, useSyncExternalStore } from "react";
 import { cn, parseEventInstant, safeParseDate } from "@anlg/utils";
 
 import { getMeetingDisplay } from "./floating/meeting-action";
+import {
+  SessionMetaRow,
+  TitleAttachedMeta,
+  useMetaParticipants,
+} from "./session-meta";
 import { TitleInput, type TitleInputHandle } from "./title-input";
 
 import { useAudioPlayer } from "~/audio-player";
@@ -24,21 +29,35 @@ export const EditorialHeader = forwardRef<
     tab: Extract<Tab, { type: "sessions" }>;
     /** False when the view renders the title itself (summary first-line H1). */
     showTitle?: boolean;
+    /**
+     * Where the participants row goes: under this header's own title
+     * ("inline"), over the gap under the summary editor's first-line title
+     * ("editor-title"), or nowhere.
+     */
+    meta?: "inline" | "editor-title" | "none";
     onFocusEditorAtStart?: () => void;
     onTransferContentToEditor?: (content: string) => void;
   }
 >(function EditorialHeader(
-  { tab, showTitle = true, onFocusEditorAtStart, onTransferContentToEditor },
+  {
+    tab,
+    showTitle = true,
+    meta = showTitle ? "inline" : "none",
+    onFocusEditorAtStart,
+    onTransferContentToEditor,
+  },
   ref,
 ) {
   const eyebrow = useSessionEyebrow(tab.id);
+  const participants = useMetaParticipants(tab.id);
 
   return (
     <header
       data-session-editorial-header
       className={cn([
-        "flex min-w-0 flex-col gap-2.5 pt-3",
-        showTitle ? "pb-6" : "pb-2.5",
+        // Board: eyebrow, title and meta 10px apart; 26px down to the body.
+        "flex min-w-0 flex-col gap-2.5 pt-1",
+        showTitle ? "pb-[26px]" : "pb-2.5",
       ])}
     >
       {eyebrow ? (
@@ -57,6 +76,12 @@ export const EditorialHeader = forwardRef<
             onFocusEditorAtStart ? () => onFocusEditorAtStart() : undefined
           }
         />
+      ) : null}
+      {meta === "inline" ? (
+        <SessionMetaRow participants={participants} />
+      ) : null}
+      {meta === "editor-title" ? (
+        <TitleAttachedMeta sessionId={tab.id} />
       ) : null}
     </header>
   );

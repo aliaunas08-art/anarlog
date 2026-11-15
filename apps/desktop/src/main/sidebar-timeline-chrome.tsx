@@ -1,7 +1,9 @@
-import { Trans } from "@lingui/react/macro";
+import { useLingui } from "@lingui/react/macro";
 import { memo, type ReactNode } from "react";
 
 import {
+  CalendarBlank,
+  ListChecks,
   MagnifyingGlass,
   NotePencil,
   Plus,
@@ -12,6 +14,9 @@ import { cn } from "@anlg/utils";
 
 import { SidebarNoteFilterMenu } from "~/sidebar/note-filter-menu";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
+import { useTabs } from "~/store/zustand/tabs";
+import { openTasksTab } from "~/task/open-tasks-tab";
+import { useOpenTaskCount } from "~/task/tasks-data";
 
 export const SidebarTimelineChromeWithUpcomingMeeting = memo(
   function SidebarTimelineChromeWithUpcomingMeeting({
@@ -89,8 +94,8 @@ function SidebarTimelineChrome({
   );
 }
 
-// Board: a prominent "New note ⌘N" capsule and a search field under the
-// traffic-light row. Only rendered on macOS, where the shortcuts are ⌘.
+// Airy nav rows under the traffic-light row (Claude / ChatGPT sidebars):
+// plain icon + label rows with a hover/selected fill only.
 export function SidebarPrimaryActions({
   onNewNote,
   onSearch,
@@ -98,48 +103,94 @@ export function SidebarPrimaryActions({
   onNewNote: () => void;
   onSearch: () => void;
 }) {
+  const { t } = useLingui();
+  const openTasks = useOpenTaskCount();
+  const currentTabType = useTabs((state) => state.currentTab?.type);
+
   return (
-    <div
+    <nav
       data-sidebar-primary-actions
-      className="flex shrink-0 flex-col gap-2 px-2.5 pt-1 pb-2"
+      aria-label={t`Sidebar`}
+      className="flex shrink-0 flex-col gap-px px-2 pt-1 pb-1"
     >
-      <button
-        type="button"
-        aria-label="New note"
+      <SidebarNavRow
+        label={t`New note`}
+        icon={<Plus size={16} aria-hidden />}
+        hint="⌘N"
         onClick={onNewNote}
-        className={cn([
-          "cf-glass-tint rounded-pill flex h-8 w-full min-w-0 items-center gap-2 px-2.5",
-          "text-[13px] font-semibold whitespace-nowrap",
-          "cf-motion transition-[filter] hover:brightness-110 active:brightness-95",
-          "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-hidden",
-        ])}
-      >
-        <Plus size={13} weight="bold" aria-hidden className="shrink-0" />
-        <span className="min-w-0 truncate">
-          <Trans>New note</Trans>
-        </span>
-        <span className="ml-auto shrink-0 text-[11px] font-medium opacity-75">
-          ⌘N
-        </span>
-      </button>
-      <button
-        type="button"
-        aria-label="Search"
+      />
+      <SidebarNavRow
+        label={t`Search`}
+        icon={<MagnifyingGlass size={16} aria-hidden />}
+        hint="⌘P"
         onClick={onSearch}
-        className={cn([
-          "flex h-[30px] w-full min-w-0 items-center gap-1.5 rounded-lg px-2",
-          "bg-[var(--cf-fill)] text-[13px] whitespace-nowrap text-[var(--cf-secondary)]",
-          "cf-motion transition-colors hover:text-[var(--cf-label)]",
-          "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-hidden",
-        ])}
-      >
-        <MagnifyingGlass size={13} aria-hidden className="shrink-0" />
-        <span className="min-w-0 truncate">
-          <Trans>Search notes, people…</Trans>
+      />
+      <SidebarNavRow
+        label={t`Tasks`}
+        icon={<ListChecks size={16} aria-hidden />}
+        active={currentTabType === "tasks"}
+        trailing={openTasks > 0 ? String(openTasks) : null}
+        trailingLabel={openTasks > 0 ? t`${openTasks} open` : undefined}
+        onClick={openTasksTab}
+      />
+      <SidebarNavRow
+        label={t`Calendar`}
+        icon={<CalendarBlank size={16} aria-hidden />}
+        active={currentTabType === "calendar"}
+        onClick={() => useTabs.getState().openNew({ type: "calendar" })}
+      />
+    </nav>
+  );
+}
+
+function SidebarNavRow({
+  label,
+  icon,
+  hint,
+  trailing = null,
+  trailingLabel,
+  active = false,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  hint?: string;
+  trailing?: string | null;
+  trailingLabel?: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      onClick={onClick}
+      className={cn([
+        "group/nav-row flex h-9 w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5",
+        "text-[15px] whitespace-nowrap text-[var(--cf-label)]",
+        "cf-motion transition-colors hover:bg-[var(--cf-selection)]",
+        "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-hidden",
+        active && "bg-[var(--cf-selection)]",
+      ])}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center text-[var(--cf-label)] opacity-85">
+        {icon}
+      </span>
+      <span className="min-w-0 truncate">{label}</span>
+      {trailing ? (
+        <span
+          aria-label={trailingLabel}
+          className="ml-auto shrink-0 text-[13px] text-[var(--cf-secondary)] tabular-nums"
+        >
+          {trailing}
         </span>
-        <span className="ml-auto shrink-0 text-[11px]">⌘P</span>
-      </button>
-    </div>
+      ) : hint ? (
+        <span className="ml-auto shrink-0 text-[12px] text-[var(--cf-tertiary)] opacity-0 transition-opacity group-hover/nav-row:opacity-100 group-focus-visible/nav-row:opacity-100">
+          {hint}
+        </span>
+      ) : null}
+    </button>
   );
 }
 

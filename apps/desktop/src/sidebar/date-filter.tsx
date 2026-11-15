@@ -72,28 +72,18 @@ function isSameMonth(dayKey: string, view: MonthView) {
   return year === view.year && month === view.month;
 }
 
-/** Weeks of the month as rows of 7; `null` pads days outside the month. */
-function buildMonthWeeks(
-  view: MonthView,
-  weekStartsOn: 0 | 1,
-): Array<Array<string | null>> {
+/** Always six rows of 7, padded with the adjacent months' days (as in
+ * Google Calendar's mini month), so the grid height never jumps. */
+function buildMonthWeeks(view: MonthView, weekStartsOn: 0 | 1): string[][] {
   const firstWeekday = new Date(Date.UTC(view.year, view.month, 1)).getUTCDay();
   const leading = (firstWeekday - weekStartsOn + 7) % 7;
-  const cells: Array<string | null> = Array.from(
-    { length: leading },
-    () => null,
-  );
-  const total = daysInMonth(view);
-  for (let day = 1; day <= total; day++) {
-    cells.push(toDayKey(view.year, view.month, day));
-  }
-  while (cells.length % 7 !== 0) {
-    cells.push(null);
-  }
+  const start = addDays(toDayKey(view.year, view.month, 1), -leading);
 
-  const weeks: Array<Array<string | null>> = [];
-  for (let index = 0; index < cells.length; index += 7) {
-    weeks.push(cells.slice(index, index + 7));
+  const weeks: string[][] = [];
+  for (let week = 0; week < 6; week++) {
+    weeks.push(
+      Array.from({ length: 7 }, (_, day) => addDays(start, week * 7 + day)),
+    );
   }
   return weeks;
 }
@@ -157,10 +147,6 @@ export function SidebarDateFilter({
         year: "numeric",
         timeZone: "UTC",
       }),
-      monthOnly: new Intl.DateTimeFormat(i18n.locale, {
-        month: "long",
-        timeZone: "UTC",
-      }),
       weekday: new Intl.DateTimeFormat(i18n.locale, {
         weekday: "narrow",
         timeZone: "UTC",
@@ -192,11 +178,6 @@ export function SidebarDateFilter({
 
   const monthDate = new Date(Date.UTC(view.year, view.month, 1, 12));
   const monthLabel = formatters.month.format(monthDate);
-  // The header drops the year in the current year so it fits a narrow panel.
-  const visibleMonthLabel =
-    view.year === parseDayKey(todayKey).year
-      ? formatters.monthOnly.format(monthDate)
-      : monthLabel;
   // 2023-01-01 was a Sunday; offset by the configured week start.
   const weekdayKeys = Array.from({ length: 7 }, (_, index) =>
     toDayKey(2023, 0, 1 + ((index + weekStartsOn) % 7)),
@@ -233,6 +214,9 @@ export function SidebarDateFilter({
 
   const toggleDay = (dayKey: string) => {
     setFocusKey(dayKey);
+    if (!isSameMonth(dayKey, view)) {
+      setView(monthOf(dayKey));
+    }
     setDateFilter(dateFilter === dayKey ? null : dayKey);
   };
 
@@ -297,36 +281,40 @@ export function SidebarDateFilter({
 
   const selectedCount = dateFilter ? (countsByDay.get(dateFilter) ?? 0) : 0;
 
+  const navButtonClassName =
+    "cf-motion inline-flex size-8 items-center justify-center rounded-pill text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)] focus-visible:bg-[var(--cf-fill)] focus-visible:outline-hidden";
+
   return (
     <section
       aria-label={t`By date`}
       data-sidebar-date-filter
-      className={cn(["flex shrink-0 flex-col gap-1.5 px-2.5 pb-3", className])}
+      className={cn(["flex shrink-0 flex-col gap-1 px-2 pb-2", className])}
     >
-      <div className="flex items-center justify-between gap-2 px-1.5">
-        <span className="min-w-0 truncate text-[11px] font-semibold text-[var(--cf-secondary)]">
-          <Trans>By date</Trans>
-          {" · "}
-          <span data-testid="date-filter-month">{visibleMonthLabel}</span>
+      <div className="flex items-center justify-between gap-2 pr-0.5 pl-2.5">
+        <span
+          data-testid="date-filter-month"
+          className="min-w-0 truncate text-[17px] leading-8 font-normal text-[var(--cf-label)]"
+        >
+          {monthLabel}
         </span>
-        <span className="inline-flex shrink-0 gap-0.5 text-[var(--cf-secondary)]">
+        <span className="inline-flex shrink-0 items-center gap-1">
           <button
             type="button"
             aria-label={t`Previous month`}
             title={t`Previous month`}
             onClick={() => changeMonth(-1)}
-            className="cf-motion inline-flex size-5 items-center justify-center rounded-[6px] transition-colors hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)] focus-visible:bg-[var(--cf-fill)] focus-visible:outline-hidden"
+            className={navButtonClassName}
           >
-            <CaretLeft size={10} weight="bold" aria-hidden="true" />
+            <CaretLeft size={16} aria-hidden="true" />
           </button>
           <button
             type="button"
             aria-label={t`Next month`}
             title={t`Next month`}
             onClick={() => changeMonth(1)}
-            className="cf-motion inline-flex size-5 items-center justify-center rounded-[6px] transition-colors hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)] focus-visible:bg-[var(--cf-fill)] focus-visible:outline-hidden"
+            className={navButtonClassName}
           >
-            <CaretRight size={10} weight="bold" aria-hidden="true" />
+            <CaretRight size={16} aria-hidden="true" />
           </button>
         </span>
       </div>
@@ -336,7 +324,7 @@ export function SidebarDateFilter({
         role="grid"
         aria-label={monthLabel}
         onKeyDown={handleGridKeyDown}
-        className="flex flex-col gap-0.5"
+        className="flex flex-col gap-y-1"
       >
         <div role="row" className="grid grid-cols-7 text-center">
           {weekdayKeys.map((key) => {
@@ -346,35 +334,20 @@ export function SidebarDateFilter({
                 key={key}
                 role="columnheader"
                 aria-label={formatters.weekdayLong.format(date)}
-                className="text-[10px] leading-[18px] font-semibold text-[var(--cf-tertiary)]"
+                className="text-[12px] leading-8 font-medium text-[var(--cf-secondary)]"
               >
                 {formatters.weekday.format(date)}
               </span>
             );
           })}
         </div>
-        {weeks.map((week, weekIndex) => (
-          <div
-            key={week.find(Boolean) ?? weekIndex}
-            role="row"
-            className="grid grid-cols-7"
-          >
-            {week.map((dayKey, dayIndex) => {
-              if (!dayKey) {
-                return (
-                  <span
-                    key={`pad-${dayIndex}`}
-                    role="gridcell"
-                    aria-hidden="true"
-                    className="size-6 justify-self-center"
-                  />
-                );
-              }
-
+        {weeks.map((week) => (
+          <div key={week[0]} role="row" className="grid grid-cols-7">
+            {week.map((dayKey) => {
+              const isOutside = !isSameMonth(dayKey, view);
               const count = countsByDay.get(dayKey) ?? 0;
               const isSelected = dateFilter === dayKey;
               const isToday = dayKey === todayKey;
-              const isFuture = dayKey > todayKey;
               const date = dayKeyToUtcDate(dayKey);
               const label = [
                 formatters.fullDate.format(date),
@@ -392,36 +365,43 @@ export function SidebarDateFilter({
                   aria-current={isToday ? "date" : undefined}
                   aria-label={label}
                   data-day={dayKey}
+                  data-outside={isOutside || undefined}
                   data-has-notes={count > 0 || undefined}
                   tabIndex={dayKey === tabStopKey ? 0 : -1}
                   onClick={() => toggleDay(dayKey)}
                   onFocus={() => setFocusKey(dayKey)}
                   className={cn([
-                    "cf-motion rounded-pill relative flex size-6 cursor-default items-center justify-center justify-self-center",
-                    "text-[11px] tabular-nums transition-colors select-none",
+                    "cf-motion rounded-pill relative flex aspect-square w-full max-w-8 cursor-default items-center justify-center justify-self-center",
+                    "text-[14px] tabular-nums transition-colors select-none",
                     "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-hidden",
-                    isSelected
-                      ? "bg-[var(--cf-accent)] font-semibold text-[var(--cf-on-accent)]"
-                      : [
-                          "hover:bg-[var(--cf-fill)]",
-                          isToday
-                            ? "font-bold text-[var(--cf-accent)]"
-                            : isFuture
+                    isToday
+                      ? [
+                          "bg-[var(--cf-today-bg)] font-medium text-[var(--cf-today-fg)]",
+                          isSelected &&
+                            "ring-2 ring-[var(--cf-accent)] ring-offset-1 ring-offset-[var(--cf-sidebar-bg)]",
+                        ]
+                      : isSelected
+                        ? "bg-[var(--cf-accent)] font-medium text-[var(--cf-on-accent)]"
+                        : [
+                            "hover:bg-[var(--cf-fill)]",
+                            isOutside
                               ? "text-[var(--cf-tertiary)]"
                               : "text-[var(--cf-label)]",
-                        ],
+                          ],
                   ])}
                 >
                   {formatters.day.format(date)}
-                  {count > 0 ? (
+                  {count > 0 && !isOutside ? (
                     <span
                       aria-hidden="true"
                       data-testid="date-filter-dot"
                       className={cn([
-                        "rounded-pill absolute bottom-0.5 left-1/2 size-[3px] -translate-x-1/2",
-                        isSelected
-                          ? "bg-[var(--cf-on-accent)]"
-                          : "bg-[var(--cf-accent)]",
+                        "rounded-pill absolute bottom-[3px] left-1/2 size-[3px] -translate-x-1/2",
+                        isToday
+                          ? "bg-[var(--cf-today-fg)]"
+                          : isSelected
+                            ? "bg-[var(--cf-on-accent)]"
+                            : "bg-[var(--cf-secondary)]",
                       ])}
                     />
                   ) : null}
@@ -433,7 +413,7 @@ export function SidebarDateFilter({
       </div>
 
       {dateFilter ? (
-        <div className="flex items-center justify-between gap-2 px-1.5 pt-0.5 text-[11px] text-[var(--cf-secondary)]">
+        <div className="flex items-center justify-between gap-2 px-2.5 pt-1 text-[12px] text-[var(--cf-secondary)]">
           <span className="min-w-0 truncate" aria-live="polite">
             {formatters.shortDate.format(dayKeyToUtcDate(dateFilter))}
             {" · "}
@@ -442,7 +422,7 @@ export function SidebarDateFilter({
           <button
             type="button"
             onClick={() => setDateFilter(null)}
-            className="shrink-0 rounded-[4px] text-[11px] text-[var(--cf-accent)] hover:underline focus-visible:underline focus-visible:outline-hidden"
+            className="shrink-0 rounded-[4px] text-[12px] text-[var(--cf-accent)] hover:underline focus-visible:underline focus-visible:outline-hidden"
           >
             <Trans>Any date</Trans>
           </button>

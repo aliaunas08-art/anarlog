@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
   audioTotal: 0,
   inPerson: false,
   timezone: undefined as string | undefined,
+  participants: [] as Array<{
+    id: string;
+    humanId: string;
+    name: string;
+    email: string;
+  }>,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -25,6 +31,7 @@ vi.mock("./title-input", () => ({
 
 vi.mock("~/session/queries", () => ({
   useSession: () => mocks.session,
+  useSessionParticipants: () => mocks.participants,
 }));
 
 vi.mock("~/session/hooks/useSessionEvent", () => ({
@@ -71,6 +78,7 @@ describe("EditorialHeader", () => {
     mocks.audioTotal = 0;
     mocks.inPerson = false;
     mocks.timezone = undefined;
+    mocks.participants = [];
   });
 
   afterEach(() => {
@@ -82,6 +90,24 @@ describe("EditorialHeader", () => {
 
     const title = screen.getByRole("textbox", { name: "Session title" });
     expect(title.getAttribute("data-variant")).toBe("editorial");
+  });
+
+  it("shows participants under the title and hides the row without any", () => {
+    const { container, rerender } = render(<EditorialHeader tab={tab} />);
+    expect(container.querySelector("[data-session-meta-row]")).toBeNull();
+
+    mocks.participants = [
+      { id: "p1", humanId: "h1", name: "Sam Lee", email: "" },
+      { id: "p2", humanId: "h2", name: "Priya Shah", email: "" },
+      { id: "p3", humanId: "", name: "", email: "jordan@example.com" },
+    ];
+    rerender(<EditorialHeader tab={tab} />);
+
+    const row = container.querySelector("[data-session-meta-row]");
+    expect(row?.textContent).toContain("Sam, Priya, jordan");
+    expect(
+      container.querySelectorAll("[data-session-meta-avatar]"),
+    ).toHaveLength(3);
   });
 
   it("shows date, in person and recorded duration in the eyebrow", () => {

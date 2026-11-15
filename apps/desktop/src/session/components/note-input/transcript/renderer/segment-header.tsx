@@ -23,9 +23,10 @@ export function SegmentHeader({
   const { selectMode } = useTranscriptSelectionState();
   const colorVars = useSegmentColorVars(segment.key);
   const headerClassName = cn([
-    "relative py-1",
-    "text-xs font-light",
-    "flex items-center gap-2",
+    // Board speaker line: 6px dot, 11px semibold secondary label.
+    "relative py-0.5",
+    "text-[11px] font-semibold",
+    "flex items-center gap-1.5",
     "[--segment-color:var(--segment-color-light)]",
     "dark:[--segment-color:var(--segment-color-dark)]",
     "[--speaker-dot:var(--speaker-dot-light)]",
@@ -50,14 +51,14 @@ export function SegmentHeader({
       <span
         aria-hidden="true"
         data-speaker-dot
-        className="rounded-pill size-2 shrink-0 bg-[var(--speaker-dot)]"
+        className="rounded-pill size-1.5 shrink-0 bg-[var(--speaker-dot)]"
       />
       <SpeakerAssignPopover
         segment={segment}
         transcriptId={transcriptId}
         sessionId={sessionId}
-        color="var(--cf-label)"
-        className="-ml-1 font-medium"
+        color="var(--cf-secondary)"
+        className="-ml-1 font-semibold"
         label={label}
       />
     </div>

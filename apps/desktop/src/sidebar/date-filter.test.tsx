@@ -92,11 +92,16 @@ describe("SidebarDateFilter", () => {
     render(<SidebarDateFilter />);
 
     expect(screen.getByTestId("date-filter-month").textContent).toBe(
-      "November",
+      "November 2026",
     );
     const grid = screen.getByRole("grid", { name: "November 2026" });
     expect(within(grid).getAllByRole("columnheader")).toHaveLength(7);
-    expect(grid.querySelectorAll("[data-day]")).toHaveLength(30);
+    // Six full weeks, padded with October and December days.
+    expect(grid.querySelectorAll("[data-day]")).toHaveLength(42);
+    expect(
+      grid.querySelectorAll("[data-day]:not([data-outside])"),
+    ).toHaveLength(30);
+    expect(day("2026-12-12").hasAttribute("data-outside")).toBe(true);
     // November 1, 2026 is a Sunday, so it opens the first row.
     const firstRow = within(grid).getAllByRole("row")[1];
     expect(firstRow.querySelector("[data-day]")?.getAttribute("data-day")).toBe(
@@ -149,18 +154,34 @@ describe("SidebarDateFilter", () => {
     expect(useSidebarNotes.getState().dateFilter).toBeNull();
   });
 
+  it("selecting an adjacent-month day pages to that month", () => {
+    render(<SidebarDateFilter />);
+
+    fireEvent.click(day("2026-12-03"));
+
+    expect(useSidebarNotes.getState().dateFilter).toBe("2026-12-03");
+    expect(screen.getByTestId("date-filter-month").textContent).toBe(
+      "December 2026",
+    );
+    expect(day("2026-12-03").hasAttribute("data-outside")).toBe(false);
+  });
+
   it("navigates between months", () => {
     render(<SidebarDateFilter />);
 
     fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
-    expect(screen.getByTestId("date-filter-month").textContent).toBe("October");
-    expect(document.querySelectorAll("[data-day]")).toHaveLength(31);
+    expect(screen.getByTestId("date-filter-month").textContent).toBe(
+      "October 2026",
+    );
+    expect(
+      document.querySelectorAll("[data-day]:not([data-outside])"),
+    ).toHaveLength(31);
     expect(hasDot("2026-10-20")).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
     expect(screen.getByTestId("date-filter-month").textContent).toBe(
-      "December",
+      "December 2026",
     );
   });
 
@@ -181,7 +202,9 @@ describe("SidebarDateFilter", () => {
     fireEvent.keyDown(grid, { key: "ArrowUp" });
     fireEvent.keyDown(grid, { key: "ArrowUp" });
     expect(document.activeElement).toBe(day("2026-10-31"));
-    expect(screen.getByTestId("date-filter-month").textContent).toBe("October");
+    expect(screen.getByTestId("date-filter-month").textContent).toBe(
+      "October 2026",
+    );
 
     fireEvent.keyDown(grid, { key: "Escape" });
     expect(useSidebarNotes.getState().dateFilter).toBeNull();
@@ -193,9 +216,14 @@ describe("SidebarDateFilter", () => {
 
     const headers = screen.getAllByRole("columnheader");
     expect(headers[0].getAttribute("aria-label")).toBe("Monday");
-    // Nov 1 is a Sunday: six blank cells precede it.
+    // Nov 1 is a Sunday: six October days precede it.
     const firstRow = screen.getAllByRole("row")[1];
-    expect(firstRow.querySelectorAll("[data-day]")).toHaveLength(1);
+    expect(
+      firstRow.querySelectorAll("[data-day]:not([data-outside])"),
+    ).toHaveLength(1);
+    expect(firstRow.querySelector("[data-day]")?.getAttribute("data-day")).toBe(
+      "2026-10-26",
+    );
   });
 });
 

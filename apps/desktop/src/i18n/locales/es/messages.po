@@ -224,6 +224,10 @@ msgstr ""
 msgid "{open} open"
 msgstr ""
 
+#: src/main/sidebar-timeline-chrome.tsx
+msgid "{openTasks} open"
+msgstr ""
+
 #: src/settings/stats/insights.tsx
 msgid "{peakCount} of {total} conversations ({share}) started on this weekday in the selected period."
 msgstr ""
@@ -263,6 +267,10 @@ msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "{weeks} weeks ago"
+msgstr ""
+
+#: src/session/components/session-meta.tsx
+msgid "+{count} more"
 msgstr ""
 
 #. placeholder {0}: proPrice.monthly
@@ -755,7 +763,6 @@ msgstr ""
 msgid "Approve"
 msgstr ""
 
-#: src/main/home.tsx
 #: src/session/components/floating/index.tsx
 msgid "Ask"
 msgstr ""
@@ -844,6 +851,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to {APP_NAME}."
+msgstr ""
+
+#: src/main/home.tsx
+msgid "Auto"
 msgstr ""
 
 #: src/templates/auto-form.tsx
@@ -1010,6 +1021,7 @@ msgstr ""
 msgid "By person"
 msgstr ""
 
+#: src/main/sidebar-timeline-chrome.tsx
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Calendar"
@@ -1761,6 +1773,10 @@ msgstr ""
 msgid "Copied"
 msgstr "Copiado"
 
+#: src/session/components/session-actions.tsx
+msgid "Copied as Markdown"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
@@ -1771,6 +1787,10 @@ msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Copy {label} URL"
+msgstr ""
+
+#: src/session/components/session-actions.tsx
+msgid "Copy as Markdown"
 msgstr ""
 
 #: src/settings/developers/cli.tsx
@@ -1993,6 +2013,10 @@ msgstr ""
 
 #: src/settings/referrals.tsx
 msgid "Couldn't copy the invite link. Try again."
+msgstr ""
+
+#: src/session/components/session-actions.tsx
+msgid "Couldn't copy the summary"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -2392,7 +2416,12 @@ msgid "Draft a follow-up email for my most recent meeting."
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
+#: src/session/components/session-actions.tsx
 msgid "Draft a follow-up email to the participants"
+msgstr ""
+
+#: src/session/components/session-actions.tsx
+msgid "Draft follow-up email"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
@@ -3138,6 +3167,10 @@ msgstr ""
 msgid "In person"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "In person · record with the mic only"
+msgstr ""
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Include"
@@ -3682,6 +3715,10 @@ msgstr ""
 
 #: src/sidebar/timeline/index.tsx
 msgid "Meeting"
+msgstr ""
+
+#: src/session/components/session-actions.tsx
+msgid "Meeting actions"
 msgstr ""
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
@@ -4433,6 +4470,10 @@ msgstr ""
 msgid "Open the meeting link when a scheduled meeting begins."
 msgstr ""
 
+#: src/session/components/session-actions.tsx
+msgid "Open transcript"
+msgstr ""
+
 #: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
 msgstr ""
@@ -4940,6 +4981,10 @@ msgstr ""
 msgid "Recordings and notes stay on this Mac"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Recovered recording"
+msgstr ""
+
 #: src/main/windows-title-bar.tsx
 msgid "Redo"
 msgstr ""
@@ -5242,6 +5287,10 @@ msgstr ""
 #: src/settings/dictation.tsx
 msgid "Retry setup"
 msgstr "Reintentar configuración"
+
+#: src/main/home.tsx
+msgid "Return to start"
+msgstr ""
 
 #: src/session/components/pending-proposals-banner.tsx
 msgid "Review memo"
@@ -5629,6 +5678,10 @@ msgstr ""
 msgid "Share audio"
 msgstr ""
 
+#: src/session/components/session-actions.tsx
+msgid "Share link"
+msgstr ""
+
 #: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Share link copied."
@@ -5821,6 +5874,10 @@ msgstr ""
 #: src/settings/dictation.tsx
 msgid "Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."
 msgstr "Muestra las palabras en el panel flotante mientras hablas. Usa una conexión en directo con el proveedor de transcripción seleccionado cuando es compatible. El texto se inserta al terminar."
+
+#: src/main/sidebar-timeline-chrome.tsx
+msgid "Sidebar"
+msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
@@ -6378,6 +6435,7 @@ msgstr ""
 msgid "Task views"
 msgstr ""
 
+#: src/main/sidebar-timeline-chrome.tsx
 #: src/sidebar/tasks-link.tsx
 #: src/task/tasks-view.tsx
 msgid "Tasks"
@@ -6424,6 +6482,11 @@ msgstr ""
 
 #: src/templates/sections-editor.tsx
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
+msgstr ""
+
+#. placeholder {0}: homeTemplate.title ?? t`Auto`
+#: src/main/home.tsx
+msgid "Template: {0}"
 msgstr ""
 
 #: src/sidebar/settings-nav-groups.ts
@@ -6565,6 +6628,7 @@ msgstr ""
 msgid "Tip: The Notes team loves our users!"
 msgstr ""
 
+#: src/main/home.tsx
 #: src/sidebar/date-filter.tsx
 #: src/sidebar/timeline/utils/index.ts
 #: src/task/task-cell-pickers.tsx
@@ -6763,6 +6827,7 @@ msgid "Untitled automation"
 msgstr ""
 
 #: src/main/home.tsx
+#: src/sidebar/up-next.tsx
 #: src/task/tasks-view.tsx
 msgid "Untitled meeting"
 msgstr ""
@@ -6781,6 +6846,11 @@ msgstr ""
 
 #: src/templates/template-form.tsx
 msgid "Untitled template"
+msgstr ""
+
+#: src/main/home.tsx
+#: src/sidebar/up-next.tsx
+msgid "Up next"
 msgstr ""
 
 #: src/main/home.tsx
@@ -7121,6 +7191,7 @@ msgstr ""
 msgid "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 msgstr ""
 
+#: src/main/home.tsx
 #: src/sidebar/timeline/utils/index.ts
 #: src/task/tasks-view.tsx
 msgid "Yesterday"

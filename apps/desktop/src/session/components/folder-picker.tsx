@@ -47,9 +47,12 @@ const filterFolders = (value: string, search: string) => {
 export function FolderPicker({
   sessionId,
   align = "start",
+  appearance = "default",
 }: {
   sessionId: string;
   align?: "start" | "end";
+  /** "toolbar": the session header's quiet 32px icon-button style. */
+  appearance?: "default" | "toolbar";
 }) {
   const { t } = useLingui();
   const triggerRef = useSquircleRef<HTMLButtonElement>();
@@ -80,6 +83,11 @@ export function FolderPicker({
             "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             squircleFocusVisibleClassName,
             open && "bg-accent text-foreground",
+            appearance === "toolbar" && [
+              "h-8 rounded-lg text-[var(--cf-secondary)] hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)]",
+              currentPath ? "px-2" : "w-8",
+              open && "bg-[var(--cf-fill)] text-[var(--cf-label)]",
+            ],
           ])}
         >
           {currentPath ? (

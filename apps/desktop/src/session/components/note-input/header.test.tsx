@@ -462,7 +462,8 @@ describe("SessionViewSwitcher", () => {
 
     const group = screen.getByRole("group", { name: "Session note views" });
     expect(group.getAttribute("data-variant")).toBe("glass");
-    expect(group.className).toContain("cf-glass");
+    // Segments sit inside the bottom bar's single glass capsule.
+    expect(group.className).not.toContain("cf-glass");
 
     const notes = screen.getByRole("button", { name: "Notes" });
     expect(notes.getAttribute("aria-current")).toBe("page");
