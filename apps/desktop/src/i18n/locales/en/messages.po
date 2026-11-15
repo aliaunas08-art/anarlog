@@ -775,8 +775,8 @@ msgid "Ask"
 msgstr "Ask"
 
 #: src/session/components/floating/index.tsx
-msgid "Ask about this meeting"
-msgstr "Ask about this meeting"
+msgid "Ask about this meeting (⌘K)"
+msgstr "Ask about this meeting (⌘K)"
 
 #: src/composer/index.tsx
 msgid "Ask Anarlog AI anything"
@@ -1365,6 +1365,10 @@ msgstr "Clean up legacy files?"
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Cleaning up..."
 msgstr "Cleaning up..."
+
+#: src/task/task-cell-pickers.tsx
+msgid "Clear"
+msgstr "Clear"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
@@ -2409,6 +2413,12 @@ msgstr "Draft follow-up email."
 #: src/task/tasks-view.tsx
 msgid "Due"
 msgstr "Due"
+
+#. placeholder {0}: task.text
+#. placeholder {1}: due.day || task.dueAt ? due.label : t`No date`
+#: src/task/tasks-view.tsx
+msgid "Due date of {0}: {1}"
+msgstr "Due date of {0}: {1}"
 
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
@@ -3954,12 +3964,17 @@ msgid "next month"
 msgstr "next month"
 
 #: src/sidebar/date-filter.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "Next month"
 msgstr "Next month"
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "next week"
 msgstr "next week"
+
+#: src/task/task-cell-pickers.tsx
+msgid "Next week"
+msgstr "Next week"
 
 #: src/calendar/components/event-chip.tsx
 msgid "No"
@@ -4088,6 +4103,7 @@ msgid "No matching languages found"
 msgstr "No matching languages found"
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "No matching people"
 msgstr "No matching people"
 
@@ -4107,6 +4123,7 @@ msgstr "No notes"
 msgid "No notes on this day"
 msgstr "No notes on this day"
 
+#: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "No owner"
 msgstr "No owner"
@@ -4481,6 +4498,12 @@ msgstr "Overview"
 msgid "Owner"
 msgstr "Owner"
 
+#. placeholder {0}: task.text
+#. placeholder {1}: task.ownerName || t`No owner`
+#: src/task/tasks-view.tsx
+msgid "Owner of {0}: {1}"
+msgstr "Owner of {0}: {1}"
+
 #: src/settings/team/index.tsx
 msgid "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
 msgstr "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
@@ -4526,6 +4549,15 @@ msgstr "Pause"
 msgid "Pause alerts while Do Not Disturb is on."
 msgstr "Pause alerts while Do Not Disturb is on."
 
+#: src/session/components/floating/recording-pill.tsx
+msgid "Pause recording"
+msgstr "Pause recording"
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Pause recording (⌘⇧P)"
+msgstr "Pause recording (⌘⇧P)"
+
+#: src/session/components/floating/recording-pill.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Paused"
 msgstr "Paused"
@@ -4536,6 +4568,7 @@ msgstr "Pending"
 
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "People"
 msgstr "People"
 
@@ -4682,6 +4715,7 @@ msgid "Previous match"
 msgstr "Previous match"
 
 #: src/sidebar/date-filter.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "Previous month"
 msgstr "Previous month"
 
@@ -4881,6 +4915,14 @@ msgstr "Recording"
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Recording not found. It may have been deleted."
 msgstr "Recording not found. It may have been deleted."
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Recording paused"
+msgstr "Recording paused"
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Recording paused at {elapsed}"
+msgstr "Recording paused at {elapsed}"
 
 #: src/settings/general/notification.tsx
 msgid "Recording status prompts"
@@ -5163,8 +5205,13 @@ msgid "Resume"
 msgstr "Resume"
 
 #: src/session/components/floating/meeting-action.tsx
+#: src/session/components/floating/recording-pill.tsx
 msgid "Resume recording"
 msgstr "Resume recording"
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Resume recording (⌘⇧P)"
+msgstr "Resume recording (⌘⇧P)"
 
 #: src/settings/team/index.tsx
 msgid "Retention (days)"
@@ -5373,6 +5420,10 @@ msgstr "Search or type owner/repo"
 #: src/settings/automations/starter-config.tsx
 msgid "Search pages shared with Anarlog…"
 msgstr "Search pages shared with Anarlog…"
+
+#: src/task/task-cell-pickers.tsx
+msgid "Search people"
+msgstr "Search people"
 
 #: src/settings/ai/shared/provider-search.tsx
 msgid "Search providers"
@@ -6508,11 +6559,13 @@ msgstr "Tip: The Anarlog team loves our users!"
 
 #: src/sidebar/date-filter.tsx
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "Today"
 msgstr "Today"
 
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "Tomorrow"
 msgstr "Tomorrow"

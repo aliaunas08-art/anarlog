@@ -775,7 +775,7 @@ msgid "Ask"
 msgstr ""
 
 #: src/session/components/floating/index.tsx
-msgid "Ask about this meeting"
+msgid "Ask about this meeting (⌘K)"
 msgstr ""
 
 #: src/composer/index.tsx
@@ -1364,6 +1364,10 @@ msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Cleaning up..."
+msgstr ""
+
+#: src/task/task-cell-pickers.tsx
+msgid "Clear"
 msgstr ""
 
 #: src/contacts/related-notes.tsx
@@ -2408,6 +2412,12 @@ msgstr ""
 
 #: src/task/tasks-view.tsx
 msgid "Due"
+msgstr ""
+
+#. placeholder {0}: task.text
+#. placeholder {1}: due.day || task.dueAt ? due.label : t`No date`
+#: src/task/tasks-view.tsx
+msgid "Due date of {0}: {1}"
 msgstr ""
 
 #: src/templates/details.tsx
@@ -3954,11 +3964,16 @@ msgid "next month"
 msgstr ""
 
 #: src/sidebar/date-filter.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "Next month"
 msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "next week"
+msgstr ""
+
+#: src/task/task-cell-pickers.tsx
+msgid "Next week"
 msgstr ""
 
 #: src/calendar/components/event-chip.tsx
@@ -4088,6 +4103,7 @@ msgid "No matching languages found"
 msgstr "Ягон забонҳои мувофиқ ёфт нашуд"
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "No matching people"
 msgstr ""
 
@@ -4107,6 +4123,7 @@ msgstr ""
 msgid "No notes on this day"
 msgstr ""
 
+#: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "No owner"
 msgstr ""
@@ -4481,6 +4498,12 @@ msgstr ""
 msgid "Owner"
 msgstr ""
 
+#. placeholder {0}: task.text
+#. placeholder {1}: task.ownerName || t`No owner`
+#: src/task/tasks-view.tsx
+msgid "Owner of {0}: {1}"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Ownership transfer Pending. Current ownership and permissions remain unchanged until the proposed owner accepts."
 msgstr ""
@@ -4526,6 +4549,15 @@ msgstr ""
 msgid "Pause alerts while Do Not Disturb is on."
 msgstr ""
 
+#: src/session/components/floating/recording-pill.tsx
+msgid "Pause recording"
+msgstr ""
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Pause recording (⌘⇧P)"
+msgstr ""
+
+#: src/session/components/floating/recording-pill.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Paused"
 msgstr ""
@@ -4536,6 +4568,7 @@ msgstr ""
 
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "People"
 msgstr ""
 
@@ -4682,6 +4715,7 @@ msgid "Previous match"
 msgstr ""
 
 #: src/sidebar/date-filter.tsx
+#: src/task/task-cell-pickers.tsx
 msgid "Previous month"
 msgstr ""
 
@@ -4880,6 +4914,14 @@ msgstr ""
 #: src/session/components/note-input/transcript/actions.ts
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Recording not found. It may have been deleted."
+msgstr ""
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Recording paused"
+msgstr ""
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Recording paused at {elapsed}"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -5163,7 +5205,12 @@ msgid "Resume"
 msgstr ""
 
 #: src/session/components/floating/meeting-action.tsx
+#: src/session/components/floating/recording-pill.tsx
 msgid "Resume recording"
+msgstr ""
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Resume recording (⌘⇧P)"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -5372,6 +5419,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Search pages shared with Anarlog…"
+msgstr ""
+
+#: src/task/task-cell-pickers.tsx
+msgid "Search people"
 msgstr ""
 
 #: src/settings/ai/shared/provider-search.tsx
@@ -6508,11 +6559,13 @@ msgstr ""
 
 #: src/sidebar/date-filter.tsx
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "Today"
 msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "Tomorrow"
 msgstr ""
