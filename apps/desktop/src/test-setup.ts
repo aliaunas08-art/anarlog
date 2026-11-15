@@ -244,6 +244,7 @@ vi.mock("./types/tauri.gen", () => ({
       .mockResolvedValue({ status: "ok", data: null }),
     showDevtool: vi.fn().mockResolvedValue(true),
     isAppStoreBuild: vi.fn().mockResolvedValue(false),
+    getAccountFullName: vi.fn().mockResolvedValue(null),
     getPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     setPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     getRecentlyOpenedSessions: vi

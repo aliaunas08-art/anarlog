@@ -28,7 +28,8 @@ const defaultSidebarNotes = {
   groupBy: "date" as const,
   sortOrder: "newest" as const,
   dateFilter: null,
-  showDateFilter: false,
+  // Board: the "By date" calendar is part of the default sidebar.
+  showDateFilter: true,
 };
 
 export const useSidebarNotes = create<SidebarNotesState>((set) => ({

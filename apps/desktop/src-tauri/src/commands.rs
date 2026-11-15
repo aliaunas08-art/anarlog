@@ -63,6 +63,22 @@ pub fn is_app_store_build() -> bool {
     cfg!(feature = "app-store")
 }
 
+/// Full name of the signed-in macOS account (`id -F`), used to greet the user
+/// on Home when there is no profile name. `None` when unavailable.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_account_full_name() -> Option<String> {
+    let output = std::process::Command::new("/usr/bin/id")
+        .arg("-F")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let name = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    (!name.is_empty()).then_some(name)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {

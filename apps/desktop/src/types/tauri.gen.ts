@@ -47,6 +47,9 @@ async showDevtool() : Promise<boolean> {
 async isAppStoreBuild() : Promise<boolean> {
     return await TAURI_INVOKE("is_app_store_build");
 },
+async getAccountFullName() : Promise<string | null> {
+    return await TAURI_INVOKE("get_account_full_name");
+},
 async completeAppExit() : Promise<void> {
     await TAURI_INVOKE("complete_app_exit");
 },

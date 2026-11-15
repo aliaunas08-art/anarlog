@@ -73,9 +73,9 @@ function SidebarTimelineChrome({
             onClick={onToggleSidebar}
           >
             {sidebarExpanded ? (
-              <SidebarSimple size={16} />
+              <SidebarSimple size={14} />
             ) : (
-              <Sidebar size={16} />
+              <Sidebar size={14} />
             )}
           </LeftSurfaceChromeButton>
         )}
@@ -135,7 +135,7 @@ export function SidebarPrimaryActions({
       >
         <MagnifyingGlass size={13} aria-hidden className="shrink-0" />
         <span className="min-w-0 truncate">
-          <Trans>Search</Trans>
+          <Trans>Search notes, people…</Trans>
         </span>
         <span className="ml-auto shrink-0 text-[11px]">⌘P</span>
       </button>
@@ -183,8 +183,8 @@ export function LeftSurfaceChromeButton({
       data-tauri-drag-region="false"
       disabled={disabled}
       className={cn([
-        "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
-        "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+        "pointer-events-auto relative flex size-7 items-center justify-center rounded-md",
+        "cf-motion text-[var(--cf-secondary)] transition-colors hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)]",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
         "disabled:text-muted-foreground/70 disabled:hover:text-muted-foreground/70 disabled:hover:bg-transparent",
       ])}

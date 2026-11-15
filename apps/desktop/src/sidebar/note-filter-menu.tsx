@@ -49,14 +49,14 @@ export function SidebarNoteFilterMenu() {
           title={t`Sort notes`}
           data-tauri-drag-region="false"
           className={cn([
-            "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
-            "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
-            "focus-visible:bg-accent focus-visible:text-foreground focus-visible:outline-hidden",
-            !isDefaultView && "text-foreground",
+            "pointer-events-auto relative flex size-7 items-center justify-center rounded-md",
+            "cf-motion text-[var(--cf-secondary)] transition-colors hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)]",
+            "focus-visible:bg-[var(--cf-fill)] focus-visible:text-[var(--cf-label)] focus-visible:outline-hidden",
+            !isDefaultView && "text-[var(--cf-label)]",
           ])}
         >
           <FunnelSimple
-            size={15}
+            size={14}
             className={cn([!isDefaultView && "fill-current"])}
           />
         </button>

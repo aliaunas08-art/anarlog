@@ -1,24 +1,44 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
+  CaretDown,
   ClockCounterClockwise,
+  FileText,
   LockSimple,
   Microphone,
   Plus,
-  Sparkle,
 } from "@anlg/ui/components/icons";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@anlg/ui/components/ui/tooltip";
 import { cn, parseEventInstant } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
-import { useIgnoredEvents } from "~/calendar/ignored-events";
+import {
+  type UpcomingMeetingRow,
+  useMinuteNow,
+  useUpcomingMeetings,
+} from "~/calendar/upcoming-meetings";
 import { queueChatPrompt } from "~/chat/components/input/hooks";
 import { usePersonalContact } from "~/contacts/queries";
 import { useShell } from "~/contexts/shell";
 import { useLiveQuery } from "~/db";
-import { createSession, getOrCreateSessionForEventId } from "~/session/queries";
+import {
+  TemplatePickerPopover,
+  type TemplateSelection,
+} from "~/session/components/note-input/template-picker";
+import {
+  createSession,
+  getOrCreateSessionForEventId,
+  updateSession,
+} from "~/session/queries";
+import { useConfigValue } from "~/shared/config";
 import { useOwnerUserId } from "~/shared/owner-user";
 import {
   dismissUnexpectedQuit,
@@ -31,32 +51,10 @@ import {
   loadCaptureLifecycleMarker,
 } from "~/stt/capture-lifecycle-storage";
 import { markSessionInPerson } from "~/stt/useStartListening";
-
-type UpcomingRow = {
-  id: string;
-  tracking_id_event: string;
-  recurrence_series_id: string;
-  title: string;
-  started_at: string;
-  meeting_link: string;
-};
+import { useUserTemplate } from "~/templates";
+import { commands as desktopCommands } from "~/types/tauri.gen";
 
 type RecentRow = { id: string; title: string; updated_at: string };
-
-const UPCOMING_SQL = `
-  SELECT e.id, e.tracking_id_event, e.recurrence_series_id, e.title,
-    e.started_at, e.meeting_link
-  FROM events e
-  JOIN calendars c ON c.id = e.calendar_id
-  WHERE c.enabled = 1
-    AND c.deleted_at IS NULL
-    AND e.deleted_at IS NULL
-    AND e.is_all_day = 0
-    AND julianday(e.started_at) > julianday(?)
-    AND julianday(e.started_at) < julianday(?)
-  ORDER BY julianday(e.started_at)
-  LIMIT 10
-`;
 
 const RECENT_SQL = `
   SELECT id, title, updated_at
@@ -66,18 +64,40 @@ const RECENT_SQL = `
   LIMIT 3
 `;
 
-const HOUR_MS = 60 * 60 * 1000;
-const UPCOMING_WINDOW_MS = 12 * HOUR_MS;
-// A meeting that started a few minutes ago can still be joined and recorded.
-const STARTED_GRACE_MS = 10 * 60 * 1000;
+let accountNamePromise: Promise<string> | null = null;
 
-function useMinuteNow() {
-  const [now, setNow] = useState(() => Date.now());
+async function fetchAccountFullName(): Promise<string> {
+  try {
+    const name = await desktopCommands.getAccountFullName();
+    return name?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** The macOS account's full name; a found name is cached for the app run. */
+function loadAccountFullName(): Promise<string> {
+  accountNamePromise ??= fetchAccountFullName().then((name) => {
+    // An empty result is retried on the next mount.
+    if (!name) accountNamePromise = null;
+    return name;
+  });
+  return accountNamePromise;
+}
+
+function useAccountFullName(enabled: boolean): string {
+  const [name, setName] = useState("");
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-  return Math.floor(now / 60_000) * 60_000;
+    if (!enabled) return;
+    let active = true;
+    void loadAccountFullName().then((value) => {
+      if (active) setName(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [enabled]);
+  return enabled ? name : "";
 }
 
 function useFirstName(): string {
@@ -86,48 +106,12 @@ function useFirstName(): string {
   const humanId = auth.session?.user.id ?? localOwnerUserId ?? "";
   const { data } = usePersonalContact(humanId);
   const metadataName = auth.session?.user.user_metadata?.full_name;
-  const full =
+  const profileName =
     data?.name?.trim() ||
     (typeof metadataName === "string" ? metadataName.trim() : "");
+  const accountName = useAccountFullName(!profileName);
+  const full = profileName || accountName;
   return full.split(/\s+/)[0] ?? "";
-}
-
-/** Keeps the last loaded value so re-keyed live queries don't flash empty. */
-function useStable<T>(value: T | undefined): T | undefined {
-  const last = useRef(value);
-  if (value !== undefined) last.current = value;
-  return last.current;
-}
-
-function useUpcomingMeeting(now: number) {
-  const { isIgnored } = useIgnoredEvents();
-  // Query an hour-aligned window so params (and the live query) change hourly,
-  // then pick the next meeting on the client every minute.
-  const hour = Math.floor(now / HOUR_MS) * HOUR_MS;
-  const params = useMemo(
-    () => [
-      new Date(hour - STARTED_GRACE_MS).toISOString(),
-      new Date(hour + HOUR_MS + UPCOMING_WINDOW_MS).toISOString(),
-    ],
-    [hour],
-  );
-  const { data } = useLiveQuery<UpcomingRow, UpcomingRow[]>({
-    sql: UPCOMING_SQL,
-    params,
-    mapRows: (rows) => rows,
-  });
-  const rows = useStable(data) ?? [];
-  return (
-    rows.find((row) => {
-      const start = parseEventInstant(row.started_at)?.getTime();
-      return (
-        start !== undefined &&
-        start > now - STARTED_GRACE_MS &&
-        start < now + UPCOMING_WINDOW_MS &&
-        !isIgnored(row.tracking_id_event, row.recurrence_series_id)
-      );
-    }) ?? null
-  );
 }
 
 function useRecentNotes() {
@@ -163,17 +147,32 @@ function useRecoveredNote(unexpectedQuit: boolean | null, latest?: RecentRow) {
 
 const GREETING_SEED = Math.random();
 
+/** Template the next note from Home is summarised with. `undefined` follows
+ * the app default (Settings → selected template); `null` is Auto. */
+function useHomeTemplate() {
+  const defaultTemplateId = useConfigValue("selected_template_id") || null;
+  const [picked, setPicked] = useState<TemplateSelection | undefined>();
+  const templateId =
+    picked === undefined ? defaultTemplateId : picked.templateId;
+  const { data: template } = useUserTemplate(templateId);
+  const title =
+    picked?.title ?? (templateId ? template?.title || null : null) ?? null;
+  return { templateId, title, setPicked };
+}
+
 export function HomeView() {
   const { t, i18n } = useLingui();
   const { chat } = useShell();
   const openCurrent = useTabs((state) => state.openCurrent);
-  const mod = platform() === "macos" ? "⌘" : "Ctrl";
+  const mod = platform() === "macos" ? "⌘" : "Ctrl+";
   const now = useMinuteNow();
   const firstName = useFirstName();
   const unexpectedQuit = useUnexpectedQuit();
-  const upcoming = useUpcomingMeeting(now);
+  const upcoming: UpcomingMeetingRow | null =
+    useUpcomingMeetings(now)[0] ?? null;
   const recents = useRecentNotes();
   const recovered = useRecoveredNote(unexpectedQuit, recents[0]);
+  const homeTemplate = useHomeTemplate();
   const [draft, setDraft] = useState("");
 
   const greeting = useMemo(() => {
@@ -198,27 +197,33 @@ export function HomeView() {
     [openCurrent],
   );
 
+  const { templateId } = homeTemplate;
+  /** Creates the note and pins the picked template for its summary. */
+  const createHomeNote = useCallback(async () => {
+    const id = await createSession(draft.trim());
+    if (templateId) {
+      await updateSession(id, { raw_md: "", raw_template_id: templateId });
+    }
+    setDraft("");
+    return id;
+  }, [draft, templateId]);
+
   const newNote = useCallback(() => {
-    const title = draft.trim();
-    void createSession(title)
-      .then((id) => {
-        setDraft("");
-        openSession(id);
-      })
+    void createHomeNote()
+      .then(openSession)
       .catch((error) => console.error("[home] failed to create note", error));
-  }, [draft, openSession]);
+  }, [createHomeNote, openSession]);
 
   const recordInPerson = useCallback(() => {
-    void createSession(draft.trim())
+    void createHomeNote()
       .then((id) => {
-        setDraft("");
         markSessionInPerson(id);
         openSessionAndListen(id, { behavior: "current" });
       })
       .catch((error) =>
         console.error("[home] failed to start in-person note", error),
       );
-  }, [draft]);
+  }, [createHomeNote]);
 
   const ask = useCallback(
     (text: string) => {
@@ -266,175 +271,233 @@ export function HomeView() {
       : t`Summarize my last meeting`,
   ];
 
-  const jumpBackIn = recents.filter((note) => note.id !== recovered?.id);
+  const jumpBackIn = recents
+    .filter((note) => note.id !== recovered?.id)
+    .slice(0, 2);
+  const dayLabels = { today: t`Today`, yesterday: t`Yesterday` };
 
   return (
-    <div
-      data-tauri-drag-region
-      className="flex h-full w-full flex-col items-center justify-center overflow-y-auto px-6 py-12 text-center"
-    >
-      <div className="flex w-full max-w-[680px] flex-col items-center gap-7">
-        <header className="flex flex-col items-center gap-3">
-          <h1 className="text-[44px] leading-[1.05] font-bold tracking-[-0.035em] whitespace-nowrap text-[var(--cf-label)]">
-            {firstName ? `${greeting}, ${firstName}` : greeting}
-          </h1>
-          <p className="text-base tracking-[-0.01em] whitespace-nowrap text-[var(--cf-secondary)]">
-            {subtitle}
-          </p>
-        </header>
-
-        <form
-          data-tauri-drag-region="false"
-          onSubmit={(event) => {
-            event.preventDefault();
-            newNote();
-          }}
-          className="cf-hairline flex w-full flex-col gap-3.5 rounded-[20px] bg-[var(--cf-surface)] py-3 pr-3 pl-5 text-left shadow-[var(--cf-composer-shadow)]"
-        >
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                ask(draft);
-                setDraft("");
-              }
-            }}
-            aria-label={t`Note title or question`}
-            placeholder={t`Start a note, or ask about any meeting…`}
-            className="w-full bg-transparent pt-1 text-base text-[var(--cf-label)] outline-none placeholder:text-[var(--cf-tertiary)]"
-          />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={recordInPerson}
-              className="cf-hairline cf-motion inline-flex h-[30px] items-center gap-1.5 rounded-[999px] px-3 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
-            >
-              <Microphone className="size-3.5" />
-              <Trans>In person</Trans>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                ask(draft);
-                setDraft("");
-              }}
-              className="cf-hairline cf-motion inline-flex h-[30px] items-center gap-1.5 rounded-[999px] px-3 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
-            >
-              <Sparkle className="size-3.5" />
-              <Trans>Ask</Trans>
-              <span className="text-xs text-[var(--cf-tertiary)]">{mod}↩</span>
-            </button>
-            <button
-              type="submit"
-              className="cf-glass-tint cf-motion ml-auto inline-flex h-[34px] items-center gap-2 rounded-[999px] px-4 text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
-            >
-              <Plus className="size-3.5" />
-              <Trans>New note</Trans>
-              <span className="text-xs font-medium opacity-75">↩</span>
-            </button>
-          </div>
-        </form>
-
+    <div data-tauri-drag-region className="h-full w-full overflow-y-auto">
+      <div
+        data-tauri-drag-region
+        className="flex min-h-full flex-col items-center px-6 text-center"
+      >
         <div
-          role="group"
-          aria-label={t`Suggestions`}
-          className="flex flex-wrap justify-center gap-2"
+          data-tauri-drag-region
+          className="flex w-full max-w-[660px] flex-1 flex-col items-center justify-center gap-7 pt-14 pb-10"
         >
-          {suggestions.map((text) => (
-            <button
-              key={text}
-              type="button"
-              data-tauri-drag-region="false"
-              onClick={() => ask(text)}
-              className="cf-hairline cf-motion h-8 rounded-[999px] bg-[var(--cf-chip)] px-3.5 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
-            >
-              {text}
-            </button>
-          ))}
-        </div>
+          <header className="flex flex-col items-center gap-3">
+            <AppTile />
+            <h1 className="text-[40px] leading-[1.05] font-bold tracking-[-0.03em] whitespace-nowrap text-[var(--cf-label)]">
+              {firstName ? `${greeting}, ${firstName}` : greeting}
+            </h1>
+            <p className="text-[15px] tracking-[-0.01em] whitespace-nowrap text-[var(--cf-secondary)]">
+              {subtitle}
+            </p>
+          </header>
 
-        {(recovered || upcoming) && (
-          <div className="flex w-full flex-col gap-2 text-left">
-            {recovered && (
-              <HomeRow
-                icon={<ClockCounterClockwise className="size-[18px]" />}
-                title={t`${recovered.title || t`Your last note`} was recovered`}
-                detail={t`Audio was saved up to the second · not transcribed yet`}
-                action={t`Open`}
-                onAction={() => {
-                  dismissUnexpectedQuit();
-                  openSession(recovered.id);
-                }}
+          <form
+            data-tauri-drag-region="false"
+            onSubmit={(event) => {
+              event.preventDefault();
+              newNote();
+            }}
+            className="cf-hairline flex w-full flex-col gap-3.5 rounded-[16px] bg-[var(--cf-surface)] pt-4 pr-3 pb-3 pl-5 text-left shadow-[var(--cf-composer-shadow)] [corner-shape:round]"
+          >
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  ask(draft);
+                  setDraft("");
+                }
+              }}
+              aria-label={t`Note title or question`}
+              placeholder={t`Start a note, or ask about any meeting…`}
+              className="w-full bg-transparent text-base text-[var(--cf-label)] outline-none placeholder:text-[var(--cf-tertiary)]"
+            />
+            <div className="flex min-w-0 items-center gap-2">
+              <TemplatePickerPopover
+                usedTemplateId={homeTemplate.templateId}
+                onSelectTemplate={homeTemplate.setPicked}
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={t`Template: ${homeTemplate.title ?? t`Auto`}`}
+                    className="cf-hairline cf-motion rounded-pill inline-flex h-[30px] min-w-0 items-center gap-1.5 px-3 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
+                  >
+                    <FileText className="size-[13px] shrink-0" />
+                    <span className="max-w-[160px] truncate">
+                      {homeTemplate.title ?? t`Auto`}
+                    </span>
+                    <CaretDown
+                      weight="bold"
+                      className="size-2.5 shrink-0 text-[var(--cf-secondary)]"
+                    />
+                  </button>
+                }
               />
-            )}
-            {upcoming && (
-              <HomeRow
-                icon={
-                  <span className="flex flex-col items-center leading-none">
-                    <span className="text-[8px] font-bold text-[var(--cf-record)] uppercase">
-                      {(upcomingStart ?? new Date(now)).toLocaleDateString(
+              <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={recordInPerson}
+                      aria-label={t`In person`}
+                      className="cf-hairline cf-motion rounded-pill inline-flex size-[30px] shrink-0 items-center justify-center text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
+                    >
+                      <Microphone className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <Trans>In person · record with the mic only</Trans>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <span className="ml-auto shrink-0 pl-2 text-xs whitespace-nowrap text-[var(--cf-tertiary)]">
+                <Trans>Return to start</Trans>
+              </span>
+              <button
+                type="submit"
+                className="cf-glass-tint cf-motion rounded-pill inline-flex h-8 shrink-0 items-center gap-1.5 px-3.5 text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
+              >
+                <Plus weight="bold" className="size-3" />
+                <Trans>New note</Trans>
+                <span className="text-xs font-medium opacity-75">{mod}N</span>
+              </button>
+            </div>
+          </form>
+
+          <div
+            role="group"
+            aria-label={t`Suggestions`}
+            className="flex flex-wrap justify-center gap-2"
+          >
+            {suggestions.map((text) => (
+              <button
+                key={text}
+                type="button"
+                data-tauri-drag-region="false"
+                onClick={() => ask(text)}
+                className="cf-hairline cf-motion rounded-pill h-8 bg-[var(--cf-chip)] px-3.5 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+
+          {(recovered || upcoming) && (
+            <div className="flex w-full flex-col gap-2 text-left">
+              {recovered && (
+                <HomeRow
+                  label={t`Recovered recording`}
+                  icon={<ClockCounterClockwise className="size-[18px]" />}
+                  title={t`${recovered.title || t`Your last note`} was recovered`}
+                  detail={t`Audio was saved up to the second · not transcribed yet`}
+                  action={t`Open`}
+                  onAction={() => {
+                    dismissUnexpectedQuit();
+                    openSession(recovered.id);
+                  }}
+                />
+              )}
+              {upcoming && (
+                <HomeRow
+                  label={t`Up next`}
+                  icon={
+                    <span className="flex flex-col items-center leading-none">
+                      <span className="text-[8px] font-bold text-[var(--cf-record)] uppercase">
+                        {(upcomingStart ?? new Date(now)).toLocaleDateString(
+                          i18n.locale,
+                          { month: "short" },
+                        )}
+                      </span>
+                      <span className="text-[15px] font-bold">
+                        {(upcomingStart ?? new Date(now)).getDate()}
+                      </span>
+                    </span>
+                  }
+                  title={t`${upcoming.title || t`Untitled meeting`} at ${formatTime(upcomingStart)}`}
+                  detail={
+                    minutesUntil === 0
+                      ? t`Starting now`
+                      : minutesUntil < 0
+                        ? t`Started ${-minutesUntil} min ago`
+                        : minutesUntil < 60
+                          ? t`Starts in ${minutesUntil} min`
+                          : t`Up next from your calendar`
+                  }
+                  action={upcoming.meeting_link ? t`Join & record` : t`Record`}
+                  onAction={() => void recordUpcoming()}
+                />
+              )}
+            </div>
+          )}
+
+          {jumpBackIn.length > 0 && (
+            <nav
+              aria-label={t`Jump back in`}
+              className="flex w-full flex-col items-center gap-2.5"
+            >
+              <span className="text-xs font-semibold text-[var(--cf-secondary)]">
+                <Trans>Jump back in</Trans>
+              </span>
+              <div className="flex max-w-full flex-wrap justify-center gap-2">
+                {jumpBackIn.map((note) => (
+                  <button
+                    key={note.id}
+                    type="button"
+                    data-tauri-drag-region="false"
+                    onClick={() => openSession(note.id)}
+                    className="cf-hairline cf-motion rounded-pill inline-flex h-[30px] max-w-[260px] min-w-0 items-center gap-2 bg-[var(--cf-chip)] px-3 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
+                  >
+                    <span className="truncate">
+                      {note.title || t`Untitled note`}
+                    </span>
+                    <span className="shrink-0 text-[var(--cf-secondary)]">
+                      {relativeDay(
+                        note.updated_at,
+                        now,
                         i18n.locale,
-                        { month: "short" },
+                        dayLabels,
                       )}
                     </span>
-                    <span className="text-[15px] font-bold">
-                      {(upcomingStart ?? new Date(now)).getDate()}
-                    </span>
-                  </span>
-                }
-                title={t`${upcoming.title || t`Untitled meeting`} at ${formatTime(upcomingStart)}`}
-                detail={
-                  minutesUntil === 0
-                    ? t`Starting now`
-                    : minutesUntil < 0
-                      ? t`Started ${-minutesUntil} min ago`
-                      : minutesUntil < 60
-                        ? t`Starts in ${minutesUntil} min`
-                        : t`Up next from your calendar`
-                }
-                action={upcoming.meeting_link ? t`Join & record` : t`Record`}
-                onAction={() => void recordUpcoming()}
-              />
-            )}
-          </div>
-        )}
+                  </button>
+                ))}
+              </div>
+            </nav>
+          )}
+        </div>
 
-        {jumpBackIn.length > 0 && (
-          <nav
-            aria-label={t`Jump back in`}
-            className="flex flex-col items-center gap-2.5"
-          >
-            <span className="text-xs font-semibold text-[var(--cf-secondary)]">
-              <Trans>Jump back in</Trans>
-            </span>
-            <div className="flex flex-wrap justify-center gap-2">
-              {jumpBackIn.map((note) => (
-                <button
-                  key={note.id}
-                  type="button"
-                  data-tauri-drag-region="false"
-                  onClick={() => openSession(note.id)}
-                  className="cf-hairline cf-motion inline-flex h-[30px] max-w-[260px] items-center gap-2 rounded-[999px] bg-[var(--cf-chip)] px-3 text-[13px] text-[var(--cf-label)] transition-colors hover:bg-[var(--cf-fill)]"
-                >
-                  <span className="truncate">
-                    {note.title || t`Untitled note`}
-                  </span>
-                  <span className="shrink-0 text-[var(--cf-secondary)]">
-                    {relativeDay(note.updated_at, now, i18n.locale, t)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </nav>
-        )}
-
-        <p className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap text-[var(--cf-secondary)]">
-          <LockSimple className="size-3" />
+        <p className="inline-flex shrink-0 items-center gap-1.5 pb-5 text-xs whitespace-nowrap text-[var(--cf-secondary)]">
+          <LockSimple className="size-[11px]" />
           <Trans>Recordings and notes stay on this Mac</Trans>
         </p>
       </div>
+    </div>
+  );
+}
+
+/** App icon tile: label-colour squircle with a window-colour waveform. */
+function AppTile() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex size-12 items-center justify-center rounded-[13px] bg-[var(--cf-label)]"
+    >
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="var(--cf-window)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <path d="M4 12v0M7 9v6M10 6v12M13 9v6M16 7v10M19 11v2" />
+      </svg>
     </div>
   );
 }
@@ -443,26 +506,28 @@ function relativeDay(
   iso: string,
   now: number,
   locale: string,
-  t: ReturnType<typeof useLingui>["t"],
+  labels: { today: string; yesterday: string },
 ) {
   const date = new Date(iso);
   const today = new Date(now);
   const startOf = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((startOf(today) - startOf(date)) / 86_400_000);
-  if (days <= 0) return t`Today`;
-  if (days === 1) return t`Yesterday`;
+  if (days <= 0) return labels.today;
+  if (days === 1) return labels.yesterday;
   if (days < 7) return date.toLocaleDateString(locale, { weekday: "short" });
   return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 function HomeRow({
+  label,
   icon,
   title,
   detail,
   action,
   onAction,
 }: {
+  label: string;
   icon: React.ReactNode;
   title: string;
   detail: string;
@@ -470,7 +535,10 @@ function HomeRow({
   onAction: () => void;
 }) {
   return (
-    <section className="cf-hairline flex min-w-0 items-center gap-3 rounded-[14px] bg-[var(--cf-surface)] p-3.5">
+    <section
+      aria-label={label}
+      className="cf-hairline flex min-w-0 items-center gap-3 rounded-[14px] bg-[var(--cf-surface)] p-3.5"
+    >
       <div
         aria-hidden="true"
         className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--cf-fill)] text-[var(--cf-label)]"
@@ -478,10 +546,10 @@ function HomeRow({
         {icon}
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold text-[var(--cf-label)]">
+        <span className="truncate text-sm leading-5 font-semibold text-[var(--cf-label)]">
           {title}
         </span>
-        <span className="truncate text-xs text-[var(--cf-secondary)]">
+        <span className="truncate text-xs leading-4 text-[var(--cf-secondary)]">
           {detail}
         </span>
       </div>
@@ -490,7 +558,7 @@ function HomeRow({
         data-tauri-drag-region="false"
         onClick={onAction}
         className={cn([
-          "cf-motion h-[30px] shrink-0 rounded-[999px] px-3 text-[13px] font-medium whitespace-nowrap",
+          "cf-motion rounded-pill h-[30px] shrink-0 px-3 text-[13px] font-medium whitespace-nowrap",
           "bg-[var(--cf-fill)] text-[var(--cf-label)] transition-opacity hover:opacity-80",
         ])}
       >

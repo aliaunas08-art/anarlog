@@ -92,7 +92,7 @@ describe("SidebarDateFilter", () => {
     render(<SidebarDateFilter />);
 
     expect(screen.getByTestId("date-filter-month").textContent).toBe(
-      "November 2026",
+      "November",
     );
     const grid = screen.getByRole("grid", { name: "November 2026" });
     expect(within(grid).getAllByRole("columnheader")).toHaveLength(7);
@@ -153,16 +153,14 @@ describe("SidebarDateFilter", () => {
     render(<SidebarDateFilter />);
 
     fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
-    expect(screen.getByTestId("date-filter-month").textContent).toBe(
-      "October 2026",
-    );
+    expect(screen.getByTestId("date-filter-month").textContent).toBe("October");
     expect(document.querySelectorAll("[data-day]")).toHaveLength(31);
     expect(hasDot("2026-10-20")).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
     expect(screen.getByTestId("date-filter-month").textContent).toBe(
-      "December 2026",
+      "December",
     );
   });
 
@@ -183,9 +181,7 @@ describe("SidebarDateFilter", () => {
     fireEvent.keyDown(grid, { key: "ArrowUp" });
     fireEvent.keyDown(grid, { key: "ArrowUp" });
     expect(document.activeElement).toBe(day("2026-10-31"));
-    expect(screen.getByTestId("date-filter-month").textContent).toBe(
-      "October 2026",
-    );
+    expect(screen.getByTestId("date-filter-month").textContent).toBe("October");
 
     fireEvent.keyDown(grid, { key: "Escape" });
     expect(useSidebarNotes.getState().dateFilter).toBeNull();

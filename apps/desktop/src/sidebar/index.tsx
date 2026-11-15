@@ -14,6 +14,7 @@ import { SharedNotesNav } from "./shared-notes";
 import { SidebarTasksLink } from "./tasks-link";
 import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
+import { SidebarUpNext } from "./up-next";
 import { hasOwnSidebarHeaderTab } from "./use-custom-sidebar";
 
 import { usesTitleBarSidebarActions } from "~/shared/hooks/useWindowControlsGutter";
@@ -100,6 +101,7 @@ export function LeftSidebar({
                         className={timelineTopChromeInset ? "pt-12" : "pt-1"}
                       />
                     ) : null}
+                    <SidebarUpNext />
                     <div className="relative min-h-0 flex-1">
                       <TimelineView
                         folderFilter={folderFilter}

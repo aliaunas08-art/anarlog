@@ -9,6 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createSession: vi.fn(async () => "new-session"),
+  updateSession: vi.fn(async () => {}),
+  getAccountFullName: vi.fn(async () => null as string | null),
+  selectedTemplateId: "" as string,
+  templates: {} as Record<string, { title: string }>,
   getOrCreateSessionForEventId: vi.fn(async () => "event-session"),
   openSessionAndListen: vi.fn(),
   markSessionInPerson: vi.fn(),
@@ -65,7 +69,46 @@ vi.mock("~/db", () => ({
     ),
   }),
 }));
+vi.mock("~/types/tauri.gen", () => ({
+  commands: { getAccountFullName: mocks.getAccountFullName },
+}));
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.selectedTemplateId,
+}));
+vi.mock("~/templates", () => ({
+  useUserTemplate: (id: string | null) => ({
+    data: id ? (mocks.templates[id] ?? null) : null,
+  }),
+}));
+vi.mock("~/session/components/note-input/template-picker", () => ({
+  TemplatePickerPopover: ({
+    trigger,
+    onSelectTemplate,
+  }: {
+    trigger: React.ReactNode;
+    onSelectTemplate: (selection: {
+      templateId: string | null;
+      title: string;
+    }) => void;
+  }) => (
+    <div>
+      {trigger}
+      <button
+        type="button"
+        onClick={() =>
+          onSelectTemplate({
+            templateId: "tpl-minutes",
+            title: "Meeting Minutes",
+          })
+        }
+      >
+        pick-minutes
+      </button>
+    </div>
+  ),
+}));
 vi.mock("~/session/queries", () => ({
+  updateSession: mocks.updateSession,
   createSession: mocks.createSession,
   getOrCreateSessionForEventId: mocks.getOrCreateSessionForEventId,
 }));
@@ -100,6 +143,9 @@ describe("HomeView", () => {
     mocks.recents = [];
     mocks.marker = null;
     mocks.ignored = new Set();
+    mocks.selectedTemplateId = "";
+    mocks.templates = {};
+    mocks.getAccountFullName.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -128,6 +174,58 @@ describe("HomeView", () => {
     );
   });
 
+  it("falls back to the macOS account's first name", async () => {
+    mocks.name = null;
+    mocks.getAccountFullName.mockResolvedValue("Ali Aunas");
+    render(<HomeView />);
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
+        /, Ali$/,
+      ),
+    );
+  });
+
+  it("labels the template picker with the default template", () => {
+    mocks.selectedTemplateId = "tpl-default";
+    mocks.templates = { "tpl-default": { title: "Standup" } };
+    render(<HomeView />);
+    expect(
+      screen.getByRole("button", { name: "Template: Standup" }),
+    ).toBeTruthy();
+  });
+
+  it("creates the note with the picked template", async () => {
+    render(<HomeView />);
+    expect(screen.getByRole("button", { name: "Template: Auto" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "pick-minutes" }));
+    expect(
+      screen.getByRole("button", { name: "Template: Meeting Minutes" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /New note/ }));
+    await waitFor(() =>
+      expect(mocks.openCurrent).toHaveBeenCalledWith({
+        type: "sessions",
+        id: "new-session",
+      }),
+    );
+    expect(mocks.updateSession).toHaveBeenCalledWith("new-session", {
+      raw_md: "",
+      raw_template_id: "tpl-minutes",
+    });
+  });
+
+  it("asks chat with Cmd+Return", () => {
+    render(<HomeView />);
+    const input = screen.getByLabelText("Note title or question");
+    fireEvent.change(input, { target: { value: "What changed?" } });
+    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    expect(mocks.queueChatPrompt).toHaveBeenCalledWith(
+      "chat-1",
+      "What changed?",
+    );
+    expect(mocks.createSession).not.toHaveBeenCalled();
+  });
+
   it("creates a note titled with the typed text on Return", async () => {
     render(<HomeView />);
     fireEvent.change(screen.getByLabelText("Note title or question"), {
@@ -141,11 +239,12 @@ describe("HomeView", () => {
       }),
     );
     expect(mocks.createSession).toHaveBeenCalledWith("Budget review");
+    expect(mocks.updateSession).not.toHaveBeenCalled();
   });
 
   it("starts an in-person (mic only) recording", async () => {
     render(<HomeView />);
-    fireEvent.click(screen.getByRole("button", { name: /In person/ }));
+    fireEvent.click(screen.getByRole("button", { name: "In person" }));
     await waitFor(() =>
       expect(mocks.openSessionAndListen).toHaveBeenCalledWith("new-session", {
         behavior: "current",

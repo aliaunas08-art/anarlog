@@ -59,17 +59,18 @@ describe("SidebarNoteFilterMenu", () => {
     expect(useSidebarNotes.getState().sortOrder).toBe("oldest");
   });
 
-  it("shows and hides the By date calendar", () => {
-    render(<SidebarNoteFilterMenu />);
-
-    openSortMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: "By date" }));
+  it("shows the By date calendar by default and toggles it", () => {
     expect(useSidebarNotes.getState().showDateFilter).toBe(true);
+    render(<SidebarNoteFilterMenu />);
 
     useSidebarNotes.getState().setDateFilter("2026-11-14");
     openSortMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "By date" }));
     expect(useSidebarNotes.getState().showDateFilter).toBe(false);
     expect(useSidebarNotes.getState().dateFilter).toBeNull();
+
+    openSortMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "By date" }));
+    expect(useSidebarNotes.getState().showDateFilter).toBe(true);
   });
 });

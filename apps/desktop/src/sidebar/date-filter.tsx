@@ -157,6 +157,10 @@ export function SidebarDateFilter({
         year: "numeric",
         timeZone: "UTC",
       }),
+      monthOnly: new Intl.DateTimeFormat(i18n.locale, {
+        month: "long",
+        timeZone: "UTC",
+      }),
       weekday: new Intl.DateTimeFormat(i18n.locale, {
         weekday: "narrow",
         timeZone: "UTC",
@@ -186,9 +190,13 @@ export function SidebarDateFilter({
     [i18n.locale],
   );
 
-  const monthLabel = formatters.month.format(
-    new Date(Date.UTC(view.year, view.month, 1, 12)),
-  );
+  const monthDate = new Date(Date.UTC(view.year, view.month, 1, 12));
+  const monthLabel = formatters.month.format(monthDate);
+  // The header drops the year in the current year so it fits a narrow panel.
+  const visibleMonthLabel =
+    view.year === parseDayKey(todayKey).year
+      ? formatters.monthOnly.format(monthDate)
+      : monthLabel;
   // 2023-01-01 was a Sunday; offset by the configured week start.
   const weekdayKeys = Array.from({ length: 7 }, (_, index) =>
     toDayKey(2023, 0, 1 + ((index + weekStartsOn) % 7)),
@@ -293,13 +301,13 @@ export function SidebarDateFilter({
     <section
       aria-label={t`By date`}
       data-sidebar-date-filter
-      className={cn(["flex shrink-0 flex-col gap-1.5 px-0.5 pb-2", className])}
+      className={cn(["flex shrink-0 flex-col gap-1.5 px-2.5 pb-3", className])}
     >
       <div className="flex items-center justify-between gap-2 px-1.5">
         <span className="min-w-0 truncate text-[11px] font-semibold text-[var(--cf-secondary)]">
           <Trans>By date</Trans>
           {" · "}
-          <span data-testid="date-filter-month">{monthLabel}</span>
+          <span data-testid="date-filter-month">{visibleMonthLabel}</span>
         </span>
         <span className="inline-flex shrink-0 gap-0.5 text-[var(--cf-secondary)]">
           <button
@@ -389,7 +397,7 @@ export function SidebarDateFilter({
                   onClick={() => toggleDay(dayKey)}
                   onFocus={() => setFocusKey(dayKey)}
                   className={cn([
-                    "cf-motion relative flex size-6 cursor-default items-center justify-center justify-self-center rounded-[999px]",
+                    "cf-motion rounded-pill relative flex size-6 cursor-default items-center justify-center justify-self-center",
                     "text-[11px] tabular-nums transition-colors select-none",
                     "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-hidden",
                     isSelected
@@ -410,7 +418,7 @@ export function SidebarDateFilter({
                       aria-hidden="true"
                       data-testid="date-filter-dot"
                       className={cn([
-                        "absolute bottom-0.5 left-1/2 size-[3px] -translate-x-1/2 rounded-[999px]",
+                        "rounded-pill absolute bottom-0.5 left-1/2 size-[3px] -translate-x-1/2",
                         isSelected
                           ? "bg-[var(--cf-on-accent)]"
                           : "bg-[var(--cf-accent)]",
