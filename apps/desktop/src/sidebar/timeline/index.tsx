@@ -71,7 +71,10 @@ export const TimelineView = memo(function TimelineView({
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
   const groupBy = useSidebarNotes((state) => state.groupBy);
   const sortOrder = useSidebarNotes((state) => state.sortOrder);
-  const isDateTimeline = groupBy === "date";
+  const dateFilter = useSidebarNotes((state) => state.dateFilter);
+  // The live date timeline (now line, upcoming/now chips, auto-scroll to
+  // today). A picked day turns it into a plain list of that day's notes.
+  const isDateTimeline = groupBy === "date" && dateFilter === null;
   const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
   const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
@@ -79,6 +82,7 @@ export const TimelineView = memo(function TimelineView({
 
   const { isIgnored } = useIgnoredEvents();
   const { buckets, hasMoreFutureItems } = useTimelineData({
+    dateFilter,
     folderFilter,
     groupBy,
     isEventIgnored: isIgnored,
@@ -539,6 +543,14 @@ export const TimelineView = memo(function TimelineView({
             }
             upcomingNodeRef={setUpcomingMeetingNodeRef}
           />
+          {dateFilter !== null && buckets.length === 0 ? (
+            <p
+              data-sidebar-timeline-day-empty
+              className="truncate px-3 py-6 text-center text-[12px] text-[var(--cf-secondary)]"
+            >
+              <Trans>No notes on this day</Trans>
+            </p>
+          ) : null}
         </div>
 
         {!isScrolledToBottom && (

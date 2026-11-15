@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 
 import {
   CalendarBlank,
+  CalendarDots,
   Check,
   FolderSimple,
   FunnelSimple,
@@ -15,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuPortal,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -30,7 +32,11 @@ export function SidebarNoteFilterMenu() {
   const sortOrder = useSidebarNotes((state) => state.sortOrder);
   const setGroupBy = useSidebarNotes((state) => state.setGroupBy);
   const setSortOrder = useSidebarNotes((state) => state.setSortOrder);
-  const isDefaultView = groupBy === "date" && sortOrder === "newest";
+  const showDateFilter = useSidebarNotes((state) => state.showDateFilter);
+  const hasDateFilter = useSidebarNotes((state) => state.dateFilter !== null);
+  const setShowDateFilter = useSidebarNotes((state) => state.setShowDateFilter);
+  const isDefaultView =
+    groupBy === "date" && sortOrder === "newest" && !hasDateFilter;
   const groupingLabel = groupBy === "folder" ? t`Folder` : t`Date`;
   const orderingLabel = sortOrder === "oldest" ? t`Oldest` : t`Newest`;
 
@@ -151,6 +157,22 @@ export function SidebarNoteFilterMenu() {
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => setShowDateFilter(!showDateFilter)}
+            className="cursor-pointer"
+          >
+            <CalendarDots
+              className="size-4 shrink-0 opacity-70"
+              aria-hidden="true"
+            />
+            <span className="flex-1">
+              <Trans>By date</Trans>
+            </span>
+            {showDateFilter ? (
+              <Check className="size-4" aria-hidden="true" />
+            ) : null}
+          </DropdownMenuItem>
         </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>

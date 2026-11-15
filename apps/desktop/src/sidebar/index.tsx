@@ -5,9 +5,10 @@ import { cn } from "@anlg/utils";
 import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
+import { SidebarDateFilter } from "./date-filter";
 import { FolderMaterialsPanel } from "./folder-materials";
 import { FoldersNav } from "./folders";
-import type { SidebarNoteFilter } from "./note-filter";
+import { type SidebarNoteFilter, useSidebarNotes } from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
 import { TemplatesNav } from "./templates";
@@ -31,6 +32,7 @@ export function LeftSidebar({
   onShowIgnoredTimelineEventsChange?: (showIgnored: boolean) => void;
 } = {}) {
   const currentTab = useTabs((state) => state.currentTab);
+  const showDateFilter = useSidebarNotes((state) => state.showDateFilter);
 
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
@@ -51,6 +53,8 @@ export function LeftSidebar({
   // would clip a pulled-up header).
   const needsChromeRowGutter =
     isSpecialMode && !hasOwnSidebarHeaderTab(currentTab);
+  const timelineTopChromeInset =
+    isTimelineSidebarLayout && !timelineHeader && !usesTitleBarSidebarActions();
   return (
     <div
       className={cn([
@@ -81,6 +85,14 @@ export function LeftSidebar({
                   {folderFilter ? (
                     <FolderMaterialsPanel folderPath={folderFilter} />
                   ) : null}
+                  {showDateFilter ? (
+                    <SidebarDateFilter
+                      folderFilter={folderFilter}
+                      // Clear the title-bar chrome that would otherwise
+                      // overlay the top of the timeline.
+                      className={timelineTopChromeInset ? "pt-12" : "pt-1"}
+                    />
+                  ) : null}
                   <div className="relative min-h-0 flex-1">
                     <TimelineView
                       folderFilter={folderFilter}
@@ -88,11 +100,7 @@ export function LeftSidebar({
                       onShowIgnoredEventsChange={
                         onShowIgnoredTimelineEventsChange
                       }
-                      topChromeInset={
-                        isTimelineSidebarLayout &&
-                        !timelineHeader &&
-                        !usesTitleBarSidebarActions()
-                      }
+                      topChromeInset={timelineTopChromeInset && !showDateFilter}
                       topChipsOverlapHeader={
                         isTimelineSidebarLayout && !!timelineHeader
                       }

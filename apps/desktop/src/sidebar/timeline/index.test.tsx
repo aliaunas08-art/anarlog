@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -692,5 +698,57 @@ describe("TimelineView", () => {
     expect(screen.queryByText("Today")).toBeNull();
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
     expect(screen.queryByTestId("current-time-indicator")).toBeNull();
+  });
+  it("limits the timeline to notes on the picked day", () => {
+    freezeTime("2024-01-15T12:00:00.000Z");
+    mocks.configValue = "UTC";
+    mocks.timelineSessionsTable = {
+      "picked-a": {
+        title: "Picked A",
+        created_at: "2024-01-10T09:00:00.000Z",
+      },
+      "picked-b": {
+        title: "Picked B",
+        created_at: "2024-01-01T09:00:00.000Z",
+        event_json: JSON.stringify({ started_at: "2024-01-10T15:00:00.000Z" }),
+      },
+      other: {
+        title: "Other day",
+        created_at: "2024-01-11T09:00:00.000Z",
+      },
+      future: {
+        title: "Future",
+        created_at: "2024-01-20T09:00:00.000Z",
+      },
+    };
+    mocks.timelineEventsTable = standupEvent("2024-01-15T12:15:00.000Z");
+    useSidebarNotes.getState().setDateFilter("2024-01-10");
+
+    render(<TimelineView />);
+
+    expect(screen.getByTestId("timeline-item-picked-a")).toBeTruthy();
+    expect(screen.getByTestId("timeline-item-picked-b")).toBeTruthy();
+    expect(screen.queryByTestId("timeline-item-other")).toBeNull();
+    expect(screen.queryByTestId("timeline-item-standup")).toBeNull();
+    expect(screen.queryByTestId("current-time-indicator")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
+  });
+
+  it("shows future-day notes and an empty state for days without notes", () => {
+    freezeTime("2024-01-15T12:00:00.000Z");
+    mocks.configValue = "UTC";
+    mocks.timelineSessionsTable = {
+      future: { title: "Future", created_at: "2024-01-20T09:00:00.000Z" },
+    };
+    useSidebarNotes.getState().setDateFilter("2024-01-20");
+
+    render(<TimelineView />);
+    expect(screen.getByTestId("timeline-item-future")).toBeTruthy();
+
+    act(() => {
+      useSidebarNotes.getState().setDateFilter("2024-01-21");
+    });
+    expect(screen.queryByTestId("timeline-item-future")).toBeNull();
+    expect(screen.getByText("No notes on this day")).toBeTruthy();
   });
 });
