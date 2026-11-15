@@ -62,6 +62,44 @@ describe("capture audio recovery", () => {
     expect(acknowledge).toHaveBeenCalledOnce();
   });
 
+  it("measures gaps on the audio timeline, not wall-clock time, after a pause", async () => {
+    let now = 0;
+    let pausedMs = 0;
+    const chunk = {
+      id: "0-0-60000.mp3",
+      path: "/chunk.mp3",
+      capture_started_at: 0,
+      start_ms: 0,
+      audio_start_ms: 0,
+      end_ms: 60_000,
+    };
+    const repair = vi.fn(async (_chunk, _gaps, _signal: AbortSignal) => {});
+    const acknowledge = vi.fn(async () => {});
+    const worker = createCaptureAudioRecovery({
+      startedAt: 0,
+      list: async () => [chunk],
+      acknowledge,
+      flush: async () => {},
+      repair,
+      now: () => now,
+      pausedMs: () => pausedMs,
+    });
+
+    worker.persistedThrough(20_000);
+    // A 10-minute pause happened before the outage.
+    pausedMs = 600_000;
+    now = 630_000;
+    worker.interrupted();
+    now = 640_000;
+    worker.connected();
+    worker.persistedThrough(70_000);
+    now = 700_000;
+    await worker.tick();
+
+    expect(repair.mock.calls[0]?.[1]).toEqual([{ start: 19_000, end: 40_000 }]);
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
   it("restores and repairs only the persisted outage interval", async () => {
     const { worker, repair, acknowledge } = setup();
     worker.restore({

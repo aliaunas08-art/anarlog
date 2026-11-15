@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   transitionChatMode: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "macos" }));
+
 vi.mock("~/store/zustand/tabs", () => ({
   useTabs: (selector: (state: unknown) => unknown) =>
     selector({
@@ -40,9 +42,16 @@ describe("useChatMode shortcuts", () => {
       key,
       code: `Key${key.toUpperCase()}`,
       metaKey: true,
-      ctrlKey: true,
     });
 
     expect(mocks.transitionChatMode).toHaveBeenCalledWith({ type: "TOGGLE" });
+  });
+
+  it("leaves Ctrl+K (kill line) alone on macOS", () => {
+    renderHook(() => useChatMode());
+
+    fireEvent.keyDown(document.body, { key: "k", code: "KeyK", ctrlKey: true });
+
+    expect(mocks.transitionChatMode).not.toHaveBeenCalled();
   });
 });

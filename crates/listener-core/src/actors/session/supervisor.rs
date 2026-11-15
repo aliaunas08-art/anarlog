@@ -39,6 +39,8 @@ pub struct SessionState {
     mode: SessionModeState,
     listener_retry_attempt: usize,
     listener_mic_isolated: bool,
+    /// When the scheduled listener retry is due; `None` when no retry is pending.
+    listener_retry_due: Option<std::time::Instant>,
     pause: PauseClock,
     shutting_down: bool,
 }
@@ -55,7 +57,6 @@ pub enum SessionMsg {
     UpdateConfig(SessionConfigUpdate),
     /// Pause (true) or resume (false) the recording; replies with the resulting state.
     SetPaused(bool, RpcReplyPort<PauseState>),
-    GetPauseState(RpcReplyPort<PauseState>),
 }
 
 #[ractor::async_trait]
@@ -104,6 +105,7 @@ impl Actor for SessionActor {
                 mode,
                 listener_retry_attempt: 0,
                 listener_mic_isolated: false,
+                listener_retry_due: None,
                 pause: PauseClock::default(),
                 shutting_down: false,
             })
@@ -189,11 +191,13 @@ impl Actor for SessionActor {
                 update_config(myself, state, update).await;
             }
             SessionMsg::SetPaused(paused, reply) => {
-                set_paused(myself, state, paused).await;
+                // Reply as soon as the flag flips; closing or reopening the live stream can
+                // take seconds and must not hold up the caller.
+                let changed = flip_pause(state, paused, std::time::Instant::now());
                 let _ = reply.send(pause_state(state));
-            }
-            SessionMsg::GetPauseState(reply) => {
-                let _ = reply.send(pause_state(state));
+                if changed {
+                    finish_pause_transition(myself, state, paused).await;
+                }
             }
         }
         Ok(())
@@ -483,6 +487,8 @@ async fn handle_listener_failure(
         enter_batch_fallback(state, degraded).await;
         if should_retry {
             schedule_listener_retry(myself, state, retry_after);
+        } else {
+            state.listener_retry_due = None;
         }
     }
 }
@@ -542,6 +548,7 @@ fn schedule_listener_retry(
         attempt = state.listener_retry_attempt,
         "listener_retry_scheduled"
     );
+    state.listener_retry_due = Some(std::time::Instant::now() + delay);
     myself.send_after(delay, || SessionMsg::RetryListener);
 }
 
@@ -575,6 +582,7 @@ async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) 
     {
         return;
     }
+    state.listener_retry_due = None;
 
     let replay_duration_secs = children::prepare_listener_refresh(state).await;
     let replay_offset_secs =
@@ -618,41 +626,29 @@ fn pause_state(state: &SessionState) -> PauseState {
 // the session start forward by the pause, so every offset derived from it (listener stream
 // offset, recorder chunk offsets) follows the audio timeline instead of wall-clock time, then
 // reconnects the listener with the pre-pause replay exactly like a listener refresh.
-async fn set_paused(myself: ActorRef<SessionMsg>, state: &mut SessionState, paused: bool) {
+//
+// The flip is synchronous: flag, clock and event change together so a caller sees the new state
+// immediately. Returns whether anything changed.
+fn flip_pause(state: &mut SessionState, paused: bool, now: std::time::Instant) -> bool {
     if state.shutting_down {
-        return;
+        return false;
     }
-    let now = std::time::Instant::now();
     if paused {
         if !state.pause.pause(now) {
-            return;
-        }
-        state
-            .ctx
-            .paused
-            .store(true, std::sync::atomic::Ordering::Release);
-        if state.listener_cell.is_some() {
-            children::stop_listener(state, "paused").await;
+            return false;
         }
         tracing::info!("session_paused");
     } else {
         let Some(paused_for) = state.pause.resume(now) else {
-            return;
+            return false;
         };
         state.ctx.started_at_instant += paused_for;
-        state
-            .ctx
-            .paused
-            .store(false, std::sync::atomic::Ordering::Release);
         tracing::info!(paused_ms = paused_for.as_millis() as u64, "session_resumed");
-        if state.listener_cell.is_none() {
-            if state.mode.should_spawn_listener() {
-                resume_listener(myself, state).await;
-            } else {
-                retry_listener(myself, state).await;
-            }
-        }
     }
+    state
+        .ctx
+        .paused
+        .store(paused, std::sync::atomic::Ordering::Release);
     state
         .ctx
         .runtime
@@ -660,6 +656,38 @@ async fn set_paused(myself: ActorRef<SessionMsg>, state: &mut SessionState, paus
             session_id: state.ctx.params.session_id.clone(),
             value: paused,
         });
+    true
+}
+
+async fn finish_pause_transition(
+    myself: ActorRef<SessionMsg>,
+    state: &mut SessionState,
+    paused: bool,
+) {
+    // A later toggle already queued behind this one will do its own transition.
+    if state.shutting_down || state.pause.is_paused() != paused {
+        return;
+    }
+    if paused {
+        if state.listener_cell.is_some() {
+            children::stop_listener(state, "paused").await;
+        }
+        return;
+    }
+    if state.listener_cell.is_some() {
+        return;
+    }
+    if state.mode.should_spawn_listener() {
+        resume_listener(myself, state).await;
+    } else if retry_due_on_resume(state.listener_retry_due, std::time::Instant::now()) {
+        // The retry timer fired during the pause and was skipped. A retry that is not due yet
+        // still has its timer pending, and a failure that must not retry has no due time.
+        retry_listener(myself, state).await;
+    }
+}
+
+fn retry_due_on_resume(due: Option<std::time::Instant>, now: std::time::Instant) -> bool {
+    due.is_some_and(|due| due <= now)
 }
 
 async fn resume_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
@@ -926,6 +954,7 @@ mod tests {
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             listener_retry_attempt: 0,
             listener_mic_isolated: false,
+            listener_retry_due: None,
             pause: PauseClock::default(),
             shutting_down: false,
         }
@@ -948,6 +977,55 @@ mod tests {
         }
     }
 
+    #[test]
+    fn flip_pause_moves_the_audio_clock_and_flag_together() {
+        let mut state = test_state(test_ctx());
+        let started = state.ctx.started_at_instant;
+        let now = Instant::now();
+
+        assert!(flip_pause(&mut state, true, now));
+        assert!(state.ctx.paused.load(std::sync::atomic::Ordering::Acquire));
+        assert!(pause_state(&state).paused);
+        assert!(
+            !flip_pause(&mut state, true, now),
+            "repeat pause is a no-op"
+        );
+
+        let resumed_at = now + std::time::Duration::from_secs(90);
+        assert!(flip_pause(&mut state, false, resumed_at));
+        assert!(!state.ctx.paused.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(
+            state.ctx.started_at_instant,
+            started + std::time::Duration::from_secs(90),
+            "offsets derived from the session start skip the pause"
+        );
+        assert!(
+            !flip_pause(&mut state, false, resumed_at),
+            "repeat resume is a no-op"
+        );
+
+        state.shutting_down = true;
+        assert!(!flip_pause(&mut state, true, resumed_at));
+        assert!(!state.ctx.paused.load(std::sync::atomic::Ordering::Acquire));
+    }
+
+    #[test]
+    fn resume_retries_only_a_retry_that_came_due_while_paused() {
+        let now = Instant::now();
+        assert!(
+            !retry_due_on_resume(None, now),
+            "no pending retry (e.g. auth failure)"
+        );
+        assert!(retry_due_on_resume(
+            Some(now - std::time::Duration::from_secs(1)),
+            now
+        ));
+        assert!(retry_due_on_resume(Some(now), now));
+        assert!(
+            !retry_due_on_resume(Some(now + std::time::Duration::from_secs(5)), now),
+            "a future retry keeps its own timer and Retry-After delay"
+        );
+    }
     #[test]
     fn config_update_keeps_stream_for_participant_and_speaker_changes() {
         let mut ctx = test_ctx();
@@ -1288,6 +1366,7 @@ mod tests {
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             listener_retry_attempt: 0,
             listener_mic_isolated: false,
+            listener_retry_due: None,
             pause: PauseClock::default(),
             shutting_down: false,
         };

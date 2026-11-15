@@ -24,6 +24,8 @@ pub enum Error {
     StopSessionFailed,
     #[error("actor not found {0}")]
     ActorNotFound(String),
+    #[error("capture pause request timed out")]
+    CapturePauseTimedOut,
 }
 
 impl Serialize for Error {

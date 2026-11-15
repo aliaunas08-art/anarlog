@@ -40,6 +40,8 @@ const mocks = vi.hoisted(() => ({
   audioRetention: undefined as unknown,
 }));
 
+vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "macos" }));
+
 vi.mock("~/shared/config", () => ({
   useConfigValue: () => mocks.audioRetention,
 }));
@@ -630,7 +632,6 @@ describe("SessionBottomBar", () => {
         key: "p",
         code: "KeyP",
         metaKey: true,
-        ctrlKey: true,
         shiftKey: true,
       });
 
@@ -658,6 +659,20 @@ describe("SessionBottomBar", () => {
       expect(mocks.setPaused).toHaveBeenCalledWith(false);
     });
 
+    it("leaves Ctrl+Shift+P to the focused field on macOS", () => {
+      recording();
+      renderBar();
+
+      fireEvent.keyDown(document.body, {
+        key: "p",
+        code: "KeyP",
+        ctrlKey: true,
+        shiftKey: true,
+      });
+
+      expect(mocks.setPaused).not.toHaveBeenCalled();
+    });
+
     it("does not bind ⌘⇧P for a background session tab", () => {
       recording();
       renderBar(undefined, { tab: { ...tab, active: false } });
@@ -666,7 +681,6 @@ describe("SessionBottomBar", () => {
         key: "p",
         code: "KeyP",
         metaKey: true,
-        ctrlKey: true,
         shiftKey: true,
       });
 

@@ -62,6 +62,7 @@ import {
 import { playCompletionSound } from "~/shared/completion-sound";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
+import { getLivePausedMs } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import type {
   LiveTranscriptPersistCallback,
@@ -498,8 +499,18 @@ export function useCaptureLifecycle(sessionId: string) {
           (chunk) => chunk.capture_started_at >= earliestStartedAt - 5_000,
         );
       };
+      // The last value seen while this capture was live, so gaps settled after
+      // stop still subtract every pause.
+      let capturePausedMs = 0;
       const audioRecovery = createCaptureAudioRecovery({
         startedAt,
+        pausedMs: () => {
+          const live = listenerStore.getState().live;
+          if (live.sessionId === sessionId) {
+            capturePausedMs = getLivePausedMs(live, Date.now());
+          }
+          return capturePausedMs;
+        },
         list: listRecoveryChunks,
         inherited: (chunk) => inheritedCaptureFor(chunk) !== undefined,
         acknowledge: async (chunk) => {

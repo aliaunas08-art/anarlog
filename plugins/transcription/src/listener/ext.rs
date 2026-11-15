@@ -4,7 +4,7 @@ use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState, S
 use anlg_transcription_core::listener::{
     StartSessionError,
     actors::{
-        PauseState, RootActor, RootMsg, SessionMsg, SessionParams, SourceActor, SourceMsg,
+        RootActor, RootMsg, SessionMsg, SessionParams, SourceActor, SourceMsg,
         session_supervisor_name,
     },
 };
@@ -29,17 +29,14 @@ fn session_supervisor(session_id: &str) -> Option<ActorRef<SessionMsg>> {
     registry::where_is(session_supervisor_name(session_id)).map(Into::into)
 }
 
-fn apply_pause_state(snapshot: &mut CaptureSnapshot, state: PauseState) {
-    snapshot.paused = Some(state.paused);
-    snapshot.paused_ms = Some(state.paused_ms.min(i64::MAX as u64) as i64);
-}
-
 struct CachedSessionState {
     requested_live_transcription: bool,
     live_transcription_active: bool,
     live_segments: Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
     started_at_ms: Option<i64>,
     degraded: Option<anlg_transcription_core::listener::DegradedError>,
+    paused: bool,
+    paused_ms: i64,
 }
 
 fn hydrate_session_state(
@@ -54,6 +51,8 @@ fn hydrate_session_state(
         snapshot.live_segments = Some(cached.live_segments);
         snapshot.started_at_ms = cached.started_at_ms;
         snapshot.degraded = cached.degraded;
+        snapshot.paused = Some(cached.paused);
+        snapshot.paused_ms = Some(cached.paused_ms);
     } else {
         snapshot.live_segments = Some(Vec::new());
     }
@@ -118,7 +117,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
                 .and_then(|cache| {
                     let cache = cache.lock().ok()?;
                     let state = cache.get(&session_id)?;
+                    let now_ms = crate::capture_gaps::unix_now_ms();
                     Some(CachedSessionState {
+                        paused: state.is_paused(),
+                        paused_ms: state.paused_ms(now_ms),
                         requested_live_transcription: state.requested_live_transcription,
                         live_transcription_active: state.live_transcription_active,
                         live_segments: state.live_segments.clone(),
@@ -135,12 +137,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
             let source: ActorRef<SourceMsg> = cell.into();
             snapshot.mic_muted = call_t!(source, SourceMsg::GetMicMute, 100).ok();
             snapshot.capture_health = call_t!(source, SourceMsg::GetCaptureHealth, 100).ok();
-        }
-        if let Some(session_id) = &snapshot.active_session_id
-            && let Some(supervisor) = session_supervisor(session_id)
-            && let Ok(state) = call_t!(supervisor, SessionMsg::GetPauseState, 100)
-        {
-            apply_pause_state(&mut snapshot, state);
         }
 
         Ok(snapshot)
@@ -176,10 +172,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         }
         let supervisor = session_supervisor(&session_id)
             .ok_or_else(|| crate::Error::ActorNotFound("active session".into()))?;
-        // Pausing closes the live stream, which waits for the provider's final words.
-        call_t!(supervisor, SessionMsg::SetPaused, 10_000, paused)
-            .map(|state| state.paused)
-            .map_err(|_| crate::Error::ActorNotFound("active session".into()))
+        // The supervisor replies as soon as the flag flips; only a queue held up by other work
+        // (a source restart, a stream refresh) can delay it. A timed-out request may still be
+        // applied later, and the `paused` event then reports the real state.
+        match call_t!(supervisor, SessionMsg::SetPaused, 10_000, paused) {
+            Ok(state) => Ok(state.paused),
+            Err(ractor::RactorErr::Timeout) => Err(crate::Error::CapturePauseTimedOut),
+            Err(_) => Err(crate::Error::ActorNotFound("active session".into())),
+        }
     }
 
     pub async fn retry_audio_capture(
@@ -384,6 +384,51 @@ mod tests {
             .expect_err("snapshot failure must remain retryable");
 
         assert!(matches!(error, crate::Error::CaptureSnapshotUnavailable));
+    }
+
+    #[test]
+    fn pause_state_is_kept_in_the_session_cache_without_the_supervisor() {
+        let mut state = crate::SessionStateSnapshot::default();
+        state.set_paused(true, 1_000);
+        state.set_paused(true, 2_000);
+        assert!(state.is_paused());
+        assert_eq!(state.paused_ms(4_000), 3_000);
+        state.set_paused(false, 5_000);
+        assert!(!state.is_paused());
+        assert_eq!(state.paused_ms(9_000), 4_000);
+        state.set_paused(true, 10_000);
+        assert_eq!(state.paused_ms(10_500), 4_500);
+
+        let mut snapshot = CaptureSnapshot {
+            state: CaptureState::Active,
+            active_session_id: Some("session-a".to_string()),
+            finalizing_session_ids: vec![],
+            requested_live_transcription: None,
+            live_transcription_active: None,
+            live_segments_session_id: None,
+            live_segments: None,
+            started_at_ms: None,
+            mic_muted: None,
+            paused: None,
+            paused_ms: None,
+            degraded: None,
+            capture_health: None,
+        };
+        hydrate_session_state(
+            &mut snapshot,
+            "session-a".to_string(),
+            Some(CachedSessionState {
+                requested_live_transcription: true,
+                live_transcription_active: true,
+                live_segments: vec![],
+                started_at_ms: Some(1),
+                degraded: None,
+                paused: true,
+                paused_ms: 4_500,
+            }),
+        );
+        assert_eq!(snapshot.paused, Some(true));
+        assert_eq!(snapshot.paused_ms, Some(4_500));
     }
 
     #[test]

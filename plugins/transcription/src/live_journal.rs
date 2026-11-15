@@ -256,7 +256,11 @@ pub(crate) fn register_app_journal<R: tauri::Runtime>(
     let event_sink: EventSink = Arc::new(move |status| {
         if let Some(registry) = event_app.try_state::<crate::CaptureGapRegistry>() {
             if status.error.is_some() {
-                registry.persistence_failed(&status.session_id, crate::capture_gaps::unix_now_ms());
+                let now_ms = event_app
+                    .try_state::<crate::SessionStateCache>()
+                    .map(|cache| crate::audio_now_ms(&cache, &status.session_id))
+                    .unwrap_or_else(crate::capture_gaps::unix_now_ms);
+                registry.persistence_failed(&status.session_id, now_ms);
             } else if let Some(persisted_through_ms) = status.persisted_through_ms {
                 registry.persisted_through(&status.session_id, persisted_through_ms);
             }

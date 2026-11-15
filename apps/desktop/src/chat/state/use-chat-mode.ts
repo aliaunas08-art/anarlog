@@ -4,6 +4,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { useChatContext } from "./chat-context";
 
 import type { ChatScope } from "~/chat/types";
+import { primaryHotkey } from "~/shared/primary-hotkey";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useChatMode() {
@@ -42,7 +43,7 @@ export function useChatMode() {
   // ⌘K is the primary Ask shortcut (shown on the bottom bar's Ask button);
   // ⌘J is kept as an alias. Both toggle, so a second press closes the chat.
   useHotkeys(
-    "mod+k, mod+j",
+    `${primaryHotkey("k")}, ${primaryHotkey("j")}`,
     () => {
       transitionChatMode({ type: "TOGGLE" });
     },

@@ -75,6 +75,47 @@ pub struct SessionStateSnapshot {
     pub mic_isolated: Option<bool>,
     pub started_at_ms: Option<i64>,
     pub degraded: Option<DegradedError>,
+    /// Kept from the listener's `Paused` events so the pause state can be read without
+    /// waiting on the session supervisor, which may be busy closing or reopening a stream.
+    pub paused_since_ms: Option<i64>,
+    pub paused_total_ms: i64,
+}
+
+impl SessionStateSnapshot {
+    pub fn set_paused(&mut self, paused: bool, now_ms: i64) {
+        match (paused, self.paused_since_ms) {
+            (true, None) => self.paused_since_ms = Some(now_ms),
+            (false, Some(since)) => {
+                self.paused_total_ms += now_ms.saturating_sub(since).max(0);
+                self.paused_since_ms = None;
+            }
+            _ => {}
+        }
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused_since_ms.is_some()
+    }
+
+    /// All paused time so far, including a pause in progress.
+    pub fn paused_ms(&self, now_ms: i64) -> i64 {
+        self.paused_total_ms
+            + self
+                .paused_since_ms
+                .map_or(0, |since| now_ms.saturating_sub(since).max(0))
+    }
+}
+
+/// "Now" on the session's audio timeline: wall-clock time minus everything paused. Capture gap
+/// bounds use it so they line up with the recorded audio rather than with wall-clock time.
+pub(crate) fn audio_now_ms(cache: &SessionStateCache, session_id: &str) -> i64 {
+    let now_ms = capture_gaps::unix_now_ms();
+    let paused_ms = cache
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(session_id).map(|state| state.paused_ms(now_ms)))
+        .unwrap_or(0);
+    now_ms - paused_ms
 }
 
 pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;

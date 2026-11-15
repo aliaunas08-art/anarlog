@@ -32,7 +32,9 @@ import {
   markLiveInactive,
   markLiveStartFailed,
   noteLiveTranscriptActivity,
+  getLivePausedMs,
   releaseLiveCaptureGeneration,
+  setLivePaused,
   setLiveState,
   tickTranscriptionStallWatchdog,
   updateLiveAmplitude,
@@ -656,7 +658,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
       }
 
       setLiveState(set, (live) => {
-        live.paused = payload.value;
+        setLivePaused(live, payload.value, Date.now());
       });
     }
   },
@@ -1005,6 +1007,17 @@ function applyCaptureSnapshot<T extends LiveStore>(
           );
 
     setLiveState(set, (live) => {
+      // A snapshot without pause fields (native state not cached yet) must not
+      // reset what this window already knows about the same capture.
+      const previous =
+        live.sessionId === targetSessionId && live.status === "active"
+          ? {
+              seconds: live.seconds,
+              paused: live.paused,
+              pausedTotalMs: live.pausedTotalMs,
+              pausedSinceMs: live.pausedSinceMs,
+            }
+          : null;
       markLiveActive(
         live,
         targetSessionId,
@@ -1013,15 +1026,27 @@ function applyCaptureSnapshot<T extends LiveStore>(
         snapshot.liveTranscriptionActive ?? true,
         snapshot.degraded ?? null,
       );
-      if (snapshot.startedAtMs != null) {
+      const nowMs = Date.now();
+      if (snapshot.paused != null) {
+        live.paused = snapshot.paused;
+        live.pausedTotalMs = snapshot.pausedMs ?? 0;
+        live.pausedSinceMs = snapshot.paused ? nowMs : null;
+      } else if (previous) {
+        live.paused = previous.paused;
+        live.pausedTotalMs = previous.pausedTotalMs;
+        live.pausedSinceMs = previous.pausedSinceMs;
+      }
+      if (
+        snapshot.startedAtMs != null &&
+        (snapshot.paused != null || !previous)
+      ) {
         live.seconds = Math.max(
           0,
           elapsedSecondsSince(snapshot.startedAtMs) -
-            Math.floor((snapshot.pausedMs ?? 0) / 1000),
+            Math.floor(getLivePausedMs(live, nowMs) / 1000),
         );
-      }
-      if (snapshot.paused != null) {
-        live.paused = snapshot.paused;
+      } else if (previous) {
+        live.seconds = previous.seconds;
       }
       if (snapshot.captureHealth != null) {
         live.captureHealth = snapshot.captureHealth;

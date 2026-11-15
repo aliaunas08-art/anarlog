@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   }>,
 }));
 
+vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "macos" }));
+
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: { user: { id: "viewer-1" } } }),
 }));
@@ -71,24 +73,24 @@ describe("OpenNoteDialog", () => {
 
   afterEach(cleanup);
 
-  it("opens from ⌘P and leaves ⌘K to Ask", () => {
+  it("opens from ⌘P only, leaving ⌘K to Ask and Ctrl+P to text fields", () => {
     render(
       <OpenNoteDialogProvider>
         <div />
       </OpenNoteDialogProvider>,
     );
-    const press = (key: string) =>
+    const press = (key: string, modifier: "metaKey" | "ctrlKey") =>
       fireEvent.keyDown(document.body, {
         key,
         code: `Key${key.toUpperCase()}`,
-        metaKey: true,
-        ctrlKey: true,
+        [modifier]: true,
       });
 
-    press("k");
+    press("k", "metaKey");
+    press("p", "ctrlKey");
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    press("p");
+    press("p", "metaKey");
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 

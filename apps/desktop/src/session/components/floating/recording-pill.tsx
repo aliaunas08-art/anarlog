@@ -5,13 +5,11 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { cn } from "@anlg/utils";
 
 import { formatElapsed } from "~/session/bookmark";
+import { primaryHotkey } from "~/shared/primary-hotkey";
 import { useListener } from "~/stt/contexts";
 
 const METER_BARS = 14;
 const METER_SAMPLE_MS = 120;
-
-/** Pauses or resumes the recording from anywhere in the visible session. */
-export const PAUSE_RECORDING_HOTKEY = "mod+shift+p";
 
 /**
  * Glass recording pill shown in the session bottom bar while listening:
@@ -77,7 +75,7 @@ export function RecordingPill({
   });
 
   // No editor binds ⌘⇧P, so it also works while typing notes.
-  useHotkeys(PAUSE_RECORDING_HOTKEY, togglePaused, {
+  useHotkeys(primaryHotkey("shift+p"), togglePaused, {
     enabled: active && canPause && !disabled,
     preventDefault: true,
     enableOnFormTags: true,

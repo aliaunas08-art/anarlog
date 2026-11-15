@@ -32,11 +32,11 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { useSessionSummaries } from "~/session/queries";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
 import { useMainContentCenterOffset } from "~/shared/main/content-offset";
+import { primaryHotkey } from "~/shared/primary-hotkey";
 import { useSettingsNavGroups } from "~/sidebar/settings-nav-groups";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;
-export const OPEN_NOTE_DIALOG_HOTKEY = "mod+p";
 
 interface OpenNoteDialogProps {
   open: boolean;
@@ -83,7 +83,7 @@ export function OpenNoteDialogProvider({
 
   // ⌘K opens Ask (chat/state/use-chat-mode.ts); ⌘P is the quick-open
   // convention for jumping to a note or page.
-  useHotkeys(OPEN_NOTE_DIALOG_HOTKEY, openDialog, {
+  useHotkeys(primaryHotkey("p"), openDialog, {
     preventDefault: true,
     enableOnFormTags: true,
     enableOnContentEditable: true,
