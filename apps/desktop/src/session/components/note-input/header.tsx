@@ -7,6 +7,10 @@ export { createEditorTabs } from "@anlg/utils/session";
 
 import { HeaderViewEnhanced } from "./header-enhanced";
 import { HeaderViewRaw } from "./header-raw";
+import {
+  type HeaderViewVariant,
+  HeaderViewVariantContext,
+} from "./header-shared";
 import { HeaderViewShared } from "./header-shared-note";
 import { HeaderViewTranscript } from "./header-transcript";
 
@@ -33,6 +37,7 @@ export function SessionViewSwitcher({
   isTranscribing = false,
   transcriptEditMode = false,
   onTranscriptEditModeChange,
+  variant = "tray",
 }: {
   sessionId: string;
   editorTabs: EditorView[];
@@ -41,6 +46,7 @@ export function SessionViewSwitcher({
   isTranscribing?: boolean;
   transcriptEditMode?: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
+  variant?: HeaderViewVariant;
 }) {
   const { t } = useLingui();
   const primaryEnhancedTabId = editorTabs.find(
@@ -54,96 +60,101 @@ export function SessionViewSwitcher({
   }
 
   return (
-    <div
-      role="group"
-      aria-label={t`Session note views`}
-      data-tauri-drag-region="false"
-      className={cn([
-        "pointer-events-auto relative z-10 w-fit max-w-full shrink-0 overflow-visible",
-        "bg-foreground/10 dark:bg-accent/55 rounded-pill flex h-7 items-center gap-[2px] p-[2px] [corner-shape:round]",
-      ])}
-    >
-      {editorTabs.map((view, index) => {
-        if (view.type === "enhanced") {
-          return (
-            <HeaderViewEnhanced
-              key={`enhanced-${view.id}`}
-              sessionId={sessionId}
-              enhancedNoteId={view.id}
-              canRemove={view.id !== primaryEnhancedTabId}
-              onRemove={
-                view.id !== primaryEnhancedTabId
-                  ? () => {
-                      const previousView = editorTabs[index - 1];
-                      if (
-                        currentTab.type === "enhanced" &&
-                        currentTab.id === view.id &&
-                        previousView
-                      ) {
-                        handleTabChange(previousView);
+    <HeaderViewVariantContext.Provider value={variant}>
+      <div
+        role="group"
+        aria-label={t`Session note views`}
+        data-tauri-drag-region="false"
+        data-variant={variant}
+        className={cn([
+          "pointer-events-auto relative z-10 w-fit max-w-full shrink-0 overflow-visible",
+          variant === "glass"
+            ? "cf-glass rounded-pill flex h-[46px] items-center gap-[2px] p-[5px] [corner-shape:round]"
+            : "bg-foreground/10 dark:bg-accent/55 rounded-pill flex h-7 items-center gap-[2px] p-[2px] [corner-shape:round]",
+        ])}
+      >
+        {editorTabs.map((view, index) => {
+          if (view.type === "enhanced") {
+            return (
+              <HeaderViewEnhanced
+                key={`enhanced-${view.id}`}
+                sessionId={sessionId}
+                enhancedNoteId={view.id}
+                canRemove={view.id !== primaryEnhancedTabId}
+                onRemove={
+                  view.id !== primaryEnhancedTabId
+                    ? () => {
+                        const previousView = editorTabs[index - 1];
+                        if (
+                          currentTab.type === "enhanced" &&
+                          currentTab.id === view.id &&
+                          previousView
+                        ) {
+                          handleTabChange(previousView);
+                        }
+
+                        void deleteEnhancedNote(view.id).catch((error) => {
+                          console.error(
+                            "[session-header] failed to remove summary",
+                            error,
+                          );
+                        });
                       }
+                    : undefined
+                }
+                onSelectNote={(enhancedNoteId) =>
+                  handleTabChange({ type: "enhanced", id: enhancedNoteId })
+                }
+                isActive={
+                  currentTab.type === "enhanced" && currentTab.id === view.id
+                }
+                onClick={() => handleTabChange(view)}
+              />
+            );
+          }
 
-                      void deleteEnhancedNote(view.id).catch((error) => {
-                        console.error(
-                          "[session-header] failed to remove summary",
-                          error,
-                        );
-                      });
-                    }
-                  : undefined
-              }
-              onSelectNote={(enhancedNoteId) =>
-                handleTabChange({ type: "enhanced", id: enhancedNoteId })
-              }
-              isActive={
-                currentTab.type === "enhanced" && currentTab.id === view.id
-              }
-              onClick={() => handleTabChange(view)}
-            />
-          );
-        }
+          if (view.type === "raw") {
+            return (
+              <HeaderViewRaw
+                key={view.type}
+                sessionId={sessionId}
+                isActive={currentTab.type === view.type}
+                standalone={!shouldUseViewSwitcher}
+                onClick={() => handleTabChange(view)}
+              />
+            );
+          }
 
-        if (view.type === "raw") {
-          return (
-            <HeaderViewRaw
-              key={view.type}
-              sessionId={sessionId}
-              isActive={currentTab.type === view.type}
-              standalone={!shouldUseViewSwitcher}
-              onClick={() => handleTabChange(view)}
-            />
-          );
-        }
+          if (view.type === "transcript") {
+            return (
+              <HeaderViewTranscript
+                key={view.type}
+                sessionId={sessionId}
+                isActive={currentTab.type === view.type}
+                isTranscribing={isTranscribing}
+                editMode={transcriptEditMode}
+                onEditModeChange={onTranscriptEditModeChange}
+                onClick={() => handleTabChange(view)}
+              />
+            );
+          }
 
-        if (view.type === "transcript") {
-          return (
-            <HeaderViewTranscript
-              key={view.type}
-              sessionId={sessionId}
-              isActive={currentTab.type === view.type}
-              isTranscribing={isTranscribing}
-              editMode={transcriptEditMode}
-              onEditModeChange={onTranscriptEditModeChange}
-              onClick={() => handleTabChange(view)}
-            />
-          );
-        }
+          if (view.type === "shared") {
+            return (
+              <HeaderViewShared
+                key={`shared-${view.id}`}
+                isActive={
+                  currentTab.type === "shared" && currentTab.id === view.id
+                }
+                onClick={() => handleTabChange(view)}
+              />
+            );
+          }
 
-        if (view.type === "shared") {
-          return (
-            <HeaderViewShared
-              key={`shared-${view.id}`}
-              isActive={
-                currentTab.type === "shared" && currentTab.id === view.id
-              }
-              onClick={() => handleTabChange(view)}
-            />
-          );
-        }
-
-        return null;
-      })}
-    </div>
+          return null;
+        })}
+      </div>
+    </HeaderViewVariantContext.Provider>
   );
 }
 

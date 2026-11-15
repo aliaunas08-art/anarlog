@@ -6,7 +6,8 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { computeCurrentNoteTab } from "@anlg/utils/session";
 
-import { FloatingActionButton } from "./components/floating";
+import { EditorialHeader } from "./components/editorial-header";
+import { SessionBottomBar } from "./components/floating";
 import { NoteConflictBanner } from "./components/note-conflict-banner";
 import {
   NoteInput,
@@ -22,6 +23,7 @@ import { OuterHeader } from "./components/outer-header";
 import { PendingProposalsBanner } from "./components/pending-proposals-banner";
 import { SessionSurface } from "./components/session-surface";
 import { getCanShowTranscript, useHasTranscript } from "./components/shared";
+import type { TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useEnhancedNotes } from "./hooks/useEnhancedNotes";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
@@ -157,6 +159,7 @@ function TabContentNoteInner({
   lockOverlay: React.ReactNode;
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
+  const titleInputRef = React.useRef<TitleInputHandle>(null);
 
   const sessionId = tab.id;
   const [editingTranscriptSessionId, setEditingTranscriptSessionId] =
@@ -185,7 +188,7 @@ function TabContentNoteInner({
   const sessionEvent = session ? getSessionEvent(session) : null;
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
 
-  const { skipReason } = useAutoEnhance(tab);
+  useAutoEnhance(tab);
   const isTranscribing = shouldShowTranscriptTabSpinner(sessionMode);
   const isLiveSessionActive = sessionMode === "active";
   const sharedNoteIds = useSessionSharedNoteIds(sessionId);
@@ -237,6 +240,21 @@ function TabContentNoteInner({
     },
     [tab, updateSessionTabState],
   );
+  const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
+    const title = titleInputRef.current;
+    if (!title) return;
+    if (pixelWidth === undefined) {
+      title.focusAtEnd();
+    } else {
+      title.focusAtPixelWidth(pixelWidth);
+    }
+  }, []);
+  const handleFocusEditorAtPixelWidth = React.useCallback(
+    (pixelWidth: number) => {
+      noteInputRef.current?.focusAtPixelWidth(pixelWidth);
+    },
+    [],
+  );
   const handleTranscriptEditModeChange = React.useCallback(
     (editMode: boolean) => {
       if (!editMode) {
@@ -271,8 +289,14 @@ function TabContentNoteInner({
             <OuterHeader
               sessionId={sessionId}
               currentView={currentView}
-              tab={tab}
               standaloneWindow={standaloneWindow}
+            />
+          )
+        }
+        floatingButton={
+          lockOverlay ? undefined : (
+            <SessionBottomBar
+              tab={tab}
               viewSwitcher={
                 editorTabs.length > 1 ? (
                   <SessionViewSwitcher
@@ -283,20 +307,10 @@ function TabContentNoteInner({
                     isTranscribing={isTranscribing}
                     transcriptEditMode={transcriptEditMode}
                     onTranscriptEditModeChange={handleTranscriptEditModeChange}
+                    variant="glass"
                   />
                 ) : null
               }
-            />
-          )
-        }
-        floatingButton={
-          lockOverlay ? undefined : (
-            <FloatingActionButton
-              allowListening={!standaloneWindow}
-              audioExists={audioExists}
-              currentView={currentView}
-              skipReason={skipReason}
-              tab={tab}
             />
           )
         }
@@ -333,6 +347,19 @@ function TabContentNoteInner({
                 sessionMode={sessionMode}
                 transcriptEditMode={transcriptEditMode}
                 onTranscriptEditModeChange={handleTranscriptEditModeChange}
+                onNavigateToTitle={
+                  currentView.type === "raw" ? handleNavigateToTitle : undefined
+                }
+                renderLeadingContent={(view) => (
+                  <EditorialHeader
+                    key={tab.id}
+                    ref={titleInputRef}
+                    tab={tab}
+                    // The summary carries the title as its first-line heading.
+                    showTitle={view.type !== "enhanced"}
+                    onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+                  />
+                )}
                 hideHeader
               />
             ) : (

@@ -60,6 +60,11 @@ export function markSessionInPerson(sessionId: string) {
   inPersonSessionIds.add(sessionId);
 }
 
+/** Whether this session was started in person during this app run. */
+export function isSessionMarkedInPerson(sessionId: string) {
+  return inPersonSessionIds.has(sessionId);
+}
+
 export function useStartListening(sessionId: string) {
   return useStartListeningState(sessionId).startListening;
 }

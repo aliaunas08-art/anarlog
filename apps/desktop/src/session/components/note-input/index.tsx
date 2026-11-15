@@ -56,6 +56,8 @@ type NoteInputProps = {
   currentTab?: TabEditorView;
   handleTabChange?: (view: TabEditorView) => void;
   hideHeader?: boolean;
+  /** Rendered above the note body inside the scroll area (not on transcript). */
+  renderLeadingContent?: (view: TabEditorView) => React.ReactNode;
   sessionMode?: SessionMode;
   transcriptEditMode?: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
@@ -154,6 +156,7 @@ const NoteInputContent = forwardRef<
       currentTab,
       commitTabChange,
       hideHeader = false,
+      renderLeadingContent,
       sessionMode,
       transcriptEditMode = false,
       onTranscriptEditModeChange,
@@ -372,44 +375,59 @@ const NoteInputContent = forwardRef<
               "pt-2",
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
-                : "scroll-pb-20 overflow-x-hidden overflow-y-auto pb-24",
+                : "scroll-pb-28 overflow-x-hidden overflow-y-auto pb-32",
             ])}
           >
-            {renderedCurrentTab.type === "enhanced" && (
-              <Enhanced
-                ref={internalEditorRef}
-                sessionId={sessionId}
-                sessionTitle={sessionTitle}
-                enhancedNoteId={renderedCurrentTab.id}
-                onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleSessionViewReady}
-                onViewDisposed={handleSessionViewDisposed}
-              />
-            )}
-            {renderedCurrentTab.type === "raw" && (
-              <RawEditor
-                ref={internalEditorRef}
-                sessionId={sessionId}
-                rawMd={rawMd}
-                sessionTitle={sessionTitle}
-                eventTitle={eventTitle}
-                eventDescription={eventDescription}
-                onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleSessionViewReady}
-                onViewDisposed={handleSessionViewDisposed}
-              />
-            )}
-            {renderedCurrentTab.type === "shared" && (
-              <SharedNoteSummary shareId={renderedCurrentTab.id} />
-            )}
-            {renderedCurrentTab.type === "transcript" && (
-              <Transcript
-                sessionId={sessionId}
-                scrollRef={scrollRef}
-                editMode={transcriptEditMode}
-                onEditModeChange={onTranscriptEditModeChange}
-              />
-            )}
+            <div
+              data-session-content-column
+              className={cn([
+                "mx-auto w-full max-w-[720px]",
+                renderedCurrentTab.type === "transcript" && "h-full",
+                // The summary's first-line H1 is the session title there; give
+                // it the editorial title treatment.
+                renderedCurrentTab.type === "enhanced" &&
+                  "[&_.note-title-editor>h1:first-child]:mb-6! [&_.note-title-editor>h1:first-child]:text-[46px]! [&_.note-title-editor>h1:first-child]:leading-[1.08]! [&_.note-title-editor>h1:first-child]:font-bold! [&_.note-title-editor>h1:first-child]:tracking-[-0.035em]! [&_.note-title-editor>h1:first-child]:text-[var(--cf-label)]!",
+              ])}
+            >
+              {renderLeadingContent && renderedCurrentTab.type !== "transcript"
+                ? renderLeadingContent(renderedCurrentTab)
+                : null}
+              {renderedCurrentTab.type === "enhanced" && (
+                <Enhanced
+                  ref={internalEditorRef}
+                  sessionId={sessionId}
+                  sessionTitle={sessionTitle}
+                  enhancedNoteId={renderedCurrentTab.id}
+                  onNavigateToTitle={onNavigateToTitle}
+                  onViewReady={handleSessionViewReady}
+                  onViewDisposed={handleSessionViewDisposed}
+                />
+              )}
+              {renderedCurrentTab.type === "raw" && (
+                <RawEditor
+                  ref={internalEditorRef}
+                  sessionId={sessionId}
+                  rawMd={rawMd}
+                  sessionTitle={sessionTitle}
+                  eventTitle={eventTitle}
+                  eventDescription={eventDescription}
+                  onNavigateToTitle={onNavigateToTitle}
+                  onViewReady={handleSessionViewReady}
+                  onViewDisposed={handleSessionViewDisposed}
+                />
+              )}
+              {renderedCurrentTab.type === "shared" && (
+                <SharedNoteSummary shareId={renderedCurrentTab.id} />
+              )}
+              {renderedCurrentTab.type === "transcript" && (
+                <Transcript
+                  sessionId={sessionId}
+                  scrollRef={scrollRef}
+                  editMode={transcriptEditMode}
+                  onEditModeChange={onTranscriptEditModeChange}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>

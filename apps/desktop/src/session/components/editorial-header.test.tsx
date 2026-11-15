@@ -1,0 +1,126 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { Tab } from "~/store/zustand/tabs";
+
+const mocks = vi.hoisted(() => ({
+  session: { created_at: "2026-11-14T17:38:00.000Z" } as {
+    created_at?: string;
+  } | null,
+  event: null as Record<string, string | undefined> | null,
+  audioTotal: 0,
+  inPerson: false,
+}));
+
+vi.mock("./title-input", () => ({
+  TitleInput: ({ variant }: { variant?: string }) => (
+    <input aria-label="Session title" data-variant={variant} />
+  ),
+}));
+
+vi.mock("~/session/queries", () => ({
+  useSession: () => mocks.session,
+}));
+
+vi.mock("~/session/hooks/useSessionEvent", () => ({
+  useSessionEvent: () => mocks.event,
+}));
+
+vi.mock("~/audio-player", () => ({
+  useAudioPlayer: () => ({
+    timeStore: {
+      subscribe: () => () => {},
+      getSnapshot: () => ({ current: 0, total: mocks.audioTotal }),
+    },
+  }),
+}));
+
+vi.mock("~/stt/useStartListening", () => ({
+  isSessionMarkedInPerson: () => mocks.inPerson,
+}));
+
+import { EditorialHeader, getDurationMinutes } from "./editorial-header";
+
+const tab = {
+  type: "sessions",
+  id: "session-1",
+  active: true,
+  pinned: false,
+  slotId: "slot-1",
+  state: { view: null, autoStart: null },
+} as Extract<Tab, { type: "sessions" }>;
+
+function eyebrow() {
+  return document.querySelector("[data-session-editorial-header] p")
+    ?.textContent;
+}
+
+describe("EditorialHeader", () => {
+  beforeEach(() => {
+    mocks.session = { created_at: "2026-11-14T17:38:00.000Z" };
+    mocks.event = null;
+    mocks.audioTotal = 0;
+    mocks.inPerson = false;
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders the editable title in the editorial variant", () => {
+    render(<EditorialHeader tab={tab} />);
+
+    const title = screen.getByRole("textbox", { name: "Session title" });
+    expect(title.getAttribute("data-variant")).toBe("editorial");
+  });
+
+  it("shows date, in person and recorded duration in the eyebrow", () => {
+    mocks.inPerson = true;
+    mocks.audioTotal = 32 * 60 + 10;
+    render(<EditorialHeader tab={tab} />);
+
+    const text = eyebrow() ?? "";
+    expect(text).toMatch(/Nov 14/);
+    expect(text).toContain(" · In person · 32 min");
+  });
+
+  it("names the meeting app and uses the event length when there is no audio", () => {
+    mocks.event = {
+      started_at: "2026-11-14T14:00:00.000Z",
+      ended_at: "2026-11-14T14:45:00.000Z",
+      meeting_link: "https://meet.google.com/abc-defg-hij",
+    };
+    render(<EditorialHeader tab={tab} />);
+
+    expect(eyebrow()).toContain(" · Google Meet · 45 min");
+  });
+
+  it("omits the eyebrow parts it does not know", () => {
+    mocks.session = null;
+    render(<EditorialHeader tab={tab} />);
+
+    expect(eyebrow()).toBeUndefined();
+  });
+});
+
+describe("getDurationMinutes", () => {
+  it("prefers the recorded audio length", () => {
+    expect(
+      getDurationMinutes({
+        audioSeconds: 20,
+        startedAt: "2026-11-14T14:00:00.000Z",
+        endedAt: "2026-11-14T15:00:00.000Z",
+      }),
+    ).toBe(1);
+  });
+
+  it("returns null without audio or a complete event range", () => {
+    expect(getDurationMinutes({ audioSeconds: 0 })).toBeNull();
+    expect(
+      getDurationMinutes({
+        audioSeconds: 0,
+        startedAt: "2026-11-14T14:00:00.000Z",
+      }),
+    ).toBeNull();
+  });
+});

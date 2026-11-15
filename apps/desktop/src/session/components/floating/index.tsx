@@ -1,45 +1,181 @@
-import { AnimatePresence, motion } from "motion/react";
+import { useLingui } from "@lingui/react/macro";
 
+import { Microphone } from "@anlg/ui/components/icons";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@anlg/ui/components/ui/popover";
 import { cn } from "@anlg/utils";
 
+import {
+  type SessionMeetingAction,
+  useSessionMeetingAction,
+} from "./meeting-action";
 import { setSessionFabSelectionHost } from "./selection-slot";
 
-import { ChatCTA } from "~/shared/chat-cta";
-import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
+import { useShell } from "~/contexts/shell";
+import type { Tab } from "~/store/zustand/tabs/schema";
 
-export function FloatingActionButton(_props: {
-  allowListening?: boolean;
-  audioExists?: boolean;
-  currentView: EditorView;
-  skipReason?: string | null;
+const GLASS_GROUP =
+  "cf-glass rounded-pill flex h-[46px] shrink-0 items-center gap-[2px] p-[5px] [corner-shape:round]";
+const GLASS_ITEM =
+  "cf-motion rounded-pill inline-flex h-9 shrink-0 items-center gap-[7px] px-4 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors select-none [corner-shape:round] hover:bg-[var(--cf-glass-sel)] focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none disabled:cursor-default disabled:opacity-60";
+
+/**
+ * Liquid Glass bar floating at the bottom of the session view:
+ * view tabs · primary recording action · In person / Ask.
+ */
+export function SessionBottomBar({
+  tab,
+  viewSwitcher,
+}: {
   tab: Extract<Tab, { type: "sessions" }>;
+  viewSwitcher?: React.ReactNode;
 }) {
+  const { t } = useLingui();
+  const { chat } = useShell();
+  const action = useSessionMeetingAction(tab.id);
+  const isFloatingChatOpen = chat.mode === "FloatingOpen";
+  const showAsk = chat.mode !== "RightPanelOpen";
+  const showTrailingGroup = showAsk || Boolean(action?.showInPerson);
+
   return (
-    <div
-      className={cn([
-        "pointer-events-none absolute bottom-3 left-1/2 z-30 flex w-[min(640px,calc(100cqw_-_2rem))] max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col-reverse items-center",
-      ])}
-    >
-      <div className="peer/session-fab pointer-events-auto relative h-10 w-[min(640px,calc(100cqw_-_2rem))] max-w-full">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key="chat"
-            aria-hidden={false}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="visible relative max-w-full transition-transform duration-200 ease-out"
-          >
-            <ChatCTA />
-          </motion.div>
-        </AnimatePresence>
+    <div className="pointer-events-none absolute bottom-[22px] left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col-reverse items-center">
+      <div
+        role="toolbar"
+        aria-label={t`Meeting controls`}
+        data-session-bottom-bar
+        // The floating chat panel aligns its bottom edge with this element.
+        data-chat-cta-trigger
+        aria-hidden={isFloatingChatOpen || undefined}
+        inert={isFloatingChatOpen}
+        className={cn([
+          "cf-motion pointer-events-auto flex max-w-full items-center gap-2.5 transition-opacity",
+          isFloatingChatOpen && "invisible opacity-0",
+        ])}
+      >
+        {viewSwitcher ? (
+          <div data-session-bottom-bar-views className="min-w-0 shrink">
+            {viewSwitcher}
+          </div>
+        ) : null}
+        {action ? <PrimaryAction action={action} /> : null}
+        {showTrailingGroup ? (
+          <div className={GLASS_GROUP}>
+            {action?.showInPerson ? (
+              <button
+                type="button"
+                data-tauri-drag-region="false"
+                aria-label={t`Record in person`}
+                title={t`Record in person (microphone only)`}
+                disabled={action.disabled}
+                onClick={action.startInPerson}
+                className={cn([GLASS_ITEM, "@max-[640px]:px-2.5"])}
+              >
+                <Microphone aria-hidden className="size-3.5 shrink-0" />
+                <span className="@max-[640px]:sr-only">{t`In person`}</span>
+              </button>
+            ) : null}
+            {action?.showInPerson && showAsk ? (
+              <span
+                aria-hidden="true"
+                className="h-5 w-px shrink-0 bg-[var(--cf-separator)]"
+              />
+            ) : null}
+            {showAsk ? (
+              <button
+                type="button"
+                data-tauri-drag-region="false"
+                aria-label={t`Ask Anarlog anything`}
+                title={t`Ask about this meeting`}
+                onClick={() => chat.sendEvent({ type: "OPEN" })}
+                className={GLASS_ITEM}
+              >
+                {t`Ask`}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div
         ref={setSessionFabSelectionHost}
         data-session-fab-selection
-        className={cn(["pointer-events-auto z-10 mb-2"])}
+        className="pointer-events-auto z-10 mb-2"
       />
     </div>
+  );
+}
+
+function PrimaryAction({ action }: { action: SessionMeetingAction }) {
+  const { t } = useLingui();
+  const isRecord = action.kind === "record";
+  const isStop = action.kind === "stop";
+
+  return (
+    <Popover open={action.showWelcomeDemoPrompt}>
+      <div className="relative flex shrink-0 items-center">
+        <PopoverAnchor asChild>
+          <button
+            type="button"
+            data-tauri-drag-region="false"
+            data-session-primary-action={action.kind}
+            aria-label={action.label}
+            title={action.title}
+            disabled={action.disabled}
+            onClick={action.onClick}
+            className={cn([
+              "cf-motion rounded-pill inline-flex h-[46px] max-w-56 shrink-0 items-center gap-2 px-5 text-[13px] font-semibold whitespace-nowrap transition-[opacity,filter] [corner-shape:round]",
+              "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:outline-none",
+              "disabled:cursor-default disabled:opacity-60",
+              isStop
+                ? "cf-glass text-[var(--cf-label)] hover:brightness-95"
+                : "cf-glass-tint hover:brightness-105",
+            ])}
+          >
+            {isRecord ? (
+              <span
+                aria-hidden="true"
+                className="rounded-pill size-2 shrink-0 bg-[var(--cf-record)] shadow-[0_0_0_2px_rgba(255,255,255,0.6)]"
+              />
+            ) : (
+              action.icon
+            )}
+            <span className="truncate">{action.label}</span>
+          </button>
+        </PopoverAnchor>
+        {action.showWelcomeDemoPrompt ? (
+          <PopoverContent
+            data-welcome-demo-prompt
+            side="top"
+            sideOffset={10}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            className="border-border bg-popover text-popover-foreground pointer-events-none w-72 max-w-[calc(100vw-1rem)] rounded-md border px-3 py-2.5 text-sm shadow-sm"
+          >
+            <span
+              data-welcome-demo-prompt-tail
+              aria-hidden="true"
+              className="border-border bg-popover absolute -bottom-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-r border-b"
+            />
+            <span className="relative block font-medium">{t`Try the demo`}</span>
+            <span className="text-muted-foreground relative mt-0.5 block leading-snug">
+              {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action.`}
+            </span>
+          </PopoverContent>
+        ) : action.countdownLabel ? (
+          <div
+            data-header-meeting-countdown
+            className="border-border bg-popover text-popover-foreground pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm"
+          >
+            <span
+              data-header-meeting-countdown-tail
+              aria-hidden="true"
+              className="border-border bg-popover absolute -bottom-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-r border-b"
+            />
+            <span className="relative">{action.countdownLabel}</span>
+          </div>
+        ) : null}
+      </div>
+    </Popover>
   );
 }

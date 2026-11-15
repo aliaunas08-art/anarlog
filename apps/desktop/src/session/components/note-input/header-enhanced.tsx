@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useMemo } from "react";
 
 import { CaretDown, Sparkle } from "@anlg/ui/components/icons";
@@ -8,7 +9,9 @@ import {
   copyTextToClipboard,
   getEnhancedNoteTitle,
   getStoredNoteMarkdown,
+  glassHeaderViewClassName,
   iconHeaderViewClassName,
+  useHeaderViewVariant,
 } from "./header-shared";
 import {
   TemplatePickerPopover,
@@ -68,6 +71,7 @@ export function HeaderViewEnhanced({
 }
 
 function useEnhancedViewTitle(enhancedNoteId: string) {
+  const { t } = useLingui();
   const enhancedNote = useEnhancedNote(enhancedNoteId);
   const rawTitle = enhancedNote?.title;
   const templateId = enhancedNote?.templateId;
@@ -82,6 +86,10 @@ function useEnhancedViewTitle(enhancedNoteId: string) {
 
   return {
     viewTitle,
+    // The bottom bar names the default AI summary "Minutes"; template and
+    // user-given titles are shown as-is.
+    glassTitle:
+      !templateTitle && viewTitle === "Summary" ? t`Minutes` : viewTitle,
     templateIcon,
     templateTooltip:
       templateId && templateTitle
@@ -104,9 +112,27 @@ function HeaderViewEnhancedInactive({
   enhancedNoteId: string;
   onClick?: () => void;
 }) {
-  const { viewTitle, templateIcon, templateTooltip } =
+  const { viewTitle, glassTitle, templateIcon, templateTooltip } =
     useEnhancedViewTitle(enhancedNoteId);
   const isGenerating = useEnhancedViewGenerating(enhancedNoteId);
+  const glass = useHeaderViewVariant() === "glass";
+
+  if (glass) {
+    return (
+      <button
+        data-main-area-window-drag-region
+        data-tauri-drag-region="false"
+        type="button"
+        aria-label={glassTitle}
+        onClick={onClick}
+        title={templateTooltip}
+        className={glassHeaderViewClassName(false)}
+      >
+        {isGenerating ? <Spinner size={14} className="shrink-0" /> : null}
+        <span className="min-w-0 truncate">{glassTitle}</span>
+      </button>
+    );
+  }
 
   return (
     <button
@@ -149,8 +175,9 @@ function HeaderViewEnhancedActive({
   const enhancedNote = useEnhancedNote(enhancedNoteId);
   const content = enhancedNote?.content;
   const usedTemplateId = enhancedNote?.templateId?.trim() || null;
-  const { viewTitle, templateIcon, templateTooltip } =
+  const { viewTitle, glassTitle, templateIcon, templateTooltip } =
     useEnhancedViewTitle(enhancedNoteId);
+  const glass = useHeaderViewVariant() === "glass";
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
@@ -237,7 +264,33 @@ function HeaderViewEnhancedActive({
     onRemove,
   ]);
   const showContextMenu = useNativeContextMenu(contextMenu);
-  const templateMenuTrigger = (
+  const templateMenuTrigger = glass ? (
+    <button
+      data-main-area-window-drag-region
+      data-tauri-drag-region="false"
+      type="button"
+      aria-label={glassTitle}
+      aria-current="page"
+      aria-disabled={isGenerating}
+      tabIndex={isGenerating ? -1 : 0}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      onContextMenu={showContextMenu}
+      title={templateTooltip}
+      className={glassHeaderViewClassName(
+        true,
+        cn([
+          "pr-3",
+          isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+          isError && "text-red-600 dark:text-red-400",
+        ]),
+      )}
+    >
+      {isGenerating ? <Spinner size={14} className="shrink-0" /> : null}
+      <span className="min-w-0 truncate">{glassTitle}</span>
+      <CaretDown aria-hidden className="size-3 opacity-60" />
+    </button>
+  ) : (
     <button
       data-main-area-window-drag-region
       data-tauri-drag-region="false"
