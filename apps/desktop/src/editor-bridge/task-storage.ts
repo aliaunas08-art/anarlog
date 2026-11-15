@@ -216,6 +216,9 @@ export function createSqliteTaskStorage(
       }
 
       const now = dependencies.now();
+      const currentTasksById = new Map(
+        currentTasks.map((currentTask) => [currentTask.taskId, currentTask]),
+      );
       const retainedTaskIds = tasks.map((task) => task.taskId);
       const statements = [
         {
@@ -238,7 +241,12 @@ export function createSqliteTaskStorage(
           ],
         },
         ...tasks.map((task) =>
-          buildTaskUpsertStatement(task, ownerUserId, now),
+          buildTaskUpsertStatement(
+            task,
+            ownerUserId,
+            now,
+            currentTasksById.get(task.taskId),
+          ),
         ),
       ];
 
@@ -336,10 +344,26 @@ function persistTaskStatements(
     });
 }
 
+/**
+ * Owner and due date are only sent when the editor changed them against the
+ * snapshot it read them from; otherwise they go out empty so the upsert keeps
+ * the stored values. Echoing the snapshot could undo a Tasks-view change that
+ * landed after the snapshot (e.g. inside the editor's save debounce).
+ */
+function changedTaskField(
+  next: string | undefined,
+  previous: string | undefined,
+  hasPrevious: boolean,
+): string {
+  if (hasPrevious && (next ?? "") === (previous ?? "")) return "";
+  return next ?? "";
+}
+
 function buildTaskUpsertStatement(
   task: TaskRecord,
   ownerUserId: string,
   now: string,
+  previousTask?: TaskRecord,
 ) {
   const sessionIdSql = taskSessionIdSql(task.sourceType);
   const sessionIdParam = taskSessionIdParam({
@@ -390,9 +414,8 @@ function buildTaskUpsertStatement(
         status = excluded.status,
         text = excluded.text,
         body_json = excluded.body_json,
-        -- The note only knows an owner when the task mentions a person, and
-        -- never a due date, so empty values keep what was set elsewhere (e.g.
-        -- the Tasks view).
+        -- Empty means "the editor didn't change it" (see changedTaskField),
+        -- so what was set elsewhere (e.g. the Tasks view) is kept.
         assignee_human_id = CASE
           WHEN excluded.assignee_human_id <> ''
             THEN excluded.assignee_human_id
@@ -418,11 +441,19 @@ function buildTaskUpsertStatement(
       task.sourceType,
       task.sourceId,
       task.sourceOrder,
-      task.assigneeHumanId ?? "",
+      changedTaskField(
+        task.assigneeHumanId,
+        previousTask?.assigneeHumanId,
+        previousTask !== undefined,
+      ),
       task.status,
       task.textPreview,
       JSON.stringify(task.body),
-      task.dueDate ?? "",
+      changedTaskField(
+        task.dueDate,
+        previousTask?.dueDate,
+        previousTask !== undefined,
+      ),
       task.status === "done" ? now : null,
       ownerUserId,
       DEFAULT_USER_ID,

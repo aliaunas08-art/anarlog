@@ -522,4 +522,131 @@ describe("SQLite task storage persistence", () => {
       expect(ownerAndDue().assignee_human_id).toBe("human-2"),
     );
   });
+
+  const mentionTaskContent = (text: string, humanId: string | null) => ({
+    type: "doc",
+    content: [
+      {
+        type: "taskList",
+        content: [
+          {
+            type: "taskItem",
+            attrs: { status: "todo", taskId: "task-1", taskItemId: "i1" },
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text },
+                  ...(humanId
+                    ? [
+                        {
+                          type: "mention-@",
+                          attrs: { id: humanId, type: "human", label: humanId },
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  /** An editor whose source snapshot mirrors the current database row. */
+  const editorWithSnapshot = () => {
+    const storage = createSqliteTaskStorage("user-1", {
+      ...dependencies,
+      subscribe: (async (
+        _sql: string,
+        _params: unknown[],
+        options: { onData: (rows: SqliteTaskRow[]) => void },
+      ) => {
+        options.onData(
+          db
+            .prepare(
+              "SELECT id, source_type, source_id, source_order, status, text, body_json, due_at, assignee_human_id FROM action_items WHERE deleted_at IS NULL",
+            )
+            .all() as SqliteTaskRow[],
+        );
+        return async () => {};
+      }) as TaskStorageDependencies["subscribe"],
+    });
+    storage.subscribeSource(sessionSource, () => {});
+    return storage;
+  };
+  const syncNote = (
+    storage: ReturnType<typeof createSqliteTaskStorage>,
+    content: ReturnType<typeof mentionTaskContent>,
+  ) =>
+    storage.upsertTasksForSource(
+      sessionSource,
+      extractTasksFromContent(
+        content,
+        sessionSource,
+        new Map(
+          storage
+            .getTasksForSource(sessionSource)
+            .map((record) => [record.taskId, record]),
+        ),
+      ),
+    );
+  const textOf = () =>
+    (
+      db.prepare("SELECT text FROM action_items WHERE id = 'task-1'").get() as {
+        text: string;
+      }
+    ).text;
+
+  it("keeps an owner picked elsewhere while the task's mention is unchanged", async () => {
+    syncNote(
+      createSqliteTaskStorage("user-1", dependencies),
+      mentionTaskContent("Send deck ", "alice"),
+    );
+    await vi.waitFor(() => expect(ownerAndDue().assignee_human_id).toBe("alice"));
+
+    await setActionItemOwner("task-1", "bob", "user-1", dependencies);
+    const editor = editorWithSnapshot();
+    await vi.waitFor(() =>
+      expect(editor.getTasksForSource(sessionSource)).toHaveLength(1),
+    );
+
+    // Typing elsewhere in the task keeps Bob.
+    syncNote(editor, mentionTaskContent("Send the deck ", "alice"));
+    await vi.waitFor(() => expect(textOf()).toBe("Send the deck"));
+    expect(ownerAndDue().assignee_human_id).toBe("bob");
+
+    // Mentioning someone else in the note does change the owner.
+    syncNote(editorWithSnapshot(), mentionTaskContent("Send the deck ", "cara"));
+    await vi.waitFor(() => expect(ownerAndDue().assignee_human_id).toBe("cara"));
+  });
+
+  it("doesn't echo a stale owner or due date over a newer Tasks-view change", async () => {
+    syncNote(
+      createSqliteTaskStorage("user-1", dependencies),
+      mentionTaskContent("Plan ", null),
+    );
+    await vi.waitFor(() => expect(actionItem()).toBeTruthy());
+    await setActionItemOwner("task-1", "alice", "user-1", dependencies);
+    await setActionItemDue("task-1", "2026-07-20", "user-1", dependencies);
+
+    // The editor reads its snapshot (Alice, the 20th) ...
+    const editor = editorWithSnapshot();
+    await vi.waitFor(() =>
+      expect(editor.getTasksForSource(sessionSource)[0]?.dueDate).toBe(
+        "2026-07-20",
+      ),
+    );
+    // ... the Tasks view changes both before the editor's debounced save ...
+    await setActionItemOwner("task-1", "bob", "user-1", dependencies);
+    await setActionItemDue("task-1", "2026-07-25", "user-1", dependencies);
+    // ... and the save must not write the snapshot values back.
+    syncNote(editor, mentionTaskContent("Plan launch ", null));
+    await vi.waitFor(() => expect(textOf()).toBe("Plan launch"));
+    expect(ownerAndDue()).toMatchObject({
+      assignee_human_id: "bob",
+      due_at: "2026-07-25",
+    });
+  });
 });

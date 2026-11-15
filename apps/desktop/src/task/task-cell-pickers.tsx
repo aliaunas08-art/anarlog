@@ -2,8 +2,10 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -292,6 +294,9 @@ function DueCalendar({
   const [monthKey, setMonthKey] = useState(() =>
     (dueDay ?? todayKey).slice(0, 7),
   );
+  const [focusKey, setFocusKey] = useState(() => dueDay ?? todayKey);
+  const shouldMoveFocusRef = useRef(false);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const quick = getQuickDueDays(todayKey, weekStartsOn);
   const days = getMonthGrid(monthKey, weekStartsOn);
   const locale = i18n.locale || undefined;
@@ -311,6 +316,60 @@ function DueCalendar({
     year: "numeric",
     timeZone: "UTC",
   });
+
+  const weekdayLongFormat = new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+
+  // Roving tabindex: one tab stop in the grid, arrow keys move between days.
+  const tabStopKey = days.includes(focusKey)
+    ? focusKey
+    : dueDay && dueDay.startsWith(monthKey)
+      ? dueDay
+      : todayKey.startsWith(monthKey)
+        ? todayKey
+        : `${monthKey}-01`;
+
+  useEffect(() => {
+    if (!shouldMoveFocusRef.current) return;
+    shouldMoveFocusRef.current = false;
+    gridRef.current
+      ?.querySelector<HTMLElement>(`[data-day="${focusKey}"]`)
+      ?.focus();
+  }, [focusKey, monthKey]);
+
+  const changeMonth = (delta: number) => {
+    const next = shiftMonth(monthKey, delta);
+    setMonthKey(next);
+    setFocusKey(`${next}-01`);
+  };
+
+  const handleGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const current = tabStopKey;
+    const weekday =
+      (dayKeyToUtcDate(current).getUTCDay() - weekStartsOn + 7) % 7;
+    const steps: Record<string, number> = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -7,
+      ArrowDown: 7,
+      Home: -weekday,
+      End: 6 - weekday,
+    };
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(current);
+      return;
+    }
+    const step = steps[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    const next = addDays(current, step);
+    shouldMoveFocusRef.current = true;
+    setFocusKey(next);
+    if (!next.startsWith(monthKey)) setMonthKey(next.slice(0, 7));
+  };
 
   const quickPicks: Array<{ day: string; label: string }> = [
     { day: quick.today, label: t`Today` },
@@ -348,7 +407,7 @@ function DueCalendar({
         <span className="flex shrink-0 items-center">
           <button
             type="button"
-            onClick={() => setMonthKey(shiftMonth(monthKey, -1))}
+            onClick={() => changeMonth(-1)}
             aria-label={t`Previous month`}
             className="cf-motion flex size-7 items-center justify-center rounded-full text-(--cf-secondary) transition-colors hover:bg-(--cf-fill) hover:text-(--cf-label)"
           >
@@ -356,7 +415,7 @@ function DueCalendar({
           </button>
           <button
             type="button"
-            onClick={() => setMonthKey(shiftMonth(monthKey, 1))}
+            onClick={() => changeMonth(1)}
             aria-label={t`Next month`}
             className="cf-motion flex size-7 items-center justify-center rounded-full text-(--cf-secondary) transition-colors hover:bg-(--cf-fill) hover:text-(--cf-label)"
           >
@@ -365,46 +424,64 @@ function DueCalendar({
         </span>
       </div>
       <div
+        ref={gridRef}
         role="grid"
         aria-label={monthLabel}
-        className="grid grid-cols-7 gap-0.5 px-0.5 text-center text-xs"
+        onKeyDown={handleGridKeyDown}
+        className="flex flex-col gap-0.5 px-0.5 text-center text-xs"
       >
-        {days.slice(0, 7).map((day) => (
-          <span
-            key={`weekday-${day}`}
-            aria-hidden
-            className="flex h-6 items-center justify-center text-[11px] text-(--cf-secondary)"
-          >
-            {weekdayFormat.format(dayKeyToUtcDate(day))}
-          </span>
-        ))}
-        {days.map((day) => {
-          const selected = day === dueDay;
-          const isToday = day === todayKey;
-          const inMonth = day.startsWith(monthKey);
-          return (
-            <button
-              key={day}
-              type="button"
-              aria-label={dayLabelFormat.format(dayKeyToUtcDate(day))}
-              aria-pressed={selected}
-              onClick={() => onSelect(day)}
-              className={cn([
-                "cf-motion mx-auto flex size-8 items-center justify-center rounded-full tabular-nums transition-colors",
-                selected
-                  ? "cf-glass-tint font-semibold"
-                  : cn([
-                      "hover:bg-(--cf-fill)",
-                      isToday && "font-semibold text-(--cf-accent)",
-                      !isToday &&
-                        (inMonth ? "text-(--cf-label)" : "text-(--cf-tertiary)"),
-                    ]),
-              ])}
+        <div role="row" className="grid grid-cols-7">
+          {days.slice(0, 7).map((day) => (
+            <span
+              key={`weekday-${day}`}
+              role="columnheader"
+              aria-label={weekdayLongFormat.format(dayKeyToUtcDate(day))}
+              className="flex h-6 items-center justify-center text-[11px] text-(--cf-secondary)"
             >
-              {Number(day.slice(8))}
-            </button>
-          );
-        })}
+              {weekdayFormat.format(dayKeyToUtcDate(day))}
+            </span>
+          ))}
+        </div>
+        {Array.from({ length: 6 }, (_, week) => days.slice(week * 7, week * 7 + 7)).map(
+          (weekDays) => (
+            <div key={weekDays[0]} role="row" className="grid grid-cols-7">
+              {weekDays.map((day) => {
+                const selected = day === dueDay;
+                const isToday = day === todayKey;
+                const inMonth = day.startsWith(monthKey);
+                return (
+                  <span
+                    key={day}
+                    role="gridcell"
+                    aria-selected={selected}
+                    aria-current={isToday ? "date" : undefined}
+                    aria-label={dayLabelFormat.format(dayKeyToUtcDate(day))}
+                    data-day={day}
+                    tabIndex={day === tabStopKey ? 0 : -1}
+                    onClick={() => onSelect(day)}
+                    onFocus={() => setFocusKey(day)}
+                    className={cn([
+                      "cf-motion mx-auto flex size-8 cursor-default items-center justify-center rounded-full tabular-nums transition-colors select-none",
+                      "focus-visible:ring-2 focus-visible:ring-(--cf-accent) focus-visible:outline-hidden",
+                      selected
+                        ? "cf-glass-tint font-semibold"
+                        : cn([
+                            "hover:bg-(--cf-fill)",
+                            isToday && "font-semibold text-(--cf-accent)",
+                            !isToday &&
+                              (inMonth
+                                ? "text-(--cf-label)"
+                                : "text-(--cf-tertiary)"),
+                          ]),
+                    ])}
+                  >
+                    {Number(day.slice(8))}
+                  </span>
+                );
+              })}
+            </div>
+          ),
+        )}
       </div>
       {dueDay ? (
         <>

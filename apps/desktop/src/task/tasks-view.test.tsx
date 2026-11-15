@@ -223,7 +223,7 @@ describe("TasksView", () => {
     render(<TasksView view="all" />);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Owner of Review pricing" }),
+      screen.getByRole("button", { name: "Owner of Review pricing: No owner" }),
     );
     const search = await screen.findByRole("combobox", {
       name: "Search people",
@@ -234,7 +234,7 @@ describe("TasksView", () => {
     expect(mocks.setActionItemOwner).toHaveBeenCalledWith("c", "h3", "user-1");
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Owner of Fix step 3 copy" }),
+      screen.getByRole("button", { name: "Owner of Fix step 3 copy: Jordan" }),
     );
     fireEvent.click(await screen.findByRole("option", { name: "No owner" }));
     expect(mocks.setActionItemOwner).toHaveBeenLastCalledWith(
@@ -248,7 +248,7 @@ describe("TasksView", () => {
     render(<TasksView view="all" />);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Due date of Review pricing" }),
+      screen.getByRole("button", { name: /^Due date of Review pricing: / }),
     );
     fireEvent.click(await screen.findByRole("button", { name: /^Tomorrow/ }));
     expect(mocks.setActionItemDue).toHaveBeenCalledWith(
@@ -258,7 +258,7 @@ describe("TasksView", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Due date of Review pricing" }),
+      screen.getByRole("button", { name: /^Due date of Review pricing: / }),
     );
     fireEvent.click(await screen.findByRole("button", { name: /^Next week/ }));
     expect(mocks.setActionItemDue).toHaveBeenLastCalledWith(
@@ -268,10 +268,10 @@ describe("TasksView", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Due date of Send the deck" }),
+      screen.getByRole("button", { name: /^Due date of Send the deck: / }),
     );
     fireEvent.click(
-      await screen.findByRole("button", {
+      await screen.findByRole("gridcell", {
         name: "Wednesday, November 25, 2026",
       }),
     );
@@ -282,9 +282,61 @@ describe("TasksView", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Due date of Send the deck" }),
+      screen.getByRole("button", { name: /^Due date of Send the deck: / }),
     );
     fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
     expect(mocks.setActionItemDue).toHaveBeenLastCalledWith("b", "", "user-1");
+  });
+
+  it("labels the cells with their current value", () => {
+    render(<TasksView view="all" />);
+
+    expect(
+      screen.getByRole("button", { name: "Due date of Fix step 3 copy: Today" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Due date of Review pricing: No date",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("clears an owner whose contact no longer exists", async () => {
+    mocks.rows = [
+      row({ id: "e", text: "Orphaned", assignee_human_id: "gone" }),
+    ];
+    render(<TasksView view="all" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Owner of Orphaned: No owner" }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: "No owner" }));
+    expect(mocks.setActionItemOwner).toHaveBeenCalledWith("e", "", "user-1");
+  });
+
+  it("moves through the calendar with one tab stop and arrow keys", async () => {
+    render(<TasksView view="all" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Due date of Fix step 3 copy: / }),
+    );
+    const grid = await screen.findByRole("grid");
+    const focusable = within(grid)
+      .getAllByRole("gridcell")
+      .filter((cell) => cell.tabIndex === 0);
+    expect(focusable.map((cell) => cell.dataset.day)).toEqual(["2026-11-15"]);
+
+    focusable[0]!.focus();
+    fireEvent.keyDown(grid, { key: "ArrowDown" });
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    expect(document.activeElement?.getAttribute("data-day")).toBe(
+      "2026-11-23",
+    );
+    fireEvent.keyDown(grid, { key: "Enter" });
+    expect(mocks.setActionItemDue).toHaveBeenCalledWith(
+      "a",
+      "2026-11-23",
+      "user-1",
+    );
   });
 });

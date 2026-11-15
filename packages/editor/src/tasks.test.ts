@@ -361,6 +361,60 @@ describe("task owners from mentions", () => {
   });
 });
 
+describe("task owners from unchanged mentions", () => {
+  it("keeps the stored owner while the mention is the same as before", () => {
+    const body = (humanId: string) => [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Ship " },
+          { type: "mention-@", attrs: { id: humanId, type: "human" } },
+        ],
+      },
+    ];
+    const content = (humanId: string) => ({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { status: "todo", taskId: "task-1", taskItemId: "i1" },
+              content: body(humanId),
+            },
+          ],
+        },
+      ],
+    });
+    const previous = new Map([
+      [
+        "task-1",
+        {
+          taskId: "task-1",
+          sourceId: "s",
+          sourceType: "session_raw_note",
+          sourceOrder: 0,
+          status: "todo" as const,
+          textPreview: "Ship",
+          body: body("alice"),
+          assigneeHumanId: "bob",
+        },
+      ],
+    ]);
+    const source = { type: "session_raw_note", id: "s" };
+
+    expect(
+      extractTasksFromContent(content("alice") as never, source, previous)[0]
+        ?.assigneeHumanId,
+    ).toBe("bob");
+    expect(
+      extractTasksFromContent(content("cara") as never, source, previous)[0]
+        ?.assigneeHumanId,
+    ).toBe("cara");
+  });
+});
+
 describe("in-memory task storage", () => {
   it("reconciles tasks per source without duplicating other sources", () => {
     const storage = createInMemoryTaskStorage();

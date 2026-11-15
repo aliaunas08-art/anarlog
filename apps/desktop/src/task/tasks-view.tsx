@@ -365,8 +365,10 @@ export function TasksView({ view }: { view: TaskView }) {
                       </td>
                       <td className="border-b border-(--cf-separator) px-3 py-0 align-middle">
                         <OwnerPicker
-                          ownerId={task.ownerName ? task.ownerId : ""}
-                          label={t`Owner of ${task.text}`}
+                          ownerId={task.ownerId}
+                          label={t`Owner of ${task.text}: ${
+                            task.ownerName || t`No owner`
+                          }`}
                           onSelect={(humanId) => handleOwner(task.id, humanId)}
                         >
                           <span
@@ -394,7 +396,9 @@ export function TasksView({ view }: { view: TaskView }) {
                           dueDay={due.day}
                           todayKey={todayKey}
                           weekStartsOn={weekStartsOn}
-                          label={t`Due date of ${task.text}`}
+                          label={t`Due date of ${task.text}: ${
+                            due.day || task.dueAt ? due.label : t`No date`
+                          }`}
                           onSelect={(dueDay) => handleDue(task.id, dueDay)}
                         >
                           <span className="cf-motion transition-colors hover:text-(--cf-label)">

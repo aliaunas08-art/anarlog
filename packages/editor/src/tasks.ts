@@ -21,8 +21,9 @@ export interface TaskRecord {
   body: JSONContent[];
   dueDate?: string;
   /**
-   * `humans.id` of the task's owner. From the note, it is the first person
-   * mentioned in the task (`@Name`); otherwise the stored value is kept.
+   * `humans.id` of the task's owner. The note sets it only when a person
+   * mention (`@Name`) is added or changed in the task; otherwise the stored
+   * value is kept (see `extractTasksFromContent`).
    */
   assigneeHumanId?: string;
 }
@@ -176,12 +177,35 @@ export function extractTasksFromContent(
       body: cloneContentArray(node.content),
       // The note has no date nodes, so the due date always comes from storage.
       dueDate: previousTask?.dueDate,
-      assigneeHumanId:
-        getTaskItemOwnerMentionId(node) ?? previousTask?.assigneeHumanId,
+      assigneeHumanId: getExtractedOwnerId(node, previousTask),
     });
   });
 
   return tasks;
+}
+
+/**
+ * The note only decides the owner when the editor changed it: a person
+ * mention that is new, or different from the one in the stored body. An
+ * unchanged mention keeps the stored owner, so an owner picked elsewhere
+ * (e.g. the Tasks view) isn't overwritten on the next keystroke. Removing a
+ * mention doesn't clear the owner either; the stored one is kept.
+ */
+function getExtractedOwnerId(
+  node: JSONContent,
+  previousTask: TaskRecord | undefined,
+): string | undefined {
+  const mentionId = getTaskItemOwnerMentionId(node);
+  if (!previousTask) {
+    return mentionId ?? undefined;
+  }
+  const previousMentionId = getTaskItemOwnerMentionId({
+    type: "taskItem",
+    content: previousTask.body,
+  });
+  return mentionId && mentionId !== previousMentionId
+    ? mentionId
+    : previousTask.assigneeHumanId;
 }
 
 /**
