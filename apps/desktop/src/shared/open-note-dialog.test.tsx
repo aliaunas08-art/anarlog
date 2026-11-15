@@ -54,7 +54,7 @@ vi.mock("~/store/zustand/tabs", () => ({
     }),
 }));
 
-import { OpenNoteDialog } from "./open-note-dialog";
+import { OpenNoteDialog, OpenNoteDialogProvider } from "./open-note-dialog";
 
 describe("OpenNoteDialog", () => {
   beforeEach(() => {
@@ -70,6 +70,27 @@ describe("OpenNoteDialog", () => {
   });
 
   afterEach(cleanup);
+
+  it("opens from ⌘P and leaves ⌘K to Ask", () => {
+    render(
+      <OpenNoteDialogProvider>
+        <div />
+      </OpenNoteDialogProvider>,
+    );
+    const press = (key: string) =>
+      fireEvent.keyDown(document.body, {
+        key,
+        code: `Key${key.toUpperCase()}`,
+        metaKey: true,
+        ctrlKey: true,
+      });
+
+    press("k");
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    press("p");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
 
   it("closes through the shared dialog escape behavior", () => {
     render(<OpenNoteDialog open onOpenChange={mocks.onOpenChange} />);

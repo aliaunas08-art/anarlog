@@ -39,8 +39,10 @@ export function useChatMode() {
     [scope, selectScopedChat],
   );
 
+  // ⌘K is the primary Ask shortcut (shown on the bottom bar's Ask button);
+  // ⌘J is kept as an alias. Both toggle, so a second press closes the chat.
   useHotkeys(
-    "mod+j",
+    "mod+k, mod+j",
     () => {
       transitionChatMode({ type: "TOGGLE" });
     },

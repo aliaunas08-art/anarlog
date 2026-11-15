@@ -36,6 +36,7 @@ import { useSettingsNavGroups } from "~/sidebar/settings-nav-groups";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;
+export const OPEN_NOTE_DIALOG_HOTKEY = "mod+p";
 
 interface OpenNoteDialogProps {
   open: boolean;
@@ -80,7 +81,9 @@ export function OpenNoteDialogProvider({
     setOpen(true);
   }, []);
 
-  useHotkeys("mod+k", openDialog, {
+  // ⌘K opens Ask (chat/state/use-chat-mode.ts); ⌘P is the quick-open
+  // convention for jumping to a note or page.
+  useHotkeys(OPEN_NOTE_DIALOG_HOTKEY, openDialog, {
     preventDefault: true,
     enableOnFormTags: true,
     enableOnContentEditable: true,
