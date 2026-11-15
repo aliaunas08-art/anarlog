@@ -43,6 +43,11 @@ export type GeneralState = {
     intervalId?: LiveIntervalId;
     sessionId: string | null;
     muted: boolean;
+    /**
+     * The user paused the recording: nothing is recorded or transcribed and
+     * `seconds` (the audio timeline) stops advancing until resume.
+     */
+    paused: boolean;
     captureHealth: {
       mic: boolean | null;
       speaker: boolean | null;
@@ -82,6 +87,7 @@ const initialLiveState: LiveState = {
   captureGenerationBySession: {},
   sessionId: null,
   muted: false,
+  paused: false,
   captureHealth: { mic: null, speaker: null, unavailable: false },
   lastError: null,
   lastErrorSessionId: null,
@@ -212,6 +218,7 @@ export const markLiveActive = (
   markLiveCaptureStarted(live, sessionId);
   live.loadingPhase = "idle";
   live.seconds = 0;
+  live.paused = false;
   live.intervalId = intervalId;
   live.degraded = degraded;
   live.requestedLiveTranscription = requestedLiveTranscription;
@@ -273,6 +280,7 @@ export const markLiveInactive = (
   live.finalStallAudibleSeconds = 0;
   live.transcriptionStalled = false;
   live.muted = initialLiveState.muted;
+  live.paused = initialLiveState.paused;
   live.triggerAppIds = null;
 };
 
@@ -296,6 +304,7 @@ export const markLiveStartFailed = (
   live.seconds = 0;
   live.sessionId = null;
   live.muted = initialLiveState.muted;
+  live.paused = initialLiveState.paused;
   live.lastError = audioError ?? error;
   live.lastErrorSessionId = sessionId;
   live.lastErrorIsAudioRelated = audioError !== null;
@@ -321,6 +330,7 @@ export const tickTranscriptionStallWatchdog = (live: LiveState): boolean => {
   // STT, and the amplitude gate below already ignores silent stretches.
   if (
     live.status !== "active" ||
+    live.paused ||
     live.requestedLiveTranscription !== true ||
     live.liveTranscriptionActive !== true ||
     live.transcriptionStalled

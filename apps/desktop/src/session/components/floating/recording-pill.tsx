@@ -10,9 +10,14 @@ import { useListener } from "~/stt/contexts";
 const METER_BARS = 14;
 const METER_SAMPLE_MS = 120;
 
+/** Pauses or resumes the recording from anywhere in the visible session. */
+export const PAUSE_RECORDING_HOTKEY = "mod+shift+p";
+
 /**
  * Glass recording pill shown in the session bottom bar while listening:
- * pulsing dot · elapsed time · live level meter · bookmark · Stop.
+ * pulsing dot · elapsed time · live level meter · pause · bookmark · Stop.
+ * While paused the dot goes gray and still, the timer freezes under a
+ * "Paused" label and the meter is hidden.
  */
 export function RecordingPill({
   sessionId,
@@ -31,25 +36,38 @@ export function RecordingPill({
   onBookmark?: (elapsedSeconds: number) => void;
 }) {
   const { t } = useLingui();
-  const { seconds, level, muted } = useListener((state) => {
-    const isLive = state.live.sessionId === sessionId;
-    return {
-      seconds: isLive ? state.live.seconds : 0,
-      level: isLive
-        ? Math.min(
-            Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
-            1,
-          )
-        : 0,
-      muted: isLive && state.live.muted,
-    };
-  });
+  const { seconds, level, muted, paused, canPause, setPaused } = useListener(
+    (state) => {
+      const isLive = state.live.sessionId === sessionId;
+      return {
+        seconds: isLive ? state.live.seconds : 0,
+        level: isLive
+          ? Math.min(
+              Math.hypot(
+                state.live.amplitude.mic,
+                state.live.amplitude.speaker,
+              ),
+              1,
+            )
+          : 0,
+        muted: isLive && state.live.muted,
+        paused: isLive && state.live.paused,
+        canPause: isLive && state.live.status === "active",
+        setPaused: state.setPaused,
+      };
+    },
+  );
   const bars = useLevelHistory(level);
   const secondsRef = useRef(seconds);
   secondsRef.current = seconds;
   const elapsed = formatElapsed(seconds);
 
   const bookmark = () => onBookmark?.(secondsRef.current);
+  const togglePaused = () => {
+    if (canPause && !disabled) {
+      void setPaused(!paused);
+    }
+  };
 
   // ⌘B is bold inside the editor and form fields; the default
   // react-hotkeys-hook options keep it from firing there.
@@ -58,40 +76,106 @@ export function RecordingPill({
     preventDefault: true,
   });
 
+  // No editor binds ⌘⇧P, so it also works while typing notes.
+  useHotkeys(PAUSE_RECORDING_HOTKEY, togglePaused, {
+    enabled: active && canPause && !disabled,
+    preventDefault: true,
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+  });
+
   return (
     <div
       role="group"
-      aria-label={t`Recording`}
+      aria-label={paused ? t`Recording paused` : t`Recording`}
       data-session-recording-pill
+      data-paused={paused || undefined}
       className="cf-glass rounded-pill flex h-[46px] shrink-0 items-center gap-3 pr-[6px] pl-4 whitespace-nowrap [corner-shape:round]"
     >
-      <span aria-hidden="true" className="cf-record-dot size-[9px] shrink-0" />
+      <span
+        aria-hidden="true"
+        data-recording-dot
+        className={cn([
+          "size-[9px] shrink-0",
+          paused ? "rounded-full bg-[var(--cf-secondary)]" : "cf-record-dot",
+        ])}
+      />
+      {paused ? (
+        <span
+          data-recording-paused-label
+          className="text-[13px] font-semibold text-[var(--cf-secondary)]"
+        >
+          {t`Paused`}
+        </span>
+      ) : null}
       <span
         role="timer"
-        aria-label={t`Recording time ${elapsed}`}
-        className="text-[13px] font-semibold text-[var(--cf-label)] tabular-nums"
+        aria-label={
+          paused
+            ? t`Recording paused at ${elapsed}`
+            : t`Recording time ${elapsed}`
+        }
+        className={cn([
+          "text-[13px] font-semibold tabular-nums",
+          paused ? "text-[var(--cf-secondary)]" : "text-[var(--cf-label)]",
+        ])}
       >
         {elapsed}
       </span>
-      <span
-        aria-hidden="true"
-        data-recording-level-meter
-        className={cn([
-          "flex h-[18px] items-center gap-[2px] motion-reduce:hidden @max-[560px]:hidden",
-          muted && "opacity-40",
-        ])}
+      {paused ? null : (
+        <span
+          aria-hidden="true"
+          data-recording-level-meter
+          className={cn([
+            "flex h-[18px] items-center gap-[2px] motion-reduce:hidden @max-[560px]:hidden",
+            muted && "opacity-40",
+          ])}
+        >
+          {bars.map((value, index) => (
+            <span
+              key={index}
+              className="w-[2px] rounded-[1px] bg-[var(--cf-label)]"
+              style={{
+                height: `${Math.max(3, Math.round(value * 18))}px`,
+                opacity: 0.35 + value * 0.65,
+              }}
+            />
+          ))}
+        </span>
+      )}
+      <button
+        type="button"
+        data-tauri-drag-region="false"
+        data-recording-pause-toggle
+        aria-label={paused ? t`Resume recording` : t`Pause recording`}
+        title={paused ? t`Resume recording (⌘⇧P)` : t`Pause recording (⌘⇧P)`}
+        disabled={disabled || !canPause}
+        onClick={togglePaused}
+        className="cf-motion rounded-pill flex size-7 shrink-0 items-center justify-center bg-[var(--cf-glass-sel)] text-[var(--cf-label)] transition-[filter] [corner-shape:round] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none disabled:cursor-default disabled:opacity-60"
       >
-        {bars.map((value, index) => (
-          <span
-            key={index}
-            className="w-[2px] rounded-[1px] bg-[var(--cf-label)]"
-            style={{
-              height: `${Math.max(3, Math.round(value * 18))}px`,
-              opacity: 0.35 + value * 0.65,
-            }}
-          />
-        ))}
-      </span>
+        {paused ? (
+          <svg
+            aria-hidden="true"
+            data-icon="play"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="size-3.5"
+          >
+            <path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.6-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z" />
+          </svg>
+        ) : (
+          <svg
+            aria-hidden="true"
+            data-icon="pause"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="size-3.5"
+          >
+            <rect x="6" y="4.5" width="4" height="15" rx="1" />
+            <rect x="14" y="4.5" width="4" height="15" rx="1" />
+          </svg>
+        )}
+      </button>
       {onBookmark ? (
         <button
           type="button"

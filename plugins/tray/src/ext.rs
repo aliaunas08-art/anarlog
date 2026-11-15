@@ -35,6 +35,7 @@ const TRAY_ID: &str = "anlg-tray";
 
 static IS_RECORDING: AtomicBool = AtomicBool::new(false);
 static IS_DEGRADED: AtomicBool = AtomicBool::new(false);
+static IS_PAUSED: AtomicBool = AtomicBool::new(false);
 static IS_UPDATE_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static SHOW_EVENTS: AtomicBool = AtomicBool::new(true);
 static START_DISABLED: AtomicBool = AtomicBool::new(false);
@@ -519,6 +520,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     pub fn set_recording(&self, recording: bool) -> Result<()> {
         IS_RECORDING.store(recording, Ordering::SeqCst);
         if !recording {
+            IS_PAUSED.store(false, Ordering::SeqCst);
             *RECORDING_TITLE.lock().unwrap() = None;
         }
 
@@ -535,6 +537,12 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             (!title.is_empty()).then(|| title.to_string())
         });
         Self::refresh_menu_bar_title(self.manager.app_handle())
+    }
+
+    /// A paused recording keeps the recording menu but stops the animated icon.
+    pub fn set_paused(&self, paused: bool) -> Result<()> {
+        IS_PAUSED.store(paused, Ordering::SeqCst);
+        Self::refresh_icon(self.manager.app_handle())
     }
 
     pub fn set_degraded(&self, degraded: bool) -> Result<()> {
@@ -558,7 +566,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                 handle.abort();
             }
 
-            if IS_RECORDING.load(Ordering::SeqCst) && !IS_DEGRADED.load(Ordering::SeqCst) {
+            if IS_RECORDING.load(Ordering::SeqCst)
+                && !IS_DEGRADED.load(Ordering::SeqCst)
+                && !IS_PAUSED.load(Ordering::SeqCst)
+            {
                 let app = app.clone();
                 *task = Some(tauri::async_runtime::spawn(async move {
                     let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
@@ -568,6 +579,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                         let _ = on_main_thread(&app, move |app| {
                             if IS_RECORDING.load(Ordering::SeqCst)
                                 && !IS_DEGRADED.load(Ordering::SeqCst)
+                                && !IS_PAUSED.load(Ordering::SeqCst)
                                 && crate::macos_position::wanted_visible()
                                 && let Some(tray) = app.tray_by_id(TRAY_ID)
                             {

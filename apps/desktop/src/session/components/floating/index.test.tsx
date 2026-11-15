@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   getScheme: vi.fn(),
   startListening: vi.fn(),
   stopListening: vi.fn(),
+  setPaused: vi.fn(),
   requestMainListenerControl: vi.fn(),
   isMainWebviewWindow: true,
   audioExists: false,
@@ -30,9 +31,11 @@ const mocks = vi.hoisted(() => ({
   meetingMicInUse: false,
   live: {
     sessionId: null as string | null,
+    status: "inactive" as string,
     seconds: 0,
     amplitude: { mic: 0, speaker: 0 },
     muted: false,
+    paused: false,
   },
   audioRetention: undefined as unknown,
 }));
@@ -88,6 +91,7 @@ vi.mock("~/stt/contexts", () => ({
       getSessionMode: (sessionId: string) =>
         mocks.sessionModes[sessionId] ?? "inactive",
       stop: mocks.stopListening,
+      setPaused: mocks.setPaused,
       live: mocks.live,
     }),
   ),
@@ -166,9 +170,11 @@ function recording(seconds = 754) {
   arrange({ mode: "active" });
   mocks.live = {
     sessionId: "session-1",
+    status: "active",
     seconds,
     amplitude: { mic: 0.4, speaker: 0.2 },
     muted: false,
+    paused: false,
   };
 }
 
@@ -201,11 +207,14 @@ describe("SessionBottomBar", () => {
     mocks.audioExists = false;
     mocks.hasTranscriptBySession = {};
     mocks.meetingMicInUse = false;
+    mocks.setPaused.mockClear();
     mocks.live = {
       sessionId: null,
+      status: "inactive",
       seconds: 0,
       amplitude: { mic: 0, speaker: 0 },
       muted: false,
+      paused: false,
     };
     mocks.audioRetention = undefined;
   });
@@ -231,6 +240,14 @@ describe("SessionBottomBar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the ⌘K shortcut on Ask", () => {
+    renderBar();
+
+    const ask = screen.getByRole("button", { name: "Ask Anarlog anything" });
+    expect(ask.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
+    expect(ask.textContent).toContain("⌘K");
   });
 
   it("opens chat from Ask", () => {
@@ -600,6 +617,60 @@ describe("SessionBottomBar", () => {
 
       expect(onBookmark).toHaveBeenCalledWith(754);
       expect(onBookmark).toHaveBeenCalledTimes(2);
+    });
+
+    it("pauses from the pill and from ⌘⇧P", () => {
+      recording(754);
+      renderBar();
+
+      const pause = screen.getByRole("button", { name: "Pause recording" });
+      expect(pause.querySelector('[data-icon="pause"]')).not.toBeNull();
+      fireEvent.click(pause);
+      fireEvent.keyDown(document.body, {
+        key: "p",
+        code: "KeyP",
+        metaKey: true,
+        ctrlKey: true,
+        shiftKey: true,
+      });
+
+      expect(mocks.setPaused).toHaveBeenNthCalledWith(1, true);
+      expect(mocks.setPaused).toHaveBeenNthCalledWith(2, true);
+    });
+
+    it("shows a frozen, gray paused state with a Resume button", () => {
+      recording(754);
+      mocks.live.paused = true;
+      renderBar();
+
+      const pill = screen.getByRole("group", { name: "Recording paused" });
+      expect(pill.querySelector(".cf-record-dot")).toBeNull();
+      expect(pill.querySelector("[data-recording-level-meter]")).toBeNull();
+      expect(screen.getByText("Paused")).toBeTruthy();
+      expect(screen.getByRole("timer").textContent).toBe("12:34");
+      expect(screen.getByRole("timer").getAttribute("aria-label")).toBe(
+        "Recording paused at 12:34",
+      );
+
+      const resume = screen.getByRole("button", { name: "Resume recording" });
+      expect(resume.querySelector('[data-icon="play"]')).not.toBeNull();
+      fireEvent.click(resume);
+      expect(mocks.setPaused).toHaveBeenCalledWith(false);
+    });
+
+    it("does not bind ⌘⇧P for a background session tab", () => {
+      recording();
+      renderBar(undefined, { tab: { ...tab, active: false } });
+
+      fireEvent.keyDown(document.body, {
+        key: "p",
+        code: "KeyP",
+        metaKey: true,
+        ctrlKey: true,
+        shiftKey: true,
+      });
+
+      expect(mocks.setPaused).not.toHaveBeenCalled();
     });
 
     it("does not bind ⌘B for a background session tab", () => {

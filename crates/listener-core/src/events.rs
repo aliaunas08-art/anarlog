@@ -71,6 +71,10 @@ pub enum SessionDataEvent {
     },
     #[serde(rename = "mic_muted")]
     MicMuted { session_id: String, value: bool },
+    /// The user paused (true) or resumed (false) the recording. While paused nothing is
+    /// recorded or transcribed, and the audio timeline does not advance.
+    #[serde(rename = "paused")]
+    Paused { session_id: String, value: bool },
     /// Whether the microphone can only hear the local user: true when the default output is a
     /// headphone, so no far-end audio reaches the mic. Emitted each time capture (re)starts.
     #[serde(rename = "mic_isolated")]

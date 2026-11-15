@@ -54,6 +54,23 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async setCapturePaused(
+    sessionId: string,
+    paused: boolean,
+  ): Promise<Result<boolean, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:transcription|set_capture_paused", {
+          sessionId,
+          paused,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async startCapture(params: CaptureParams): Promise<Result<null, string>> {
     try {
       return {
@@ -949,6 +966,7 @@ export type CaptureDataEvent =
       speaker: number;
     }
   | { type: "mic_muted"; session_id: string; value: boolean }
+  | { type: "paused"; session_id: string; value: boolean }
   | { type: "mic_isolated"; session_id: string; value: boolean }
   | { type: "mic_dropouts"; session_id: string; ratio: number }
   | { type: "transcript_delta"; session_id: string; delta: LiveTranscriptDelta }
@@ -1033,6 +1051,12 @@ export type CaptureSnapshot = {
   liveSegments?: LiveTranscriptSegment[] | null;
   startedAtMs?: number | null;
   micMuted?: boolean | null;
+  paused?: boolean | null;
+  /**
+   * Total paused time so far, including a pause in progress. Wall-clock time since
+   * `started_at_ms` minus this is the length of the recorded audio.
+   */
+  pausedMs?: number | null;
   degraded?: DegradedError | null;
   captureHealth?: CaptureHealth | null;
 };

@@ -119,11 +119,19 @@ export function SessionBottomBar({
                 type="button"
                 data-tauri-drag-region="false"
                 aria-label={t`Ask Anarlog anything`}
-                title={t`Ask about this meeting`}
+                aria-keyshortcuts="Meta+K"
+                title={t`Ask about this meeting (⌘K)`}
                 onClick={() => chat.sendEvent({ type: "OPEN" })}
                 className={GLASS_ITEM}
               >
                 {t`Ask`}
+                <kbd
+                  aria-hidden="true"
+                  data-session-ask-shortcut
+                  className="font-sans text-xs text-[var(--cf-tertiary)] @max-[640px]:hidden"
+                >
+                  ⌘K
+                </kbd>
               </button>
             ) : null}
           </div>

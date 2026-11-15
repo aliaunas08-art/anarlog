@@ -55,6 +55,8 @@ export type GeneralActions = {
   beginCaptureRecoveryFinalization: (sessionId: string) => boolean;
   finishCaptureRecoveryFinalization: (sessionId: string) => void;
   setMuted: (value: boolean) => void;
+  /** Pause or resume the active capture. Resolves to the resulting state. */
+  setPaused: (value: boolean) => Promise<boolean>;
   setBatchTranscriptionPending: (sessionId: string, pending: boolean) => void;
   setTriggerAppIds: (appIds: string[] | null) => void;
   updateCaptureConfig: (update: CaptureConfigUpdate) => Promise<void>;
@@ -169,6 +171,36 @@ export const createGeneralSlice = <
         void listenerCommands.setMicMuted(value);
       }),
     );
+  },
+  setPaused: async (value) => {
+    const { sessionId, status, paused } = get().live;
+    if (!sessionId || status !== "active") {
+      return paused;
+    }
+
+    setLiveState(set, (live) => {
+      if (live.sessionId === sessionId) {
+        live.paused = value;
+      }
+    });
+
+    let next = paused;
+    try {
+      const result = await listenerCommands.setCapturePaused(sessionId, value);
+      if (result.status === "ok") {
+        next = result.data;
+      } else {
+        console.error("[listener] failed to set capture paused", result.error);
+      }
+    } catch (error) {
+      console.error("[listener] failed to set capture paused", error);
+    }
+    setLiveState(set, (live) => {
+      if (live.sessionId === sessionId) {
+        live.paused = next;
+      }
+    });
+    return next;
   },
   setBatchTranscriptionPending: (sessionId, pending) => {
     setLiveState(set, (live) => {

@@ -255,6 +255,10 @@ impl ListenerRuntime for TauriRuntime {
                     state.mic_isolated = Some(merge_mic_isolation(state.mic_isolated, *value));
                 }
             }
+            anlg_transcription_core::listener::SessionDataEvent::Paused { value, .. } => {
+                use tauri_plugin_tray::TrayPluginExt;
+                let _ = self.app.tray().set_paused(*value);
+            }
             _ => {}
         }
 

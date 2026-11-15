@@ -3,7 +3,10 @@ use ractor::{ActorRef, call_t, registry};
 use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState, SessionStateCache};
 use anlg_transcription_core::listener::{
     StartSessionError,
-    actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
+    actors::{
+        PauseState, RootActor, RootMsg, SessionMsg, SessionParams, SourceActor, SourceMsg,
+        session_supervisor_name,
+    },
 };
 
 fn capture_snapshot_from_result<E: std::fmt::Debug>(
@@ -20,6 +23,15 @@ async fn active_source() -> Option<ActorRef<SourceMsg>> {
     let snapshot = call_t!(root, RootMsg::GetSnapshot, 100).ok()?;
     let session_id = snapshot.active_session_id?;
     registry::where_is(SourceActor::name(&session_id)).map(Into::into)
+}
+
+fn session_supervisor(session_id: &str) -> Option<ActorRef<SessionMsg>> {
+    registry::where_is(session_supervisor_name(session_id)).map(Into::into)
+}
+
+fn apply_pause_state(snapshot: &mut CaptureSnapshot, state: PauseState) {
+    snapshot.paused = Some(state.paused);
+    snapshot.paused_ms = Some(state.paused_ms.min(i64::MAX as u64) as i64);
 }
 
 struct CachedSessionState {
@@ -124,6 +136,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
             snapshot.mic_muted = call_t!(source, SourceMsg::GetMicMute, 100).ok();
             snapshot.capture_health = call_t!(source, SourceMsg::GetCaptureHealth, 100).ok();
         }
+        if let Some(session_id) = &snapshot.active_session_id
+            && let Some(supervisor) = session_supervisor(session_id)
+            && let Ok(state) = call_t!(supervisor, SessionMsg::GetPauseState, 100)
+        {
+            apply_pause_state(&mut snapshot, state);
+        }
 
         Ok(snapshot)
     }
@@ -142,6 +160,26 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         if let Some(actor) = active_source().await {
             let _ = actor.cast(SourceMsg::SetMicMute(muted));
         }
+    }
+
+    /// Pauses or resumes the given session if it is the active capture. Returns whether it is
+    /// paused afterwards.
+    #[tracing::instrument(skip_all)]
+    pub async fn set_capture_paused(
+        &self,
+        session_id: String,
+        paused: bool,
+    ) -> crate::Result<bool> {
+        let snapshot = self.get_capture_snapshot().await?;
+        if snapshot.active_session_id.as_ref() != Some(&session_id) {
+            return Err(crate::Error::ActorNotFound("active session".into()));
+        }
+        let supervisor = session_supervisor(&session_id)
+            .ok_or_else(|| crate::Error::ActorNotFound("active session".into()))?;
+        // Pausing closes the live stream, which waits for the provider's final words.
+        call_t!(supervisor, SessionMsg::SetPaused, 10_000, paused)
+            .map(|state| state.paused)
+            .map_err(|_| crate::Error::ActorNotFound("active session".into()))
     }
 
     pub async fn retry_audio_capture(
@@ -360,6 +398,8 @@ mod tests {
             live_segments: None,
             started_at_ms: None,
             mic_muted: None,
+            paused: None,
+            paused_ms: None,
             degraded: None,
             capture_health: None,
         };

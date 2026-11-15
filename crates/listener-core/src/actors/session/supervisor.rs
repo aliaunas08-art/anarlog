@@ -6,12 +6,13 @@ mod reliability_tests;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use ractor::concurrency::Duration;
-use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
+use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SupervisionEvent};
 use tracing::Instrument;
 
 use crate::DegradedError;
 use crate::actors::session::types::{
-    SessionConfigUpdate, SessionContext, SessionParams, session_span, session_supervisor_name,
+    PauseClock, PauseState, SessionConfigUpdate, SessionContext, SessionParams, session_span,
+    session_supervisor_name,
 };
 use crate::actors::{ListenerConfigUpdate, ListenerInitError, ListenerMsg};
 
@@ -38,6 +39,7 @@ pub struct SessionState {
     mode: SessionModeState,
     listener_retry_attempt: usize,
     listener_mic_isolated: bool,
+    pause: PauseClock,
     shutting_down: bool,
 }
 
@@ -51,6 +53,9 @@ pub enum SessionMsg {
     SourceRoutingChanged,
     UpdateCredentials(String),
     UpdateConfig(SessionConfigUpdate),
+    /// Pause (true) or resume (false) the recording; replies with the resulting state.
+    SetPaused(bool, RpcReplyPort<PauseState>),
+    GetPauseState(RpcReplyPort<PauseState>),
 }
 
 #[ractor::async_trait]
@@ -99,6 +104,7 @@ impl Actor for SessionActor {
                 mode,
                 listener_retry_attempt: 0,
                 listener_mic_isolated: false,
+                pause: PauseClock::default(),
                 shutting_down: false,
             })
         }
@@ -181,6 +187,13 @@ impl Actor for SessionActor {
             }
             SessionMsg::UpdateConfig(update) => {
                 update_config(myself, state, update).await;
+            }
+            SessionMsg::SetPaused(paused, reply) => {
+                set_paused(myself, state, paused).await;
+                let _ = reply.send(pause_state(state));
+            }
+            SessionMsg::GetPauseState(reply) => {
+                let _ = reply.send(pause_state(state));
             }
         }
         Ok(())
@@ -397,7 +410,8 @@ async fn update_config(
 async fn refresh_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
     let replay_duration_secs = children::stop_listener(state, "config_update").await;
 
-    if !state.mode.should_spawn_listener() {
+    // Resume spawns a listener with the updated params.
+    if !state.mode.should_spawn_listener() || state.pause.is_paused() {
         return;
     }
 
@@ -554,7 +568,11 @@ fn listener_retry_delay(
 }
 
 async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
-    if state.shutting_down || state.listener_cell.is_some() || !state.mode.should_retry_listener() {
+    if state.shutting_down
+        || state.pause.is_paused()
+        || state.listener_cell.is_some()
+        || !state.mode.should_retry_listener()
+    {
         return;
     }
 
@@ -577,6 +595,87 @@ async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) 
         }
         Err(error) => {
             tracing::warn!(?error, "listener_retry_failed");
+            let retry_after = listener_retry_after(&error);
+            let degraded = classify_listener_spawn_failure(state, &error);
+            handle_listener_failure(&myself, state, degraded, retry_after).await;
+        }
+    }
+}
+
+fn pause_state(state: &SessionState) -> PauseState {
+    PauseState {
+        paused: state.pause.is_paused(),
+        paused_ms: state
+            .pause
+            .paused_total(std::time::Instant::now())
+            .as_millis()
+            .min(u64::MAX as u128) as u64,
+    }
+}
+
+// Pausing drops captured audio in the source (nothing is recorded or transcribed) and closes the
+// live stream so its pending words finalize and the provider is not left idle. Resuming moves
+// the session start forward by the pause, so every offset derived from it (listener stream
+// offset, recorder chunk offsets) follows the audio timeline instead of wall-clock time, then
+// reconnects the listener with the pre-pause replay exactly like a listener refresh.
+async fn set_paused(myself: ActorRef<SessionMsg>, state: &mut SessionState, paused: bool) {
+    if state.shutting_down {
+        return;
+    }
+    let now = std::time::Instant::now();
+    if paused {
+        if !state.pause.pause(now) {
+            return;
+        }
+        state
+            .ctx
+            .paused
+            .store(true, std::sync::atomic::Ordering::Release);
+        if state.listener_cell.is_some() {
+            children::stop_listener(state, "paused").await;
+        }
+        tracing::info!("session_paused");
+    } else {
+        let Some(paused_for) = state.pause.resume(now) else {
+            return;
+        };
+        state.ctx.started_at_instant += paused_for;
+        state
+            .ctx
+            .paused
+            .store(false, std::sync::atomic::Ordering::Release);
+        tracing::info!(paused_ms = paused_for.as_millis() as u64, "session_resumed");
+        if state.listener_cell.is_none() {
+            if state.mode.should_spawn_listener() {
+                resume_listener(myself, state).await;
+            } else {
+                retry_listener(myself, state).await;
+            }
+        }
+    }
+    state
+        .ctx
+        .runtime
+        .emit_data(crate::SessionDataEvent::Paused {
+            session_id: state.ctx.params.session_id.clone(),
+            value: paused,
+        });
+}
+
+async fn resume_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
+    let replay_duration_secs = children::prepare_listener_refresh(state).await;
+    let replay_offset_secs =
+        (state.ctx.started_at_instant.elapsed().as_secs_f64() - replay_duration_secs).max(0.0);
+
+    match children::spawn_listener(myself.get_cell(), &state.ctx, Some(replay_offset_secs)).await {
+        Ok((listener_cell, mic_isolated)) => {
+            state.listener_cell = Some(listener_cell);
+            state.listener_mic_isolated = mic_isolated;
+            state.mode.on_listener_attached();
+            children::attach_listener_to_source(state).await;
+        }
+        Err(error) => {
+            tracing::warn!(?error, "listener_resume_failed");
             let retry_after = listener_retry_after(&error);
             let degraded = classify_listener_spawn_failure(state, &error);
             handle_listener_failure(&myself, state, degraded, retry_after).await;
@@ -812,6 +911,7 @@ mod tests {
             started_at_instant: Instant::now(),
             started_at_system: SystemTime::now(),
             live_transcript: Default::default(),
+            paused: Default::default(),
         }
     }
 
@@ -826,6 +926,7 @@ mod tests {
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             listener_retry_attempt: 0,
             listener_mic_isolated: false,
+            pause: PauseClock::default(),
             shutting_down: false,
         }
     }
@@ -1187,6 +1288,7 @@ mod tests {
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             listener_retry_attempt: 0,
             listener_mic_isolated: false,
+            pause: PauseClock::default(),
             shutting_down: false,
         };
 

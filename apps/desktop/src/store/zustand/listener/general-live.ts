@@ -228,6 +228,10 @@ const createLiveSecondsInterval = <T extends GeneralState>(
       if (guard && !guard(live)) {
         return;
       }
+      // Paused time is not in the recording; the timer follows the audio.
+      if (live.paused) {
+        return;
+      }
       live.seconds += 1;
       stalled = tickTranscriptionStallWatchdog(live);
     });
@@ -643,6 +647,17 @@ const createSessionEventHandlers = <T extends LiveStore>(
       setLiveState(set, (live) => {
         live.muted = payload.value;
       });
+      return;
+    }
+
+    if (payload.type === "paused") {
+      if (get().live.sessionId !== targetSessionId) {
+        return;
+      }
+
+      setLiveState(set, (live) => {
+        live.paused = payload.value;
+      });
     }
   },
 });
@@ -999,7 +1014,14 @@ function applyCaptureSnapshot<T extends LiveStore>(
         snapshot.degraded ?? null,
       );
       if (snapshot.startedAtMs != null) {
-        live.seconds = elapsedSecondsSince(snapshot.startedAtMs);
+        live.seconds = Math.max(
+          0,
+          elapsedSecondsSince(snapshot.startedAtMs) -
+            Math.floor((snapshot.pausedMs ?? 0) / 1000),
+        );
+      }
+      if (snapshot.paused != null) {
+        live.paused = snapshot.paused;
       }
       if (snapshot.captureHealth != null) {
         live.captureHealth = snapshot.captureHealth;

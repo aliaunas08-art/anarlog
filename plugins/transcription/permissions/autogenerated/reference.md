@@ -25,6 +25,7 @@ Default permissions for the plugin
 - `allow-stop-capture-for-session`
 - `allow-get-mic-muted`
 - `allow-set-mic-muted`
+- `allow-set-capture-paused`
 - `allow-get-capture-state`
 - `allow-get-capture-snapshot`
 - `allow-update-capture-credentials`
@@ -1128,6 +1129,32 @@ Enables the save_capture_lifecycle_marker command without any pre-configured sco
 <td>
 
 Denies the save_capture_lifecycle_marker command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-set-capture-paused`
+
+</td>
+<td>
+
+Enables the set_capture_paused command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-set-capture-paused`
+
+</td>
+<td>
+
+Denies the set_capture_paused command without any pre-configured scope.
 
 </td>
 </tr>
