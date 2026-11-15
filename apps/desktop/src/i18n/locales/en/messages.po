@@ -105,6 +105,10 @@ msgstr "{absDays} days ago"
 msgid "{conflictedNotes} notes have a version from another device"
 msgstr "{conflictedNotes} notes have a version from another device"
 
+#: src/sidebar/date-filter.tsx
+msgid "{count} notes"
+msgstr "{count} notes"
+
 #: src/settings/stats/badge-collection.tsx
 msgid "{count} of {total} collected"
 msgstr "{count} of {total} collected"
@@ -116,6 +120,10 @@ msgstr "{date}. Conversations: {count}"
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "{entryCount} selected"
 msgstr "{entryCount} selected"
+
+#: src/session/components/editorial-header.tsx
+msgid "{minutes} min"
+msgstr "{minutes} min"
 
 #. placeholder {0}: formatLanguageList(unsupportedLanguages)
 #: src/settings/ai/stt/select.tsx
@@ -129,6 +137,10 @@ msgstr "{model} can't transcribe all selected languages together. Try another mo
 #: src/sidebar/timeline/utils/index.ts
 msgid "{months} months ago"
 msgstr "{months} months ago"
+
+#: src/sidebar/tasks-link.tsx
+msgid "{open} open"
+msgstr "{open} open"
 
 #: src/settings/stats/insights.tsx
 msgid "{peakCount} of {total} conversations ({share}) started on this weekday in the selected period."
@@ -187,6 +199,10 @@ msgstr "1 day left"
 #: src/settings/general/audio-settings.tsx
 msgid "1 month"
 msgstr "1 month"
+
+#: src/sidebar/date-filter.tsx
+msgid "1 note"
+msgstr "1 note"
 
 #: src/settings/sync/health.tsx
 msgid "1 note has a version from another device"
@@ -376,6 +392,10 @@ msgstr "Add a payment method before it ends to keep using Pro without an interru
 msgid "Add a syllabus or PDF for this folder"
 msgstr "Add a syllabus or PDF for this folder"
 
+#: src/task/tasks-view.tsx
+msgid "Add a to-do in any meeting note and it will show up here, together with the meeting it came from."
+msgstr "Add a to-do in any meeting note and it will show up here, together with the meeting it came from."
+
 #: src/settings/automations/index.tsx
 msgid "Add a trigger and actions. Chat on the right can help you refine the workflow."
 msgstr "Add a trigger and actions. Chat on the right can help you refine the workflow."
@@ -531,6 +551,10 @@ msgstr "AI step"
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 
+#: src/task/tasks-view.tsx
+msgid "All"
+msgstr "All"
+
 #: src/settings/referrals.tsx
 msgid "All 3 invites have been accepted."
 msgstr "All 3 invites have been accepted."
@@ -679,6 +703,10 @@ msgstr "Anarlog will sync your calendar to get meeting reminders"
 msgid "Animals & Nature"
 msgstr "Animals & Nature"
 
+#: src/sidebar/date-filter.tsx
+msgid "Any date"
+msgstr "Any date"
+
 #: src/session-sharing/general-access.tsx
 msgid "Anyone with the link"
 msgstr "Anyone with the link"
@@ -742,13 +770,19 @@ msgid "Approve"
 msgstr "Approve"
 
 #: src/main/home.tsx
+#: src/session/components/floating/index.tsx
 msgid "Ask"
 msgstr "Ask"
+
+#: src/session/components/floating/index.tsx
+msgid "Ask about this meeting"
+msgstr "Ask about this meeting"
 
 #: src/composer/index.tsx
 msgid "Ask Anarlog AI anything"
 msgstr "Ask Anarlog AI anything"
 
+#: src/session/components/floating/index.tsx
 #: src/shared/chat-cta.tsx
 msgid "Ask Anarlog anything"
 msgstr "Ask Anarlog anything"
@@ -802,6 +836,10 @@ msgstr "Audio file retention"
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
 msgstr "Audio is not available on this device."
+
+#: src/session/components/floating/index.tsx
+msgid "Audio saved to this Mac"
+msgstr "Audio saved to this Mac"
 
 #: src/main/home.tsx
 msgid "Audio was saved up to the second · not transcribed yet"
@@ -926,6 +964,22 @@ msgstr "Bloom"
 msgid "Blueprint"
 msgstr "Blueprint"
 
+#: src/session/hooks/useSessionBookmark.ts
+msgid "Bookmark"
+msgstr "Bookmark"
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Bookmark this moment"
+msgstr "Bookmark this moment"
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Bookmark this moment (⌘B)"
+msgstr "Bookmark this moment (⌘B)"
+
+#: src/session/hooks/useSessionBookmark.ts
+msgid "Bookmarked {time}"
+msgstr "Bookmarked {time}"
+
 #: src/settings/general/notification.tsx
 msgid "Bounce app icon"
 msgstr "Bounce app icon"
@@ -953,6 +1007,19 @@ msgstr "Busiest day"
 #: src/calendar/components/event-chip.tsx
 msgid "Busy"
 msgstr "Busy"
+
+#: src/sidebar/date-filter.tsx
+#: src/sidebar/note-filter-menu.tsx
+msgid "By date"
+msgstr "By date"
+
+#: src/task/tasks-view.tsx
+msgid "By meeting"
+msgstr "By meeting"
+
+#: src/task/tasks-view.tsx
+msgid "By person"
+msgstr "By person"
 
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings-nav-groups.ts
@@ -1923,6 +1990,10 @@ msgstr "Could not update this person's access."
 msgid "Could not use the selected model"
 msgstr "Could not use the selected model"
 
+#: src/session/hooks/useSessionBookmark.ts
+msgid "Couldn't add the bookmark. Open Notes and try again."
+msgstr "Couldn't add the bookmark. Open Notes and try again."
+
 #: src/settings/team/index.tsx
 msgid "Couldn’t check availability. You can still try Save."
 msgstr "Couldn’t check availability. You can still try Save."
@@ -2286,6 +2357,7 @@ msgstr "Don't save"
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/settings/sync/index.tsx
+#: src/task/tasks-view.tsx
 msgid "Done"
 msgstr "Done"
 
@@ -2333,6 +2405,10 @@ msgstr "Draft a follow-up email to the participants"
 #: src/chat/components/body/empty.tsx
 msgid "Draft follow-up email."
 msgstr "Draft follow-up email."
+
+#: src/task/tasks-view.tsx
+msgid "Due"
+msgstr "Due"
 
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
@@ -2503,6 +2579,10 @@ msgstr "Every conversation adds to your story."
 #: src/settings/automations/google-drive-config.tsx
 msgid "Every note summarized after enabling this automation is saved here as one file with its summary and transcript in the selected format. Anarlog must be open."
 msgstr "Every note summarized after enabling this automation is saved here as one file with its summary and transcript in the selected format. Anarlog must be open."
+
+#: src/task/tasks-view.tsx
+msgid "Every task from your meetings is done."
+msgstr "Every task from your meetings is done."
 
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
@@ -2733,6 +2813,14 @@ msgstr "Free Pro with a work email"
 #: src/templates/template-icon-picker.tsx
 msgid "Frequently used"
 msgstr "Frequently used"
+
+#: src/task/tasks-view.tsx
+msgid "From every meeting"
+msgstr "From every meeting"
+
+#: src/task/tasks-view.tsx
+msgid "From meeting"
+msgstr "From meeting"
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
@@ -3046,7 +3134,8 @@ msgid "in {weeks} weeks"
 msgstr "in {weeks} weeks"
 
 #: src/main/home.tsx
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/editorial-header.tsx
+#: src/session/components/floating/index.tsx
 msgid "In person"
 msgstr "In person"
 
@@ -3182,7 +3271,7 @@ msgstr "Job Title"
 
 #: src/main/home.tsx
 #: src/services/event-notification/index.ts
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/meeting-action.tsx
 msgid "Join & record"
 msgstr "Join & record"
 
@@ -3190,7 +3279,7 @@ msgstr "Join & record"
 msgid "Join automatically with a work email"
 msgstr "Join automatically with a work email"
 
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/meeting-action.tsx
 msgid "Join meeting and record"
 msgstr "Join meeting and record"
 
@@ -3308,6 +3397,10 @@ msgstr "Last synced {0}"
 #: src/settings/developers/api-key-row.tsx
 msgid "Last used {0}"
 msgstr "Last used {0}"
+
+#: src/task/tasks-view.tsx
+msgid "Later"
+msgstr "Later"
 
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
@@ -3596,6 +3689,10 @@ msgstr "Meeting"
 msgid "Meeting chat"
 msgstr "Meeting chat"
 
+#: src/session/components/floating/index.tsx
+msgid "Meeting controls"
+msgstr "Meeting controls"
+
 #: src/onboarding/permissions.tsx
 msgid "Meeting details access turned on"
 msgstr "Meeting details access turned on"
@@ -3718,6 +3815,10 @@ msgstr "Migration status unavailable"
 #: src/main/windows-window-controls.tsx
 msgid "Minimize"
 msgstr "Minimize"
+
+#: src/session/components/note-input/header-enhanced.tsx
+msgid "Minutes"
+msgstr "Minutes"
 
 #: src/settings/referrals.tsx
 msgid "Missing a referral reward?"
@@ -3852,6 +3953,10 @@ msgstr "Next match"
 msgid "next month"
 msgstr "next month"
 
+#: src/sidebar/date-filter.tsx
+msgid "Next month"
+msgstr "Next month"
+
 #: src/sidebar/timeline/utils/index.ts
 msgid "next week"
 msgstr "next week"
@@ -3908,6 +4013,10 @@ msgstr "No CRM connected."
 #: src/settings/crm/index.tsx
 msgid "No CRM integrations are available yet."
 msgstr "No CRM integrations are available yet."
+
+#: src/task/tasks-view.tsx
+msgid "No date"
+msgstr "No date"
 
 #: src/task/resource-view.tsx
 msgid "No description provided."
@@ -3990,6 +4099,18 @@ msgstr "No models available."
 msgid "No models ready to use."
 msgstr "No models ready to use."
 
+#: src/sidebar/date-filter.tsx
+msgid "No notes"
+msgstr "No notes"
+
+#: src/sidebar/timeline/index.tsx
+msgid "No notes on this day"
+msgstr "No notes on this day"
+
+#: src/task/tasks-view.tsx
+msgid "No owner"
+msgstr "No owner"
+
 #: src/settings/automations/starter-config.tsx
 msgid "No page selected yet."
 msgstr "No page selected yet."
@@ -4045,6 +4166,14 @@ msgstr "No speech detected"
 msgid "No sync activity yet."
 msgstr "No sync activity yet."
 
+#: src/task/tasks-view.tsx
+msgid "No tasks match “{query}”"
+msgstr "No tasks match “{query}”"
+
+#: src/task/tasks-view.tsx
+msgid "No tasks yet"
+msgstr "No tasks yet"
+
 #: src/settings/automations/starter-config.tsx
 msgid "No team selected yet."
 msgstr "No team selected yet."
@@ -4069,6 +4198,10 @@ msgstr "Not available"
 #: src/settings/crm/index.tsx
 msgid "Not connected"
 msgstr "Not connected"
+
+#: src/task/tasks-view.tsx
+msgid "Not from a meeting"
+msgstr "Not from a meeting"
 
 #: src/settings/developers/cli.tsx
 msgid "Not installed"
@@ -4111,6 +4244,7 @@ msgid "notes"
 msgstr "notes"
 
 #: src/contacts/details.tsx
+#: src/session/components/note-input/header-raw.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Notes"
 msgstr "Notes"
@@ -4124,6 +4258,10 @@ msgstr "Notes list"
 #: src/sidebar/folder-materials.tsx
 msgid "Notes stay in All notes. Materials in this folder will be deleted."
 msgstr "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted."
+
+#: src/task/tasks-view.tsx
+msgid "Nothing checked off yet"
+msgstr "Nothing checked off yet"
 
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
@@ -4339,6 +4477,7 @@ msgid "Overview"
 msgstr "Overview"
 
 #: src/settings/team/index.tsx
+#: src/task/tasks-view.tsx
 msgid "Owner"
 msgstr "Owner"
 
@@ -4542,6 +4681,10 @@ msgstr "Preview"
 msgid "Previous match"
 msgstr "Previous match"
 
+#: src/sidebar/date-filter.tsx
+msgid "Previous month"
+msgstr "Previous month"
+
 #: src/settings/referrals.tsx
 msgid "Previous referral offer · Reward applied"
 msgstr "Previous referral offer · Reward applied"
@@ -4710,15 +4853,15 @@ msgid "Reconnect Slack"
 msgstr "Reconnect Slack"
 
 #: src/main/home.tsx
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/meeting-action.tsx
 msgid "Record"
 msgstr "Record"
 
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/index.tsx
 msgid "Record in person"
 msgstr "Record in person"
 
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/index.tsx
 msgid "Record in person (microphone only)"
 msgstr "Record in person (microphone only)"
 
@@ -4730,6 +4873,10 @@ msgstr "Record other participants in meetings."
 msgid "Record your voice in meetings and calls."
 msgstr "Record your voice in meetings and calls."
 
+#: src/session/components/floating/recording-pill.tsx
+msgid "Recording"
+msgstr "Recording"
+
 #: src/session/components/note-input/transcript/actions.ts
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Recording not found. It may have been deleted."
@@ -4738,6 +4885,10 @@ msgstr "Recording not found. It may have been deleted."
 #: src/settings/general/notification.tsx
 msgid "Recording status prompts"
 msgstr "Recording status prompts"
+
+#: src/session/components/floating/recording-pill.tsx
+msgid "Recording time {elapsed}"
+msgstr "Recording time {elapsed}"
 
 #: src/main/home.tsx
 msgid "Recordings and notes stay on this Mac"
@@ -5011,6 +5162,10 @@ msgstr "Restoring cloud sync..."
 msgid "Resume"
 msgstr "Resume"
 
+#: src/session/components/floating/meeting-action.tsx
+msgid "Resume recording"
+msgstr "Resume recording"
+
 #: src/settings/team/index.tsx
 msgid "Retention (days)"
 msgstr "Retention (days)"
@@ -5230,6 +5385,10 @@ msgstr "Search providers..."
 #: src/sidebar/settings.tsx
 msgid "Search settings..."
 msgstr "Search settings..."
+
+#: src/task/tasks-view.tsx
+msgid "Search tasks"
+msgstr "Search tasks"
 
 #: src/session/components/note-input/template-picker.tsx
 #: src/templates/template-sidebar.tsx
@@ -5952,7 +6111,8 @@ msgid "Stone"
 msgstr "Stone"
 
 #: src/composer/index.tsx
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/meeting-action.tsx
+#: src/session/components/floating/recording-pill.tsx
 msgid "Stop"
 msgstr "Stop"
 
@@ -5960,7 +6120,8 @@ msgstr "Stop"
 msgid "Stop auto-add"
 msgstr "Stop auto-add"
 
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/meeting-action.tsx
+#: src/session/components/floating/recording-pill.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
 msgstr "Stop listening"
@@ -6150,6 +6311,23 @@ msgstr "Take the enhanced note with decisions and follow-ups."
 msgid "Talk to sales"
 msgstr "Talk to sales"
 
+#: src/task/tasks-view.tsx
+msgid "Task"
+msgstr "Task"
+
+#: src/task/tasks-view.tsx
+msgid "Task views"
+msgstr "Task views"
+
+#: src/sidebar/tasks-link.tsx
+#: src/task/tasks-view.tsx
+msgid "Tasks"
+msgstr "Tasks"
+
+#: src/task/tasks-view.tsx
+msgid "Tasks you check off will collect here."
+msgstr "Tasks you check off will collect here."
+
 #: src/settings/developers/skills.tsx
 msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
@@ -6274,7 +6452,7 @@ msgstr "This edit is no longer pending."
 msgid "This guest needs Team access"
 msgstr "This guest needs Team access"
 
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/index.tsx
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
 msgstr "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
 
@@ -6302,6 +6480,10 @@ msgstr "This requires Anarlog Enterprise"
 msgid "This requires Anarlog Pro"
 msgstr "This requires Anarlog Pro"
 
+#: src/task/tasks-view.tsx
+msgid "This week"
+msgstr "This week"
+
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -6324,11 +6506,14 @@ msgstr "Tip: Add teammate names, acronyms, company jargon, and product terms."
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
 
+#: src/sidebar/date-filter.tsx
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/tasks-view.tsx
 msgid "Today"
 msgstr "Today"
 
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/tasks-view.tsx
 msgid "Tomorrow"
 msgstr "Tomorrow"
 
@@ -6386,6 +6571,10 @@ msgstr "Trial started · Applying your free month"
 msgid "Trigger"
 msgstr "Trigger"
 
+#: src/task/tasks-view.tsx
+msgid "Try a different word, a person or a meeting title."
+msgstr "Try a different word, a person or a meeting title."
+
 #: src/contacts/details.tsx
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
@@ -6405,7 +6594,7 @@ msgstr "Try dictation"
 msgid "Try speaking a little closer to the microphone."
 msgstr "Try speaking a little closer to the microphone."
 
-#: src/session/components/outer-header/index.tsx
+#: src/session/components/floating/index.tsx
 msgid "Try the demo"
 msgstr "Try the demo"
 
@@ -6513,6 +6702,7 @@ msgid "Untitled automation"
 msgstr "Untitled automation"
 
 #: src/main/home.tsx
+#: src/task/tasks-view.tsx
 msgid "Untitled meeting"
 msgstr "Untitled meeting"
 
@@ -6871,6 +7061,7 @@ msgid "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 msgstr "Yearly · ${yearlyPrice}/yr (save ${yearlySavings})"
 
 #: src/sidebar/timeline/utils/index.ts
+#: src/task/tasks-view.tsx
 msgid "Yesterday"
 msgstr "Yesterday"
 
@@ -6902,6 +7093,10 @@ msgstr "You will become the Primary owner of {workspaceName}, with control over 
 #: src/settings/general/account.tsx
 msgid "You'll need to sign in again to use cloud sync and account features."
 msgstr "You'll need to sign in again to use cloud sync and account features."
+
+#: src/task/tasks-view.tsx
+msgid "You’re all caught up"
+msgstr "You’re all caught up"
 
 #: src/onboarding/account/after-login.tsx
 msgid "You're on a Pro trial"
