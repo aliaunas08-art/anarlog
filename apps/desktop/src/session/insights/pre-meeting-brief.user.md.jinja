@@ -2,14 +2,17 @@ Write a new brief from these notes only. Cover at most three threads. Do not wri
 
 # Upcoming meeting
 
+<upcoming_meeting>
 Title: {{ meeting.title }}
 When: {{ meeting.when }}
 Location: {{ meeting.location }}
 Participants: {{ meeting.participants | join(", ") }}
 Description: {{ meeting.description }}
+</upcoming_meeting>
 
 # Recent meetings
 
+<recent_meetings>
 {% for note in past_meetings %}
 
 ## {{ note.title }} ({{ note.date }})
@@ -19,3 +22,5 @@ Participants: {{ note.participants | join(", ") }}
 {{ note.notes }}
 
 {% endfor %}
+
+</recent_meetings>
