@@ -61,6 +61,9 @@
     ), 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.04);
     --cf-glass-sel: rgba(0, 0, 0, 0.07);
     --cf-glass-solid: #f5f5f7;
+    /* Flat segmented control: opaque so it can float over scrolling text. */
+    --cf-seg-bg: #efeff2;
+    --cf-seg-edge: rgba(0, 0, 0, 0.08);
 
     --cf-composer-shadow:
       0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 28px rgba(0, 0, 0, 0.06);
@@ -119,6 +122,8 @@
     ), 0 1px 3px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
     --cf-glass-sel: rgba(255, 255, 255, 0.12);
     --cf-glass-solid: #1c1c1e;
+    --cf-seg-bg: #161618;
+    --cf-seg-edge: rgba(255, 255, 255, 0.1);
 
     --cf-composer-shadow:
       0 0 0 0.5px rgba(255, 255, 255, 0.04), 0 8px 28px rgba(0, 0, 0, 0.6);
@@ -451,48 +456,23 @@ kbd.cf-code,
 }
 
 /*
- * Session bottom bar: one continuous Liquid Glass capsule holding the view
- * segments (with a sliding selection lens), the recording action, In person
- * and Ask.
+ * Segmented controls (session bottom bar, Ask scope, Tasks views) are flat 2D
+ * on the Mac: a subtle opaque fill with a hairline, and the selected segment
+ * is a solid label-colour pill like the Record / New note buttons. No glass
+ * bevel, inner highlight or shadow.
  */
+@utility cf-seg {
+  background: var(--cf-seg-bg);
+  border: 0.5px solid var(--cf-seg-edge);
+}
+
 .cf-bar-thumb {
-  background: var(--cf-glass-sel);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.7),
-    inset -0.5px -0.5px 0 rgba(255, 255, 255, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.06);
+  background: var(--cf-label);
 }
 
-.dark .cf-bar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.22),
-    inset -0.5px -0.5px 0 rgba(255, 255, 255, 0.06),
-    0 1px 3px rgba(0, 0, 0, 0.35);
-}
-
-/* On a near-black window the default glass sinks in; lift it with a faint
- * lighter fill and a brighter top edge so the capsule still reads. */
-.dark [data-session-bottom-bar].cf-glass {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.16) 0%,
-      rgba(255, 255, 255, 0.07) 100%
-    ),
-    rgba(44, 44, 48, 0.72);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.3),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 18px rgba(255, 255, 255, 0.05),
-    0 12px 32px rgba(0, 0, 0, 0.6),
-    0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .dark [data-session-bottom-bar].cf-glass {
-    background: var(--cf-glass-solid);
+@media (prefers-contrast: more) {
+  .cf-seg {
+    border-color: var(--cf-label);
   }
 }
 

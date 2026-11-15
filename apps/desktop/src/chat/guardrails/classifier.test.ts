@@ -42,12 +42,6 @@ describe("classifyAskQuery", () => {
     );
   });
 
-  it("general scope never classifies a request as unrelated", () => {
-    expect(classifyAskQuery("What is an orange", "general").intent).toBe(
-      "general_needed",
-    );
-  });
-
   it("detects questions about another meeting in meeting scope", () => {
     const context = {
       meetingTitle: "Pilot launch planning",

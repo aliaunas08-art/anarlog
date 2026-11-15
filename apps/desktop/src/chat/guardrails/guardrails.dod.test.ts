@@ -88,7 +88,6 @@ import {
 } from "./fixtures/meeting.fixture";
 import { ASK_GUARDRAIL_RULES } from "./prompt";
 import {
-  ASK_GENERAL_BADGE,
   ASK_NOT_DISCUSSED,
   ASK_NOT_FOUND,
   ASK_REDIRECT_MEETING_UNRELATED,
@@ -321,12 +320,12 @@ describe("Ask guardrails — Definition of Done", () => {
     ]);
 
     expect(text).toBe(
-      "That's not part of this meeting. Want me to check your other meetings, or answer it in General?",
+      "That's not part of this meeting. Want me to check your other meetings?",
     );
     expect(text.split("\n")).toHaveLength(1);
     expect(metadata?.askRedirect).toEqual({
       query: "What is an orange",
-      actions: ["library", "general"],
+      actions: ["library"],
     });
     expect(snapshot.outcome).toBe("redirect");
     expect(snapshot.classification.intent).toBe("unrelated");
@@ -337,11 +336,32 @@ describe("Ask guardrails — Definition of Done", () => {
     expect(getAiUsage().calls).toBe(0);
   });
 
-  it("DoD 4: 'What is an orange' in General is answered by the model, labelled general, with no meeting sources, and counted", async () => {
+  it("DoD 4: 'What is an orange' in All meetings returns only the one-line redirect, with no buttons, and never calls the model", async () => {
+    const harness = createHarness({ excerpts: [] });
+    const { text, metadata, snapshot } = await send(harness, [
+      userMessage("What is an orange", "library"),
+    ]);
+
+    expect(text).toBe("That's not in your meetings.");
+    expect(text.split("\n")).toHaveLength(1);
+    expect(metadata?.askRedirect).toEqual({
+      query: "What is an orange",
+      actions: [],
+    });
+    expect(snapshot.outcome).toBe("redirect");
+    expect(snapshot.classification.intent).toBe("unrelated");
+    expect(snapshot.instructions).toBeUndefined();
+    expect(mocks.agentOptions).not.toHaveBeenCalled();
+    expect(mocks.agentStream).not.toHaveBeenCalled();
+    expect(getAiUsage().askRedirects).toBe(1);
+    expect(getAiUsage().calls).toBe(0);
+  });
+
+  it("Usage: an All meetings answer is counted by the usage middleware with its scope and tokens", async () => {
     mocks.invokeModel = true;
     const mockModel = new MockLanguageModelV3({
       doGenerate: async () => ({
-        content: [{ type: "text", text: "An orange is a citrus fruit." }],
+        content: [{ type: "text", text: "Pricing stays flat." }],
         finishReason: { unified: "stop", raw: undefined },
         usage: {
           inputTokens: {
@@ -364,22 +384,13 @@ describe("Ask guardrails — Definition of Done", () => {
     });
     const harness = createHarness({ model });
 
-    const { text, metadata, snapshot } = await send(harness, [
-      userMessage("What is an orange", "general"),
+    const { text, snapshot } = await send(harness, [
+      userMessage("What did we decide about pricing?", "library"),
     ]);
 
-    expect(text).toBe("An orange is a citrus fruit.");
+    expect(text).toBe("Pricing stays flat.");
     expect(snapshot.outcome).toBe("model");
-    expect(snapshot.sourcesBlock).toBeNull();
-    expect(snapshot.includedMeetingIds).toEqual([]);
-    expect(snapshot.toolNames).toEqual([]);
-    expect(harness.hydrateMeeting).not.toHaveBeenCalled();
-    expect(harness.searchLibrary).not.toHaveBeenCalled();
-    expect(modelInputText()).not.toContain("meeting_sources");
-    expect(metadata?.askBadge).toBe("general");
-    expect(ASK_GENERAL_BADGE).toBe("General — not from your meetings.");
-    // The usage middleware counted the call, its scope, and its tokens; the
-    // usage provider option never reaches the provider.
+    // The usage provider option never reaches the provider.
     expect(mockModel.doGenerateCalls).toHaveLength(1);
     expect(mockModel.doGenerateCalls[0]?.providerOptions).not.toHaveProperty(
       "anarlogUsage",
@@ -387,13 +398,13 @@ describe("Ask guardrails — Definition of Done", () => {
     const usage = getAiUsage();
     expect(usage.calls).toBe(1);
     expect(usage.developerKeyCalls).toBe(1);
-    expect(usage.byAskScope).toEqual({ general: 1 });
+    expect(usage.byAskScope).toEqual({ library: 1 });
     expect(usage.byTask).toEqual({ chat: 1 });
     expect(usage.inputTokens).toBe(21);
     expect(usage.outputTokens).toBe(7);
   });
 
-  it("DoD 5: context-bleed regression — after an email draft, the orange question gets no email text and no model call; in General the draft is not sent", async () => {
+  it("DoD 5: context-bleed regression — after an email draft, the orange question gets no email text and no model call, in either scope", async () => {
     const draftRequest = userMessage(
       "Draft the follow-up email",
       "meeting",
@@ -414,20 +425,17 @@ describe("Ask guardrails — Definition of Done", () => {
     expect(mocks.agentOptions).not.toHaveBeenCalled();
     expect(mocks.agentStream).not.toHaveBeenCalled();
 
-    // General scope, even if the old turns were somehow in the list: the model
-    // input is only the current question.
-    const general = createHarness();
-    const result = await send(general, [
+    // All meetings, even if the old turns were somehow in the list: still the
+    // one-line redirect and no model.
+    const library = createHarness({ excerpts: [] });
+    const result = await send(library, [
       draftRequest,
       draftReply,
-      userMessage("What is an orange", "general"),
+      userMessage("What is an orange", "library"),
     ]);
-    expect(result.snapshot.outcome).toBe("model");
-    expect(result.snapshot.modelMessages).toHaveLength(1);
-    expect(modelInputText()).toContain("What is an orange");
-    expect(modelInputText()).not.toContain("Pilot next steps");
-    expect(modelInputText()).not.toContain("Draft the follow-up email");
-    expect(modelInputText()).not.toContain(FIXTURE_DECISION_LINE);
+    expect(result.text).toBe(ASK_REDIRECT_LIBRARY_UNRELATED);
+    expect(result.snapshot.outcome).toBe("redirect");
+    expect(mocks.agentStream).not.toHaveBeenCalled();
   });
 
   it("DoD 6: 'Explain SOC 2' in This meeting is answered with general knowledge labelled separately from cited meeting facts", async () => {
@@ -583,7 +591,6 @@ describe("Ask guardrails — Definition of Done", () => {
       askThreadKey("meeting", FIXTURE_MEETING_ID),
     );
     expect(askThreadKey("library", FIXTURE_MEETING_ID)).toBe("library");
-    expect(askThreadKey("general", FIXTURE_MEETING_ID)).toBe("general");
 
     // A thread list that still holds turns from the pilot meeting's thread.
     const oldTurns = [
@@ -684,7 +691,7 @@ describe("Ask guardrails — Definition of Done", () => {
 
   it("Usage limit (support): developer key at its daily limit gets one polite line and no model call; BYOK is never blocked", async () => {
     for (let i = 0; i < 3; i += 1) {
-      recordAskQuery({ providerId: "anarlog", askScope: "general" });
+      recordAskQuery({ providerId: "anarlog", askScope: "library" });
     }
     const limited = createHarness();
     const harnessDeps = (
@@ -694,7 +701,7 @@ describe("Ask guardrails — Definition of Done", () => {
     ).guardrails;
     harnessDeps.getDailyLimit = () => 3;
     const { text, snapshot } = await send(limited, [
-      userMessage("What is an orange", "general"),
+      userMessage("What did we decide about pricing?", "library"),
     ]);
     expect(text).toBe(ASK_USAGE_LIMIT_MESSAGE);
     expect(snapshot.outcome).toBe("usage_limit");
@@ -702,7 +709,7 @@ describe("Ask guardrails — Definition of Done", () => {
 
     harnessDeps.getProviderId = () => "openai";
     const byok = await send(limited, [
-      userMessage("What is an orange", "general"),
+      userMessage("What did we decide about pricing?", "library"),
     ]);
     expect(byok.snapshot.outcome).toBe("model");
   });
@@ -799,12 +806,14 @@ describe("Ask guardrails — review findings", () => {
   it("#8 usage counts one Ask question per query, checks the limit before the classifier model, and never counts redirects", async () => {
     const classifyWithModel = vi.fn(async () => "meeting_fact" as const);
     const harness = createHarness({ classifyWithModel });
-    await send(harness, [userMessage("What is an orange", "general")]);
+    await send(harness, [
+      userMessage("What did we decide about pricing?", "library"),
+    ]);
     await send(harness, [
       userMessage("What is an orange", "meeting", FIXTURE_MEETING_ID),
     ]);
     expect(getAiUsage().askQueries).toBe(1);
-    expect(getAiUsage().askQueriesByScope).toEqual({ general: 1 });
+    expect(getAiUsage().askQueriesByScope).toEqual({ library: 1 });
     expect(getAiUsage().askRedirects).toBe(1);
 
     // At the limit: an ambiguous library query never reaches the fallback model.
@@ -836,11 +845,6 @@ describe("Ask guardrails — review findings", () => {
     expect(instructions).not.toContain("edit_summary");
     expect(instructions).not.toContain("web_search");
     expect(instructions).not.toContain("Web search guidance");
-
-    await send(createHarness({ baseSystemPrompt: BASE_TEMPLATE_PROMPT }), [
-      userMessage("What is an orange", "general"),
-    ]);
-    expect(agentInstructions()).not.toContain("tool guidance");
   });
 
   it("#11 escaping covers '< /meeting_sources' and '<meeting_sources' variants", async () => {

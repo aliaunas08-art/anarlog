@@ -107,21 +107,15 @@ export function ChatBodyEmpty({
         : t`What key decisions were made in my recent meetings?`,
     },
   ];
-  // General threads get no meeting suggestions: nothing from meetings is used.
-  const suggestions =
-    askScope === "general"
-      ? []
-      : isLiveMeeting
-        ? liveMeetingSuggestions
-        : meetingSuggestions;
+  const suggestions = isLiveMeeting
+    ? liveMeetingSuggestions
+    : meetingSuggestions;
   const threadNotice =
     askScope === "meeting"
       ? t`This meeting · separate thread. Answers use only this meeting.`
       : askScope === "library"
         ? t`All meetings · separate thread. Answers use excerpts from your meetings.`
-        : askScope === "general"
-          ? t`General · separate thread. No meeting content is used.`
-          : null;
+        : null;
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });

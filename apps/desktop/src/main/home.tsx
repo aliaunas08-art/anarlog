@@ -306,8 +306,11 @@ export function HomeView() {
           <form
             data-tauri-drag-region="false"
             onSubmit={(event) => {
+              // Return asks; only the New note button (or ⌘N) makes a note.
               event.preventDefault();
-              newNote();
+              if (!draft.trim()) return;
+              ask(draft);
+              setDraft("");
             }}
             className="cf-hairline flex w-full flex-col gap-3.5 rounded-[16px] bg-[var(--cf-surface)] pt-4 pr-3 pb-3 pl-5 text-left shadow-[var(--cf-composer-shadow)] [corner-shape:round]"
           >
@@ -315,14 +318,20 @@ export function HomeView() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                // ⌘N from the field titles the new note with the typed text.
+                if (
+                  event.key.toLowerCase() === "n" &&
+                  (event.metaKey || event.ctrlKey) &&
+                  !event.shiftKey &&
+                  !event.altKey
+                ) {
                   event.preventDefault();
-                  ask(draft);
-                  setDraft("");
+                  event.stopPropagation();
+                  newNote();
                 }
               }}
-              aria-label={t`Note title or question`}
-              placeholder={t`Start a note, or ask about any meeting…`}
+              aria-label={t`Question or note title`}
+              placeholder={t`Ask about your meetings, or start a note…`}
               className="w-full bg-transparent text-base text-[var(--cf-label)] outline-none placeholder:text-[var(--cf-tertiary)]"
             />
             <div className="flex min-w-0 items-center gap-2">
@@ -363,14 +372,12 @@ export function HomeView() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <span className="ml-auto shrink-0 pl-2 text-xs whitespace-nowrap text-[var(--cf-tertiary)]">
-                <Trans>Return to start</Trans>
-              </span>
               <button
-                type="submit"
+                type="button"
+                onClick={newNote}
                 title={`${mod}N`}
                 aria-keyshortcuts={mod === "⌘" ? "Meta+N" : "Control+N"}
-                className="cf-motion rounded-pill inline-flex h-7 shrink-0 items-center gap-1 bg-[var(--cf-label)] pr-3 pl-2.5 text-[13px] font-medium whitespace-nowrap text-[var(--cf-window)] transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--cf-surface)] focus-visible:outline-hidden"
+                className="cf-motion rounded-pill ml-auto inline-flex h-7 shrink-0 items-center gap-1 bg-[var(--cf-label)] pr-3 pl-2.5 text-[13px] font-medium whitespace-nowrap text-[var(--cf-window)] transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--cf-surface)] focus-visible:outline-hidden"
               >
                 <Plus weight="bold" className="size-3" />
                 <Trans>New note</Trans>

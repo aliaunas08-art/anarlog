@@ -50,8 +50,9 @@ export function NormalMessage({
   const askRedirect = isUserMessage(message)
     ? undefined
     : message.metadata?.askRedirect;
-  const showGeneralBadge =
-    !isUserMessage(message) && message.metadata?.askBadge === "general";
+  // Older redirects may still offer the removed General scope.
+  const redirectActions =
+    askRedirect?.actions.filter((action) => action === "library") ?? [];
   const isUser = message.role === "user";
   const activityParts = isUser ? [] : message.parts.filter(isActivityPart);
   const activityRunning = activityParts.some((part) =>
@@ -122,27 +123,19 @@ export function NormalMessage({
               </FlatDisclosureGroup>
             </Disclosure>
           )}
-          {showGeneralBadge ? (
-            <span
-              data-ask-general-badge
-              className="bg-muted text-muted-foreground mb-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-            >
-              {t`General — not from your meetings.`}
-            </span>
-          ) : null}
           {visibleParts.map((part, i) => (
             <Part key={i} part={part as Part} />
           ))}
-          {askRedirect && onAskRedirect ? (
+          {askRedirect && onAskRedirect && redirectActions.length > 0 ? (
             <div data-ask-redirect-actions className="mt-1 flex gap-1.5">
-              {askRedirect.actions.map((action) => (
+              {redirectActions.map((action) => (
                 <button
                   key={action}
                   type="button"
                   onClick={() => onAskRedirect(action, askRedirect.query)}
                   className="rounded-pill border-border text-foreground hover:bg-muted border px-2.5 py-0.5 text-xs transition-colors [corner-shape:round]"
                 >
-                  {action === "library" ? t`All meetings` : t`Ask in General`}
+                  {t`All meetings`}
                 </button>
               ))}
             </div>

@@ -12,8 +12,10 @@ import { id } from "~/shared/utils";
 export type ChatSelection = {
   groupId: string | undefined;
   sessionId: string;
-  /** A pre-scope chat opened read-only in General (shown unfiltered). */
+  /** A pre-scope chat opened read-only in All meetings (shown unfiltered). */
   legacy?: boolean;
+  /** The thread a legacy chat temporarily replaced; it is what gets saved. */
+  displaced?: ChatSelection;
 };
 
 export type AskResendRequest = {
@@ -74,7 +76,7 @@ interface ChatContextActions {
     scope: AskScope,
     openMeetingId: string | undefined,
   ) => string;
-  /** Opens a pre-scope chat in the General thread, shown read-only. */
+  /** Opens a pre-scope chat in the All meetings thread, shown read-only. */
   openPreviousChat: (
     groupId: string,
     openMeetingId: string | undefined,
@@ -183,14 +185,18 @@ export const useChatContext = create<State>((set, get) => ({
       pendingAskResend: { scope, text, requestId: id(), createdAt: Date.now() },
     }),
   openPreviousChat: (groupId, openMeetingId) =>
-    set((state) => ({
-      askScopePreference: "general",
-      askScopePreferenceMeetingId: openMeetingId ?? null,
-      askThreads: {
-        ...state.askThreads,
-        general: { groupId, sessionId: groupId, legacy: true },
-      },
-    })),
+    set((state) => {
+      const current = state.askThreads.library;
+      const displaced = current?.legacy ? current.displaced : current;
+      return {
+        askScopePreference: "library",
+        askScopePreferenceMeetingId: openMeetingId ?? null,
+        askThreads: {
+          ...state.askThreads,
+          library: { groupId, sessionId: groupId, legacy: true, displaced },
+        },
+      };
+    }),
   prepareAskThread: (scope, openMeetingId) => {
     set({
       askScopePreference: scope,

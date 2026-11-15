@@ -75,8 +75,8 @@ export function SessionViewSwitcher({
         className={cn([
           "pointer-events-auto relative z-10 w-fit max-w-full shrink-0 overflow-visible",
           variant === "glass"
-            ? // Segments of the bottom bar's single glass capsule; the
-              // selection is one lens that slides between them.
+            ? // Segments of the bottom bar's single flat capsule; the
+              // selection is one solid thumb that slides between them.
               "flex h-9 items-center gap-[2px]"
             : "bg-foreground/10 dark:bg-accent/55 rounded-pill flex h-7 items-center gap-[2px] p-[2px] [corner-shape:round]",
         ])}
@@ -91,7 +91,7 @@ export function SessionViewSwitcher({
             transition={
               reduceMotion || thumb.instant
                 ? { duration: 0 }
-                : { type: "spring", bounce: 0, duration: 0.35 }
+                : { type: "spring", bounce: 0, duration: 0.3 }
             }
           />
         ) : null}
@@ -183,7 +183,7 @@ export function SessionViewSwitcher({
 type ThumbRect = { x: number; width: number; instant: boolean };
 
 /**
- * Measures the active segment (`aria-current="page"`) so the glass lens can
+ * Measures the active segment (`aria-current="page"`) so the solid thumb can
  * slide to it. The first placement and resizes jump; view changes animate.
  */
 function useSelectionThumb(

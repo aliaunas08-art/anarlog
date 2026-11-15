@@ -17,7 +17,7 @@ describe("ai usage counter", () => {
   });
 
   it("counts calls per day, task, provider, and Ask scope", () => {
-    recordAiCall({ task: "chat", providerId: "anarlog", askScope: "general" });
+    recordAiCall({ task: "chat", providerId: "anarlog", askScope: "library" });
     recordAiCall({ task: "enhance", providerId: "openai", inputTokens: 5 });
     recordAskRedirect();
 
@@ -26,19 +26,19 @@ describe("ai usage counter", () => {
     expect(usage.developerKeyCalls).toBe(1);
     expect(usage.byTask).toEqual({ chat: 1, enhance: 1 });
     expect(usage.byProvider).toEqual({ anarlog: 1, openai: 1 });
-    expect(usage.byAskScope).toEqual({ general: 1 });
+    expect(usage.byAskScope).toEqual({ library: 1 });
     expect(usage.inputTokens).toBe(5);
     expect(usage.askRedirects).toBe(1);
   });
 
   it("limits Ask questions on the developer key only, and only when a limit is configured", async () => {
-    recordAskQuery({ providerId: "anarlog", askScope: "general" });
+    recordAskQuery({ providerId: "anarlog", askScope: "library" });
     recordAskQuery({ providerId: "anarlog", askScope: "meeting" });
     // Background model calls (summaries, titles) never consume the Ask limit.
     for (let i = 0; i < 5; i += 1) {
       recordAiCall({ task: "enhance", providerId: "anarlog" });
     }
-    expect(getAiUsage().askQueriesByScope).toEqual({ general: 1, meeting: 1 });
+    expect(getAiUsage().askQueriesByScope).toEqual({ library: 1, meeting: 1 });
 
     await expect(
       isAiUsageLimitReached({ providerId: "anarlog", limit: 2 }),

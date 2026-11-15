@@ -33,12 +33,22 @@ function parseThreads(json: string | null | undefined) {
   }
 }
 
-/** Only threads with a persisted group; read-only previous chats are skipped. */
+/**
+ * Only threads with a persisted group. A read-only previous chat is never
+ * saved; the thread it is covering for is saved in its place.
+ */
 export function serializeAskThreads(
   threads: Record<string, ChatSelection>,
 ): string {
   const entries = Object.entries(threads)
-    .filter(([, selection]) => selection.groupId && !selection.legacy)
+    .map(
+      ([key, selection]) =>
+        [key, selection.legacy ? selection.displaced : selection] as const,
+    )
+    .filter(
+      (entry): entry is readonly [string, ChatSelection] =>
+        Boolean(entry[1]?.groupId) && !entry[1]?.legacy,
+    )
     .slice(-MAX_THREADS)
     .map(([key, { groupId, sessionId }]) => [key, { groupId, sessionId }]);
   return JSON.stringify(Object.fromEntries(entries));

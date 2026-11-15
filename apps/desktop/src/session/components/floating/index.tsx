@@ -20,9 +20,9 @@ import { normalizeAudioRetention } from "~/services/audio-retention-policy";
 import { useConfigValue } from "~/shared/config";
 import type { Tab } from "~/store/zustand/tabs/schema";
 
-// One continuous Liquid Glass capsule; everything inside is a 36px segment.
-const GLASS_BAR =
-  "cf-glass rounded-pill pointer-events-auto relative flex h-[46px] max-w-full items-center gap-[2px] p-[5px] [corner-shape:round]";
+// One flat capsule (subtle fill + hairline); everything inside is a 36px segment.
+const BAR =
+  "cf-seg rounded-pill pointer-events-auto relative flex h-[46px] max-w-full items-center gap-[2px] p-[5px] [corner-shape:round]";
 const GLASS_ITEM =
   "cf-motion rounded-pill inline-flex h-9 shrink-0 items-center gap-[7px] px-4 text-[13px] whitespace-nowrap text-[var(--cf-label)] transition-colors select-none [corner-shape:round] hover:bg-[var(--cf-fill)] focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none disabled:cursor-default disabled:opacity-60";
 
@@ -37,8 +37,8 @@ function BarDivider() {
 }
 
 /**
- * Liquid Glass bar floating at the bottom of the session view, one capsule:
- * view segments (sliding lens) | Record or the live recording controls ·
+ * Flat bar floating at the bottom of the session view, one capsule: view
+ * segments (sliding solid thumb) | Record or the live recording controls ·
  * In person | Ask.
  */
 export function SessionBottomBar({
@@ -75,7 +75,7 @@ export function SessionBottomBar({
         // No glass shell around nothing (e.g. chat open with no actions).
         className={
           viewSwitcher || action || showTrailingGroup
-            ? GLASS_BAR
+            ? BAR
             : "pointer-events-auto relative flex"
         }
       >
@@ -171,7 +171,9 @@ function PrimaryAction({ action }: { action: SessionMeetingAction }) {
             disabled={action.disabled}
             onClick={action.onClick}
             className={cn([
-              "cf-motion rounded-pill inline-flex h-9 max-w-56 shrink-0 items-center gap-2 px-4 text-[13px] font-medium whitespace-nowrap transition-opacity [corner-shape:round]",
+              // A step smaller than the selected view tab, so the two solid
+              // pills read as tab + action rather than two selections.
+              "cf-motion rounded-pill mx-0.5 inline-flex h-8 max-w-56 shrink-0 items-center gap-2 px-3.5 text-[13px] font-medium whitespace-nowrap transition-opacity [corner-shape:round]",
               "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:ring-offset-1 focus-visible:outline-none",
               "disabled:cursor-default disabled:opacity-60",
               "bg-[var(--cf-label)] text-[var(--cf-window)] hover:opacity-85",

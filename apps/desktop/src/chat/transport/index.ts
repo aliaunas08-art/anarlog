@@ -447,10 +447,10 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       if (scope === "meeting" && classification.mentionsOtherMeeting) {
         return redirect(ASK_REDIRECT_OTHER_MEETING, ["library"]);
       }
-      if (scope !== "general" && classification.intent === "unrelated") {
+      if (classification.intent === "unrelated") {
         return scope === "meeting"
-          ? redirect(ASK_REDIRECT_MEETING_UNRELATED, ["library", "general"])
-          : redirect(ASK_REDIRECT_LIBRARY_UNRELATED, ["general"]);
+          ? redirect(ASK_REDIRECT_MEETING_UNRELATED, ["library"])
+          : redirect(ASK_REDIRECT_LIBRARY_UNRELATED, []);
       }
       return null;
     };
@@ -592,7 +592,6 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
           return {
             createdAt: Date.now(),
             ...baseMetadata,
-            ...(scope === "general" ? { askBadge: "general" as const } : {}),
           };
         }
       },

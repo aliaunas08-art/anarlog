@@ -798,6 +798,10 @@ msgstr ""
 msgid "Ask about this meeting (⌘P)"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Ask about your meetings, or start a note…"
+msgstr ""
+
 #: src/chat/components/input/index.tsx
 #: src/shared/chat-cta.tsx
 msgid "Ask anything"
@@ -809,10 +813,6 @@ msgstr ""
 
 #: src/settings/general/primary-recording-device.tsx
 msgid "Ask each meeting"
-msgstr ""
-
-#: src/chat/components/message/normal.tsx
-msgid "Ask in General"
 msgstr ""
 
 #: src/session/components/floating/index.tsx
@@ -2874,18 +2874,9 @@ msgstr ""
 msgid "Future meetings"
 msgstr ""
 
-#: src/chat/components/ask-scope-control.tsx
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
-msgstr ""
-
-#: src/chat/components/message/normal.tsx
-msgid "General — not from your meetings."
-msgstr ""
-
-#: src/chat/components/body/empty.tsx
-msgid "General · separate thread. No meeting content is used."
 msgstr ""
 
 #: src/session-sharing/general-access.tsx
@@ -4305,10 +4296,6 @@ msgstr ""
 msgid "Note is Locked"
 msgstr ""
 
-#: src/main/home.tsx
-msgid "Note title or question"
-msgstr ""
-
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
 msgstr ""
@@ -4893,6 +4880,10 @@ msgstr ""
 msgid "Public on the web"
 msgstr ""
 
+#: src/main/home.tsx
+msgid "Question or note title"
+msgstr ""
+
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Re-transcribe"
 msgstr ""
@@ -5364,10 +5355,6 @@ msgstr ""
 
 #: src/settings/dictation.tsx
 msgid "Retry setup"
-msgstr ""
-
-#: src/main/home.tsx
-msgid "Return to start"
 msgstr ""
 
 #: src/session/components/pending-proposals-banner.tsx
@@ -6200,10 +6187,6 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Start {APP_NAME} at login"
-msgstr ""
-
-#: src/main/home.tsx
-msgid "Start a note, or ask about any meeting…"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/config-error.tsx

@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import { motion, useReducedMotion } from "motion/react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -34,8 +35,8 @@ import {
   setActionItemOwner,
   setActionItemStatus,
 } from "~/editor-bridge/task-storage";
-import { StandardContentWrapper } from "~/shared/main";
 import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
+import { StandardContentWrapper } from "~/shared/main";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -492,6 +493,7 @@ export function TaskViewSwitcher({
   onChange: (view: TaskView) => void;
 }) {
   const { t } = useLingui();
+  const reduceMotion = useReducedMotion();
   const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const options: Array<{ value: TaskView; label: string }> = [
     { value: "all", label: t`All` },
@@ -532,7 +534,7 @@ export function TaskViewSwitcher({
       role="radiogroup"
       aria-label={t`Task views`}
       onKeyDown={handleKeyDown}
-      className="cf-glass rounded-pill pointer-events-auto flex items-center gap-0.5 p-[5px]"
+      className="cf-seg rounded-pill pointer-events-auto flex items-center gap-0.5 p-[5px]"
     >
       {options.map((option, index) => {
         const selected = index === selectedIndex;
@@ -548,13 +550,25 @@ export function TaskViewSwitcher({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn([
-              "cf-motion rounded-pill h-9 px-4 text-[13px] whitespace-nowrap transition-colors",
+              "cf-motion rounded-pill relative h-9 px-4 text-[13px] whitespace-nowrap transition-colors",
               selected
-                ? "cf-glass-sel font-semibold text-(--cf-label)"
+                ? "font-semibold text-(--cf-window)"
                 : "text-(--cf-secondary) hover:text-(--cf-label)",
             ])}
           >
-            {option.label}
+            {selected ? (
+              <motion.span
+                aria-hidden="true"
+                layoutId="task-view-thumb"
+                className="cf-bar-thumb rounded-pill absolute inset-0"
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { type: "spring", bounce: 0, duration: 0.3 }
+                }
+              />
+            ) : null}
+            <span className="relative">{option.label}</span>
           </button>
         );
       })}

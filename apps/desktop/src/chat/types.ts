@@ -20,11 +20,9 @@ const messageMetadataSchema = z.object({
   askRedirect: z
     .object({
       query: z.string(),
-      actions: z.array(z.enum(["library", "general"])),
+      actions: z.array(z.enum(["library"])),
     })
     .optional(),
-  // Assistant only: General-scope answers show the general-knowledge badge.
-  askBadge: z.literal("general").optional(),
   askNotice: z.literal("usage_limit").optional(),
   contextRefs: z
     .array(

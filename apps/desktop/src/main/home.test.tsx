@@ -214,21 +214,33 @@ describe("HomeView", () => {
     });
   });
 
-  it("asks chat with Cmd+Return", () => {
+  it("asks chat with Return instead of making a note", () => {
     render(<HomeView />);
-    const input = screen.getByLabelText("Note title or question");
-    fireEvent.change(input, { target: { value: "What changed?" } });
-    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    const input = screen.getByLabelText("Question or note title");
+    fireEvent.change(input, { target: { value: "what is an orange" } });
+    fireEvent.submit(input.closest("form")!);
     expect(mocks.queueChatPrompt).toHaveBeenCalledWith(
       "ask:library",
-      "What changed?",
+      "what is an orange",
     );
+    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "OPEN" });
+    expect(mocks.createSession).not.toHaveBeenCalled();
+    expect((input as HTMLInputElement).value).toBe("");
+  });
+
+  it("does nothing on Return with an empty field", () => {
+    render(<HomeView />);
+    const input = screen.getByLabelText("Question or note title");
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.submit(input.closest("form")!);
+    expect(mocks.queueChatPrompt).not.toHaveBeenCalled();
+    expect(mocks.sendEvent).not.toHaveBeenCalled();
     expect(mocks.createSession).not.toHaveBeenCalled();
   });
 
-  it("creates a note titled with the typed text on Return", async () => {
+  it("creates a note titled with the typed text from the New note button", async () => {
     render(<HomeView />);
-    fireEvent.change(screen.getByLabelText("Note title or question"), {
+    fireEvent.change(screen.getByLabelText("Question or note title"), {
       target: { value: "Budget review" },
     });
     fireEvent.click(screen.getByRole("button", { name: /New note/ }));
@@ -240,6 +252,18 @@ describe("HomeView", () => {
     );
     expect(mocks.createSession).toHaveBeenCalledWith("Budget review");
     expect(mocks.updateSession).not.toHaveBeenCalled();
+    expect(mocks.queueChatPrompt).not.toHaveBeenCalled();
+  });
+
+  it("creates a note titled with the typed text on Cmd+N from the field", async () => {
+    render(<HomeView />);
+    const input = screen.getByLabelText("Question or note title");
+    fireEvent.change(input, { target: { value: "Budget review" } });
+    fireEvent.keyDown(input, { key: "n", metaKey: true });
+    await waitFor(() =>
+      expect(mocks.createSession).toHaveBeenCalledWith("Budget review"),
+    );
+    expect(mocks.queueChatPrompt).not.toHaveBeenCalled();
   });
 
   it("starts an in-person (mic only) recording", async () => {

@@ -248,11 +248,6 @@ export function classifyAskQuery(
   const factIntent: AskIntent =
     scope === "library" ? "library_fact" : "meeting_fact";
 
-  if (scope === "general") {
-    refersToPrior = detectRefersToPrior(query, context.hasPriorTurns ?? false);
-    return result("general_needed");
-  }
-
   if (context.explicitIntent === "edit_summary") {
     return result("work_product");
   }

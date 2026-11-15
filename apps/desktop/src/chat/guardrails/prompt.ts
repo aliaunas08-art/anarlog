@@ -54,14 +54,6 @@ function buildScopeSection({
   emptyLibrary: boolean;
   meetingMissing: boolean;
 }): string {
-  if (scope === "general") {
-    return `# Current scope: General
-
-- No meeting content is provided in this scope. Answer from general knowledge; every request is in scope here, so the meeting-source citation and redirect rules do not apply.
-- The answer is shown with a "General — not from your meetings." label.
-- Do not claim anything came from the user's meetings, and do not refer to earlier tasks in this conversation unless the user asks.`;
-  }
-
   if (scope === "meeting") {
     const lines = [
       "# Current scope: This meeting",

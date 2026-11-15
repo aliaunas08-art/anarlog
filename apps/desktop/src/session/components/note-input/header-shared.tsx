@@ -136,9 +136,9 @@ export function glassHeaderViewClassName(
     "group/header-view cf-motion rounded-pill relative z-[1] flex h-9 max-w-44 min-w-0 shrink-0 items-center justify-center gap-[7px] px-4 text-[13px] whitespace-nowrap transition-colors select-none [corner-shape:round] [&>svg]:shrink-0",
     "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none",
     "@max-[640px]:px-3",
-    // The active segment's fill is the switcher's sliding lens.
+    // The active segment's fill is the switcher's sliding solid thumb.
     isActive
-      ? "font-semibold text-[var(--cf-label)]"
+      ? "font-semibold text-[var(--cf-window)]"
       : "text-[var(--cf-secondary)] hover:text-[var(--cf-label)]",
     className,
   ]);

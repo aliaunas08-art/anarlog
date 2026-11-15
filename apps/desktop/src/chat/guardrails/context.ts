@@ -174,7 +174,6 @@ export async function searchLibrarySafely(
  * Builds the only meeting context a model sees for one Ask request.
  * - meeting: that one meeting (transcript with timestamps, notes, summary).
  * - library: top-k search excerpts labelled with meeting title, date, id.
- * - general: nothing.
  * Refs from earlier messages are never consulted.
  */
 export async function assembleAskContext(
@@ -201,10 +200,6 @@ export async function assembleAskContext(
     emptyLibrary: false,
     meetingMissing: false,
   };
-
-  if (scope === "general") {
-    return { ...base, sourcesBlock: null, includedMeetingIds: [] };
-  }
 
   if (scope === "meeting") {
     if (!meetingId) {

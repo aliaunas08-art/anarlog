@@ -28,28 +28,28 @@ describe("Ask thread state", () => {
   });
 
   it("#5 a scope choice lasts only while the same meeting is open", () => {
-    useChatContext.getState().setAskScope("general", "m1");
-    expect(effectiveScope("m1")).toBe("general");
+    useChatContext.getState().setAskScope("library", "m1");
+    expect(effectiveScope("m1")).toBe("library");
     // Another meeting opens: back to the default, "This meeting".
     expect(effectiveScope("m2")).toBe("meeting");
     // Home (no meeting): default "All meetings".
     expect(effectiveScope(undefined)).toBe("library");
   });
 
-  it("#5 an 'Ask in General' re-ask is one-off: it does not follow the user to other meetings", () => {
+  it("#5 an 'All meetings' re-ask is one-off: it does not follow the user to other meetings", () => {
     useChatContext
       .getState()
-      .requestAskResend("general", "What is an orange", "m1");
+      .requestAskResend("library", "What did Sam promise?", "m1");
     expect(useChatContext.getState().pendingAskResend).toMatchObject({
-      scope: "general",
-      text: "What is an orange",
+      scope: "library",
+      text: "What did Sam promise?",
     });
-    expect(effectiveScope("m1")).toBe("general");
+    expect(effectiveScope("m1")).toBe("library");
     expect(effectiveScope("m2")).toBe("meeting");
   });
 
   it("#5 prepareAskThread selects the meeting thread and returns its session id for the queued prompt", () => {
-    useChatContext.getState().setAskScope("general", "m1");
+    useChatContext.getState().setAskScope("library", "m1");
     const sessionId = useChatContext
       .getState()
       .prepareAskThread("meeting", "m1");
@@ -80,27 +80,46 @@ describe("Ask thread state", () => {
     expect(m2.sessionId).not.toBe(m1.sessionId);
   });
 
-  it("#7 a previous (pre-scope) chat opens read-only in General", () => {
+  it("#7 a previous (pre-scope) chat opens read-only in All meetings without losing that thread", () => {
+    useChatContext.getState().setGroupId("general", "lib-group", "library");
     useChatContext.getState().openPreviousChat("old-group", "m1");
-    expect(effectiveScope("m1")).toBe("general");
+    expect(effectiveScope("m1")).toBe("library");
     expect(
-      selectChatSelection(useChatContext.getState(), "general", "general"),
-    ).toEqual({ groupId: "old-group", sessionId: "old-group", legacy: true });
+      selectChatSelection(useChatContext.getState(), "general", "library"),
+    ).toMatchObject({ groupId: "old-group", sessionId: "old-group", legacy: true });
+    // The All meetings thread it covers for is still what gets saved.
+    expect(
+      JSON.parse(serializeAskThreads(useChatContext.getState().askThreads)),
+    ).toEqual({
+      library: { groupId: "lib-group", sessionId: freshAskSessionId("library") },
+    });
   });
 
   it("#7 persisted threads keep keyed groups only (no fresh or read-only threads)", () => {
     const json = serializeAskThreads({
       "meeting:m1": { groupId: "g1", sessionId: "s1" },
       library: { groupId: undefined, sessionId: "s2" },
-      general: { groupId: "old", sessionId: "old", legacy: true },
+      old: { groupId: "old", sessionId: "old", legacy: true },
     });
     expect(JSON.parse(json)).toEqual({
       "meeting:m1": { groupId: "g1", sessionId: "s1" },
     });
   });
 
+  it("a stored thread under the removed General key is never selected", () => {
+    useChatContext.setState({
+      askThreads: { general: { groupId: "g", sessionId: "g" } },
+    });
+    expect(effectiveScope(undefined)).toBe("library");
+    expect(effectiveScope("m1")).toBe("meeting");
+    expect(
+      selectChatSelection(useChatContext.getState(), "general", "library")
+        .groupId,
+    ).toBeUndefined();
+  });
+
   it("#9 a pending re-ask can be cleared by its id only", () => {
-    useChatContext.getState().requestAskResend("general", "q", undefined);
+    useChatContext.getState().requestAskResend("library", "q", undefined);
     const pending = useChatContext.getState().pendingAskResend!;
     useChatContext.getState().clearAskResend("other-id");
     expect(useChatContext.getState().pendingAskResend).not.toBeNull();

@@ -122,7 +122,6 @@ function pick(tools: ToolSet, names: readonly string[]): ToolSet {
 
 /**
  * Tool exposure per scope, enforced in code:
- * - general: none (web_search is dropped too).
  * - meeting: read tools pinned to the current meeting, plus edit tools for that
  *   meeting only when the user explicitly asked to edit.
  * - library: read/search tools; write tools only when explicitly asked.
@@ -135,8 +134,6 @@ export function selectToolsForScope(
     explicitEdit,
   }: { scope: AskScope; meetingId?: string | null; explicitEdit: boolean },
 ): ToolSet {
-  if (scope === "general") return {};
-
   if (scope === "meeting") {
     if (!meetingId) return {};
     const names = explicitEdit

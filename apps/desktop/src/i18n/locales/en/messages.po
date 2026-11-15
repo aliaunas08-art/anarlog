@@ -798,6 +798,10 @@ msgstr "Ask {APP_NAME} anything"
 msgid "Ask about this meeting (⌘P)"
 msgstr "Ask about this meeting (⌘P)"
 
+#: src/main/home.tsx
+msgid "Ask about your meetings, or start a note…"
+msgstr "Ask about your meetings, or start a note…"
+
 #: src/chat/components/input/index.tsx
 #: src/shared/chat-cta.tsx
 msgid "Ask anything"
@@ -810,10 +814,6 @@ msgstr "Ask before stopping when a meeting may have ended. When alerts are off, 
 #: src/settings/general/primary-recording-device.tsx
 msgid "Ask each meeting"
 msgstr "Ask each meeting"
-
-#: src/chat/components/message/normal.tsx
-msgid "Ask in General"
-msgstr "Ask in General"
 
 #: src/session/components/floating/index.tsx
 msgid "Ask Notes anything"
@@ -2874,19 +2874,10 @@ msgstr "Full Screen"
 msgid "Future meetings"
 msgstr "Future meetings"
 
-#: src/chat/components/ask-scope-control.tsx
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
 msgstr "General"
-
-#: src/chat/components/message/normal.tsx
-msgid "General — not from your meetings."
-msgstr "General — not from your meetings."
-
-#: src/chat/components/body/empty.tsx
-msgid "General · separate thread. No meeting content is used."
-msgstr "General · separate thread. No meeting content is used."
 
 #: src/session-sharing/general-access.tsx
 msgid "General access"
@@ -4305,10 +4296,6 @@ msgstr "note"
 msgid "Note is Locked"
 msgstr "Note is Locked"
 
-#: src/main/home.tsx
-msgid "Note title or question"
-msgstr "Note title or question"
-
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
 msgstr "Notepad"
@@ -4893,6 +4880,10 @@ msgstr "Protect cloud sync"
 msgid "Public on the web"
 msgstr "Public on the web"
 
+#: src/main/home.tsx
+msgid "Question or note title"
+msgstr "Question or note title"
+
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Re-transcribe"
 msgstr "Re-transcribe"
@@ -5365,10 +5356,6 @@ msgstr "Retry Google Drive export"
 #: src/settings/dictation.tsx
 msgid "Retry setup"
 msgstr "Retry setup"
-
-#: src/main/home.tsx
-msgid "Return to start"
-msgstr "Return to start"
 
 #: src/session/components/pending-proposals-banner.tsx
 msgid "Review memo"
@@ -6201,10 +6188,6 @@ msgstr "Stack another destination. Steps run top to bottom."
 #: src/settings/general/app-settings.tsx
 msgid "Start {APP_NAME} at login"
 msgstr "Start {APP_NAME} at login"
-
-#: src/main/home.tsx
-msgid "Start a note, or ask about any meeting…"
-msgstr "Start a note, or ask about any meeting…"
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
