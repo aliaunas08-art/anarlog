@@ -104,6 +104,10 @@ describe("ChatToolbarControls", () => {
       />,
     );
 
-    expect(mocks.useRecentChatGroups).toHaveBeenCalledWith("automations", 5);
+    expect(mocks.useRecentChatGroups).toHaveBeenCalledWith(
+      "automations",
+      5,
+      undefined,
+    );
   });
 });

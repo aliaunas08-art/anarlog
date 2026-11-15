@@ -17,6 +17,7 @@ import {
   type DisplayEntity,
   useChatContextPipeline,
 } from "~/chat/context/use-chat-context-pipeline";
+import { filterMessagesForAskThread } from "~/chat/guardrails/context";
 import {
   createChatCloudsyncActivityController,
   guardChatTransport,
@@ -74,6 +75,8 @@ type ChatTransportPreflight = NonNullable<ChatSendOptions["beforeSend"]>;
 interface ChatSessionProps {
   sessionId: string;
   chatGroupId?: string;
+  /** Ask thread key; persisted turns from other keys are never loaded. */
+  askThreadKey?: string;
   currentSessionId?: string;
   folderId?: string;
   hasAvailableTranscript?: boolean;
@@ -109,6 +112,7 @@ export function ChatSession(props: ChatSessionProps) {
 function ChatSessionLifecycle({
   sessionId,
   chatGroupId,
+  askThreadKey,
   currentSessionId,
   folderId,
   hasAvailableTranscript = false,
@@ -200,10 +204,12 @@ function ChatSessionLifecycle({
     ownerUserId || undefined,
   );
 
-  const persistedVisibleMessages = useMemo(
-    () => getVisibleChatMessages(persistedMessages),
-    [persistedMessages],
-  );
+  const persistedVisibleMessages = useMemo(() => {
+    const visible = getVisibleChatMessages(persistedMessages);
+    return askThreadKey
+      ? filterMessagesForAskThread(visible, askThreadKey)
+      : visible;
+  }, [persistedMessages, askThreadKey]);
   initialMessagesRef.current = persistedVisibleMessages;
   const latestTransportRef = useRef(transport);
   latestTransportRef.current = transport;

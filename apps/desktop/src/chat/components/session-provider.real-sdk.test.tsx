@@ -7,7 +7,7 @@ import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 import { ChatSessionHost } from "./chat-panel";
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 
-import { useChatContext } from "~/chat/state/chat-context";
+import { selectChatSelection, useChatContext } from "~/chat/state/chat-context";
 import { CHAT_CLOUDSYNC_RELEASE_DELAY_MS } from "~/chat/store/cloudsync-activity";
 import type { PersistedChatMessage } from "~/chat/store/persisted-messages";
 import { useChatActions } from "~/chat/store/use-chat-actions";
@@ -51,9 +51,12 @@ vi.mock("~/contexts/shell", () => ({
     chat: {
       scope:
         mocks.currentTab.type === "automations" ? "automations" : "general",
-      ...useChatContext.getState().chatByScope[
-        mocks.currentTab.type === "automations" ? "automations" : "general"
-      ],
+      // General chat is one thread per Ask key; note-1 is the open meeting.
+      ...selectChatSelection(
+        useChatContext.getState(),
+        mocks.currentTab.type === "automations" ? "automations" : "general",
+        mocks.currentTab.type === "automations" ? undefined : "meeting:note-1",
+      ),
     },
   }),
 }));
@@ -250,6 +253,10 @@ describe("ChatSession real SDK CloudSync activity", () => {
         general: { groupId: "group-1", sessionId: "session-1" },
         automations: { groupId: "group-2", sessionId: "session-2" },
       },
+      askThreads: {
+        "meeting:note-1": { groupId: "group-1", sessionId: "session-1" },
+      },
+      askScopePreference: null,
     });
     vi.clearAllMocks();
     vi.mocked(beginCloudsyncActivity).mockReset().mockResolvedValue(undefined);

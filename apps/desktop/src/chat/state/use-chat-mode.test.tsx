@@ -8,18 +8,27 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "macos" }));
 
 vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (selector: (state: unknown) => unknown) =>
-    selector({
+  useTabs: (selector?: (state: unknown) => unknown) => {
+    const state = {
       chatMode: "FloatingClosed",
       transitionChatMode: mocks.transitionChatMode,
       currentTab: null,
-    }),
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 vi.mock("./chat-context", () => ({
+  selectChatSelection: (
+    state: { chatByScope: Record<string, unknown> },
+    scope: string,
+  ) => state.chatByScope[scope],
   useChatContext: (selector: (state: unknown) => unknown) =>
     selector({
       chatByScope: { general: { groupId: undefined, sessionId: "s" } },
+      askThreads: {},
+      askScopePreference: null,
+      setAskScope: vi.fn(),
       setGroupId: vi.fn(),
       rollbackFailedGroup: vi.fn(),
       startNewChat: vi.fn(),

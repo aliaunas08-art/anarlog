@@ -24,6 +24,7 @@ import {
 } from "../reasoning-effort";
 import { streamOnlyGenerationMiddleware } from "../stream-only-generation";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
+import { createUsageTrackingMiddleware } from "../usage";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -308,13 +309,22 @@ const createLanguageModel = (
     conn.modelId,
     conn.reasoningEffort,
   );
+  // Outermost, so every call is counted (and the usage provider option is
+  // stripped before provider settings are merged in).
+  const usageMiddleware = createUsageTrackingMiddleware({
+    task: task ?? null,
+    providerId: conn.providerId,
+  });
   if (!providerOptions) {
-    return model;
+    return wrapLanguageModel({ model, middleware: usageMiddleware });
   }
 
   return wrapLanguageModel({
     model,
-    middleware: defaultSettingsMiddleware({ settings: { providerOptions } }),
+    middleware: [
+      usageMiddleware,
+      defaultSettingsMiddleware({ settings: { providerOptions } }),
+    ],
   });
 };
 

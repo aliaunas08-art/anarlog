@@ -1,7 +1,8 @@
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { cn } from "@anlg/utils";
 
+import { AskScopeControl } from "./ask-scope-control";
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
@@ -11,7 +12,8 @@ import { useHasEditableSummary } from "./use-summary-quick-actions";
 
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
-import { useChatContext } from "~/chat/state/chat-context";
+import { selectChatSelection, useChatContext } from "~/chat/state/chat-context";
+import { useAskThread } from "~/chat/state/use-ask-thread";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { chatFloatingPanelClassNames } from "~/chat/surface";
 import type { ChatScope } from "~/chat/types";
@@ -47,14 +49,19 @@ function ScopedChatSession({
   scope: ChatScope;
   children: (sessionProps: ChatSessionRenderProps | null) => ReactNode;
 }) {
-  const { groupId, sessionId } = useChatContext(
-    (state) => state.chatByScope[scope],
+  const askThread = useAskThread();
+  const askKey = scope === "general" ? askThread.threadKey : undefined;
+  const groupId = useChatContext(
+    (state) => selectChatSelection(state, scope, askKey).groupId,
   );
-  const { currentSessionId } = useSessionTab();
+  const sessionId = useChatContext(
+    (state) => selectChatSelection(state, scope, askKey).sessionId,
+  );
   const noteFilter = useSidebarNotes((state) => state.noteFilter);
   const folderFilter = useSidebarNotes((state) => state.folderFilter);
+  // Only a "This meeting" thread is tied to the open meeting.
   const contextSessionId =
-    scope === "automations" ? undefined : currentSessionId;
+    scope === "automations" ? undefined : askThread.meetingId;
   const folderId =
     scope === "automations"
       ? undefined
@@ -80,8 +87,10 @@ function ScopedChatSession({
 
   return (
     <ChatSession
+      key={askKey ?? scope}
       sessionId={sessionId}
       chatGroupId={groupId}
+      askThreadKey={askKey}
       currentSessionId={contextSessionId}
       folderId={folderId}
       hasAvailableTranscript={hasAvailableTranscript}
@@ -112,16 +121,22 @@ export function ChatPanelFrame({
   const isFloating = layout === "floating";
   const model = useLanguageModel("chat");
   const { currentSessionId, currentNoteView } = useSessionTab();
+  const askScope = chat.scope === "general" ? chat.askScope : undefined;
+  // Meeting-specific suggestions only make sense in a "This meeting" thread.
+  const meetingSuggestionsSessionId =
+    askScope === "meeting" ? currentSessionId : undefined;
   const hasSummary = useHasEditableSummary(
-    chat.scope === "automations" ? undefined : currentSessionId,
+    meetingSuggestionsSessionId,
     currentNoteView,
   );
   const isLiveMeeting = useListener(
     (state) =>
-      chat.scope !== "automations" &&
-      !!currentSessionId &&
-      state.getSessionMode(currentSessionId) === "active",
+      !!meetingSuggestionsSessionId &&
+      state.getSessionMode(meetingSuggestionsSessionId) === "active",
   );
+  const pendingAskResend = useChatContext((state) => state.pendingAskResend);
+  const clearAskResend = useChatContext((state) => state.clearAskResend);
+  const requestAskResend = useChatContext((state) => state.requestAskResend);
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
@@ -139,10 +154,43 @@ export function ChatPanelFrame({
 
   const { handleSendMessage } = useChatActions({
     chatScope: chat.scope,
+    askScope,
+    askMeetingId: chat.askMeetingId,
     groupId,
     onGroupCreated: handleGroupCreated,
     onGroupCreateFailed: handleGroupCreateFailed,
   });
+
+  // A redirect button re-asks the same text once the target scope's own
+  // thread is mounted.
+  useEffect(() => {
+    if (
+      !pendingAskResend ||
+      !sessionProps ||
+      askScope !== pendingAskResend.scope ||
+      sessionProps.sessionId !== chat.sessionId ||
+      !sessionProps.isSystemPromptReady ||
+      !model
+    ) {
+      return;
+    }
+    clearAskResend(pendingAskResend.requestId);
+    const text = pendingAskResend.text;
+    handleSendMessage(
+      text,
+      [{ type: "text", text }],
+      sessionProps.sendMessage,
+      [],
+    );
+  }, [
+    askScope,
+    chat.sessionId,
+    clearAskResend,
+    handleSendMessage,
+    model,
+    pendingAskResend,
+    sessionProps,
+  ]);
 
   return (
     <div
@@ -162,6 +210,7 @@ export function ChatPanelFrame({
         >
           <ChatToolbarControls
             chatScope={chat.scope}
+            askThreadKey={chat.askThreadKey}
             currentChatGroupId={groupId}
             layout={layout}
             onClose={() => chat.sendEvent({ type: "CLOSE" })}
@@ -173,6 +222,21 @@ export function ChatPanelFrame({
           />
         </div>
       )}
+      {askScope ? (
+        <div
+          data-tauri-drag-region={!isFloating || undefined}
+          className={cn([
+            "flex shrink-0 pb-1.5",
+            isFloating ? "px-3" : "pr-1 pl-3",
+          ])}
+        >
+          <AskScopeControl
+            value={askScope}
+            meetingAvailable={Boolean(chat.openMeetingId)}
+            onChange={chat.setAskScope}
+          />
+        </div>
+      ) : null}
       {sessionProps && (
         <ChatContent
           {...sessionProps}
@@ -190,6 +254,8 @@ export function ChatPanelFrame({
             hasContext={sessionProps.contextEntities.length > 0}
             isLiveMeeting={isLiveMeeting}
             hasSummary={hasSummary && sessionProps.contextEntities.length > 0}
+            askScope={askScope}
+            onAskRedirect={(scope, text) => requestAskResend(scope, text)}
             onSendMessage={(content, parts) => {
               handleSendMessage(
                 content,

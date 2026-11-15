@@ -321,6 +321,12 @@ export const SETTING_DEFINITIONS = {
     path: ["notification", "mic_active_threshold"],
     default: 15 as number,
   },
+  // Daily Ask call limit on the hosted developer key. No default (unset)
+  // means unlimited; BYOK providers are never limited.
+  ai_usage_daily_limit: {
+    type: "number",
+    path: ["ai", "usage_daily_limit"],
+  },
   current_llm_provider: {
     type: "string",
     path: ["ai", "current_llm_provider"],

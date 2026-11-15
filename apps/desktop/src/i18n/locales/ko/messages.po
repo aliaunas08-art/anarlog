@@ -663,6 +663,15 @@ msgstr "초대 3개가 모두 수락되었습니다."
 msgid "All events"
 msgstr ""
 
+#: src/chat/components/ask-scope-control.tsx
+#: src/chat/components/message/normal.tsx
+msgid "All meetings"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "All meetings · separate thread. Answers use excerpts from your meetings."
+msgstr ""
+
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
 msgstr ""
@@ -802,8 +811,16 @@ msgstr ""
 msgid "Ask each meeting"
 msgstr ""
 
+#: src/chat/components/message/normal.tsx
+msgid "Ask in General"
+msgstr ""
+
 #: src/session/components/floating/index.tsx
 msgid "Ask Notes anything"
+msgstr ""
+
+#: src/chat/components/ask-scope-control.tsx
+msgid "Ask scope"
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -2857,9 +2874,18 @@ msgstr ""
 msgid "Future meetings"
 msgstr ""
 
+#: src/chat/components/ask-scope-control.tsx
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
+msgstr ""
+
+#: src/chat/components/message/normal.tsx
+msgid "General — not from your meetings."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "General · separate thread. No meeting content is used."
 msgstr ""
 
 #: src/session-sharing/general-access.tsx
@@ -4413,6 +4439,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Open {APP_NAME} on an existing synced device signed in to the same account. This device will connect automatically."
+msgstr ""
+
+#: src/chat/components/ask-scope-control.tsx
+msgid "Open a meeting to ask about it"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
@@ -6624,6 +6654,14 @@ msgstr ""
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Notes in action."
 msgstr ""
 
+#: src/chat/components/ask-scope-control.tsx
+msgid "This meeting"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "This meeting · separate thread. Answers use only this meeting."
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "This name is synced to your other devices signed in to this account."
 msgstr ""
@@ -6680,6 +6718,10 @@ msgstr ""
 #: src/task/task-cell-pickers.tsx
 #: src/task/tasks-view.tsx
 msgid "Today"
+msgstr ""
+
+#: src/settings/ai/llm/usage-line.tsx
+msgid "Today: {calls} AI calls ({hosted} on the built-in key), {redirects} Ask redirects."
 msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts

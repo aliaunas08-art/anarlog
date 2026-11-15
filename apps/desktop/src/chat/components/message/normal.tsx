@@ -24,6 +24,7 @@ import { MessageTimestamp } from "./timestamp";
 import { Tool } from "./tool";
 import type { Part } from "./types";
 
+import type { AskRedirectAction } from "~/chat/guardrails/scope";
 import { hasRenderableContent } from "~/chat/message-content";
 import type { AnlgUIMessage } from "~/chat/types";
 
@@ -39,11 +40,18 @@ function getMessageText(message: AnlgUIMessage): string {
 export function NormalMessage({
   message,
   handleReload,
+  onAskRedirect,
 }: {
   message: AnlgUIMessage;
   handleReload?: () => void;
+  onAskRedirect?: (scope: AskRedirectAction, text: string) => void;
 }) {
   const { t } = useLingui();
+  const askRedirect = isUserMessage(message)
+    ? undefined
+    : message.metadata?.askRedirect;
+  const showGeneralBadge =
+    !isUserMessage(message) && message.metadata?.askBadge === "general";
   const isUser = message.role === "user";
   const activityParts = isUser ? [] : message.parts.filter(isActivityPart);
   const activityRunning = activityParts.some((part) =>
@@ -114,9 +122,31 @@ export function NormalMessage({
               </FlatDisclosureGroup>
             </Disclosure>
           )}
+          {showGeneralBadge ? (
+            <span
+              data-ask-general-badge
+              className="bg-muted text-muted-foreground mb-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+            >
+              {t`General — not from your meetings.`}
+            </span>
+          ) : null}
           {visibleParts.map((part, i) => (
             <Part key={i} part={part as Part} />
           ))}
+          {askRedirect && onAskRedirect ? (
+            <div data-ask-redirect-actions className="mt-1 flex gap-1.5">
+              {askRedirect.actions.map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  onClick={() => onAskRedirect(action, askRedirect.query)}
+                  className="rounded-pill border-border text-foreground hover:bg-muted border px-2.5 py-0.5 text-xs transition-colors [corner-shape:round]"
+                >
+                  {action === "library" ? t`All meetings` : t`Ask in General`}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </MessageBubble>
         <div className="mt-1 flex min-h-6 items-center gap-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100">
           {!isUser && (
@@ -144,6 +174,10 @@ export function NormalMessage({
       </div>
     </MessageContainer>
   );
+}
+
+function isUserMessage(message: AnlgUIMessage) {
+  return message.role === "user";
 }
 
 function isActivityPart(part: AnlgUIMessage["parts"][number]) {

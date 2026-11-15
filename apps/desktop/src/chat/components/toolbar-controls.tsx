@@ -29,6 +29,7 @@ import type { ChatScope } from "~/chat/types";
 
 export function ChatToolbarControls({
   chatScope,
+  askThreadKey,
   currentChatGroupId,
   layout = "floating",
   onClose,
@@ -39,6 +40,8 @@ export function ChatToolbarControls({
   surface = "light",
 }: {
   chatScope: ChatScope;
+  /** Limits history to the active Ask thread (scope + meeting). */
+  askThreadKey?: string;
   currentChatGroupId: string | undefined;
   layout?: "floating" | "right-panel";
   onClose?: () => void;
@@ -70,6 +73,7 @@ export function ChatToolbarControls({
       >
         <ChatGroups
           chatScope={chatScope}
+          askThreadKey={askThreadKey}
           currentChatGroupId={currentChatGroupId}
           layout={layout}
           onSelectChat={onSelectChat}
@@ -150,12 +154,14 @@ function ChatActionButton({
 
 function ChatGroups({
   chatScope,
+  askThreadKey,
   currentChatGroupId,
   layout,
   onSelectChat,
   surface = "light",
 }: {
   chatScope: ChatScope;
+  askThreadKey?: string;
   currentChatGroupId: string | undefined;
   layout: "floating" | "right-panel";
   onSelectChat: (chatGroupId: string) => void;
@@ -165,7 +171,7 @@ function ChatGroups({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isDark = surface === "dark";
 
-  const recentChatGroups = useRecentChatGroups(chatScope, 5);
+  const recentChatGroups = useRecentChatGroups(chatScope, 5, askThreadKey);
 
   return (
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>

@@ -4,6 +4,7 @@ import { ErrorMessage } from "~/chat/components/message/error";
 import { LoadingMessage } from "~/chat/components/message/loading";
 import { NormalMessage } from "~/chat/components/message/normal";
 import { MessageTimestamp } from "~/chat/components/message/timestamp";
+import type { AskRedirectAction } from "~/chat/guardrails/scope";
 import { hasRenderableContent } from "~/chat/message-content";
 import type { AnlgUIMessage } from "~/chat/types";
 
@@ -33,11 +34,13 @@ export function ChatBodyNonEmpty({
   status,
   error,
   onReload,
+  onAskRedirect,
 }: {
   messages: AnlgUIMessage[];
   status: ChatStatus;
   error?: Error;
   onReload?: () => void;
+  onAskRedirect?: (scope: AskRedirectAction, text: string) => void;
 }) {
   const showErrorState = status === "error" && error;
   const lastMessage = messages[messages.length - 1];
@@ -69,6 +72,7 @@ export function ChatBodyNonEmpty({
         <NormalMessage
           key={message.id}
           message={message}
+          onAskRedirect={onAskRedirect}
           handleReload={
             message.role === "assistant" &&
             index === lastAssistantIndex &&

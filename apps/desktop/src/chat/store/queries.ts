@@ -31,8 +31,9 @@ const EMPTY_CHAT_MESSAGES: PersistedChatMessage[] = [];
 export function useRecentChatGroups(
   chatScope: ChatScope,
   limit = 5,
+  askThreadKey?: string,
 ): ChatGroupRecord[] {
-  return useChatGroupsQuery(chatScope, limit);
+  return useChatGroupsQuery(chatScope, limit, askThreadKey);
 }
 
 export function useChatGroups(chatScope: ChatScope): ChatGroupRecord[] {
@@ -42,7 +43,9 @@ export function useChatGroups(chatScope: ChatScope): ChatGroupRecord[] {
 function useChatGroupsQuery(
   chatScope: ChatScope,
   limit?: number,
+  askThreadKey?: string,
 ): ChatGroupRecord[] {
+  const askThread = askThreadKey ? askThreadSqlParams(askThreadKey) : null;
   const { data = EMPTY_CHAT_GROUPS } = useLiveQuery<
     ChatGroupSqlRow,
     ChatGroupRecord[]
@@ -52,10 +55,14 @@ function useChatGroupsQuery(
       FROM chat_groups AS g
       WHERE g.deleted_at IS NULL
         AND ${chatGroupScopePredicate(chatScope)}
+        ${askThread ? `AND ${ASK_THREAD_PREDICATE}` : ""}
       ORDER BY g.created_at DESC, g.id DESC
       ${limit === undefined ? "" : "LIMIT ?"}
     `,
-    params: limit === undefined ? [] : [limit],
+    params: [
+      ...(askThread ? [askThread.scope, askThread.meetingId] : []),
+      ...(limit === undefined ? [] : [limit]),
+    ],
     mapRows: (rows) => rows.map(mapChatGroupRow),
   });
 
@@ -299,6 +306,31 @@ function mapChatGroupRow(row: ChatGroupSqlRow): ChatGroupRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// A group belongs to the Ask thread its first user message was sent in.
+// Groups from before scoped threads have no askScope and never match.
+const ASK_THREAD_PREDICATE = `
+  EXISTS (
+    SELECT 1
+    FROM chat_messages AS am
+    WHERE am.chat_group_id = g.id
+      AND am.deleted_at IS NULL
+      AND am.role = 'user'
+      AND json_valid(am.metadata_json)
+      AND json_extract(am.metadata_json, '$.askScope') = ?
+      AND COALESCE(json_extract(am.metadata_json, '$.askMeetingId'), '') = ?
+  )
+`;
+
+function askThreadSqlParams(askThreadKey: string) {
+  if (askThreadKey.startsWith("meeting:")) {
+    return {
+      scope: "meeting",
+      meetingId: askThreadKey.slice("meeting:".length),
+    };
+  }
+  return { scope: askThreadKey, meetingId: "" };
 }
 
 function chatGroupScopePredicate(chatScope: ChatScope) {

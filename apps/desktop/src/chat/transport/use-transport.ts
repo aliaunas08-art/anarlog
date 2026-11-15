@@ -1,16 +1,21 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { LanguageModel, ToolSet } from "ai";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import { commands as templateCommands } from "@anlg/plugin-template";
 
-import { CustomChatTransport } from "./index";
+import { type AskGuardrailDeps, CustomChatTransport } from "./index";
 import type { ResolvedChatContext } from "./index";
 
-import { useLanguageModel } from "~/ai/hooks";
+import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
 import { renderFolderContext } from "~/chat/context/folder-context";
 import { hydrateSessionContext } from "~/chat/context/session-context-hydrator";
+import {
+  createModelClassifier,
+  listMeetingTitles,
+  searchLibraryExcerpts,
+} from "~/chat/guardrails/deps";
 import { loadHuman, loadOrganization } from "~/contacts/queries";
 import { useToolRegistry } from "~/contexts/tool";
 import { useConfigValue } from "~/shared/config";
@@ -26,9 +31,10 @@ Context and local meeting tool guidance:
 - When the user mentions one or more folders with @, each folder context block names its exact folder_path. Search and content tools scope to the mentioned folders for that message. For every note in a folder, use list_meetings with folder_path to enumerate beyond the preview list. Do not read every note with get_meeting when a listing or search tool answers the question.
 - When the user asks to organize meetings into folders, use list_folders to resolve the exact destination path, create_folder if the requested folder is missing, then call move_meetings_to_folder. Use an empty folder_path only when the user asks to remove folder assignment. Ask when multiple folders or meeting matches leave the intended destination or selection ambiguous.
 - For "all" or "every" matching meeting, use list_meetings with a title query or get_recurring_meeting_history for an explicitly requested recurring series, follow pagination.next_offset until exhausted, and move each batch of at most 200 IDs. These listing tools can find meetings outside the attached folder when the user requests broader organization. Do not substitute the limited search_meetings results for a complete listing. Report moved, unchanged, and failed counts. Large requests may require multiple turns. If the turn ends before pagination and moves complete, report the exact destination, selection, next unprocessed offset, and any pending IDs, and offer to continue. On continuation, use that checkpoint and do not count earlier completed batches again.
+- Only change meeting content (memo, summary, transcript) when the user asks for that change. Answering a question or drafting text in chat never needs an edit tool, and never revise an earlier draft or answer unless the user asks.
 - When the user asks to prepare for a meeting, create an agenda, organize talking points, or add drafted content before or during a meeting, call edit_memo with the complete replacement markdown so they can review and apply it. Preserve relevant existing memo content. Use edit_memo even when the memo is empty; do not use edit_summary for meeting preparation.
 - When the user asks to rewrite, revise, refocus, shorten, lengthen, or restructure an existing summary, call edit_summary with the complete replacement markdown so they can review and apply it. Do not return the rewrite only as a fenced markdown block.
-- Use edit_summary only for existing generated post-meeting summaries. Use apply_session_correction for narrow exact old-to-new corrections and edit_summary for broader summary rewrites. Only return a draft without calling edit_memo or edit_summary when the user explicitly asks not to change the meeting content or no target session can be resolved.
+- Use edit_summary only for existing generated post-meeting summaries. Use apply_session_correction for narrow exact old-to-new corrections and edit_summary for broader summary rewrites. When the user asked to change a summary or memo, call the edit tool rather than replying with the rewrite only; skip it when they explicitly ask not to change the meeting content or no target session can be resolved.
 - When the user corrects note content with wording like "it's not X but Y", use apply_session_correction to update the current session summary, visible session title, and transcript unless they explicitly ask for one target only. Add uncommon names, companies, products, acronyms, or jargon from the correction to dictionaryTerms so future transcription and summaries can prefer them; skip common names. If the tool reports partial, use get_meeting or retry with the exact remaining text instead of claiming both were updated.
 - When the user asks to move a recording, transcript, or notes onto a different existing meeting, resolve both meeting IDs with list_meetings or search_meetings, then call move_meeting_contents. Default the source to the current meeting when they are looking at the misplaced recording. Do not guess IDs. If the target already has a recording or transcript, explain that and stop.
 - Do not ask the user to open or share a meeting until list_meetings, search_meetings, search_meeting_content, and get_meeting cannot find enough local context.
@@ -98,6 +104,13 @@ export function useTransport(
   const registry = useToolRegistry();
   const configuredModel = useLanguageModel("chat");
   const model = modelOverride ?? configuredModel;
+  const classifierModel = useLanguageModel("title");
+  const { conn } = useLLMConnection();
+  const providerIdRef = useRef<string | null>(null);
+  providerIdRef.current = conn?.providerId ?? null;
+  const dailyLimit = useConfigValue("ai_usage_daily_limit");
+  const dailyLimitRef = useRef<number | null>(null);
+  dailyLimitRef.current = typeof dailyLimit === "number" ? dailyLimit : null;
   const language = useConfigValue("ai_language") || "en";
   const systemPromptQuery = useQuery({
     queryKey: ["chat-system-prompt", language],
@@ -147,6 +160,19 @@ export function useTransport(
       return null;
     }
 
+    const guardrails: AskGuardrailDeps = {
+      hydrateMeeting: (meetingId) => hydrateSessionContext(meetingId, userId),
+      searchLibrary: searchLibraryExcerpts,
+      listMeetingTitles,
+      classifyWithModel: createModelClassifier(
+        modelOverride ? null : classifierModel,
+      ),
+      baseSystemPrompt: systemPrompt,
+      toolGuidance: MEETING_CONTEXT_TOOL_GUIDANCE,
+      getProviderId: () => providerIdRef.current,
+      getDailyLimit: () => dailyLimitRef.current,
+    };
+
     return new CustomChatTransport(
       model,
       tools,
@@ -178,8 +204,17 @@ export function useTransport(
           ? ({ kind: "text", text } satisfies ResolvedChatContext)
           : null;
       },
+      guardrails,
     );
-  }, [model, tools, effectiveSystemPrompt, userId]);
+  }, [
+    model,
+    tools,
+    effectiveSystemPrompt,
+    systemPrompt,
+    userId,
+    classifierModel,
+    modelOverride,
+  ]);
 
   return {
     transport,

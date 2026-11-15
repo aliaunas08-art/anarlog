@@ -3,12 +3,27 @@ import { z } from "zod";
 
 import { CONTEXT_ENTITY_SOURCES } from "~/chat/context/entities";
 import type { ContextRef } from "~/chat/context/entities";
+import { ASK_SCOPES } from "~/chat/guardrails/scope";
 
 export type ChatScope = "general" | "automations";
 
 const messageMetadataSchema = z.object({
   chatScope: z.enum(["general", "automations"]).optional(),
   createdAt: z.number().optional(),
+  // Ask thread key parts. Optional: messages from before scoped threads have
+  // neither and are never loaded into a keyed thread.
+  askScope: z.enum(ASK_SCOPES).optional(),
+  askMeetingId: z.string().optional(),
+  // Assistant only: a one-line redirect with buttons to re-ask elsewhere.
+  askRedirect: z
+    .object({
+      query: z.string(),
+      actions: z.array(z.enum(["library", "general"])),
+    })
+    .optional(),
+  // Assistant only: General-scope answers show the general-knowledge badge.
+  askBadge: z.literal("general").optional(),
+  askNotice: z.literal("usage_limit").optional(),
   contextRefs: z
     .array(
       z.discriminatedUnion("kind", [

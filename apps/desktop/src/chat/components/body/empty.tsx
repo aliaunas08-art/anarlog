@@ -14,6 +14,7 @@ import {
 import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
+import type { AskScope } from "~/chat/guardrails/scope";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { APP_NAME } from "~/shared/app-name";
 import { useTabs } from "~/store/zustand/tabs";
@@ -23,12 +24,14 @@ export function ChatBodyEmpty({
   hasContext = false,
   isLiveMeeting = false,
   hasSummary = false,
+  askScope,
   onSendMessage,
 }: {
   isModelConfigured?: boolean;
   hasContext?: boolean;
   isLiveMeeting?: boolean;
   hasSummary?: boolean;
+  askScope?: AskScope;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -92,9 +95,21 @@ export function ChatBodyEmpty({
         : t`What key decisions were made in my recent meetings?`,
     },
   ];
-  const suggestions = isLiveMeeting
-    ? liveMeetingSuggestions
-    : meetingSuggestions;
+  // General threads get no meeting suggestions: nothing from meetings is used.
+  const suggestions =
+    askScope === "general"
+      ? []
+      : isLiveMeeting
+        ? liveMeetingSuggestions
+        : meetingSuggestions;
+  const threadNotice =
+    askScope === "meeting"
+      ? t`This meeting · separate thread. Answers use only this meeting.`
+      : askScope === "library"
+        ? t`All meetings · separate thread. Answers use excerpts from your meetings.`
+        : askScope === "general"
+          ? t`General · separate thread. No meeting content is used.`
+          : null;
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
@@ -152,6 +167,19 @@ export function ChatBodyEmpty({
   return (
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
+        {threadNotice ? (
+          <p
+            data-ask-thread-notice
+            className={cn([
+              "pb-1.5 text-xs",
+              isDarkAppearance
+                ? "text-primary-foreground/60"
+                : "text-muted-foreground",
+            ])}
+          >
+            {threadNotice}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-0.5">
           {suggestions.map(({ label, icon: Icon, prompt }) => (
             <button

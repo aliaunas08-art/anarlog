@@ -38,6 +38,8 @@ export function ComposerScreen() {
   const currentChatGroup = useChatGroup(chat.groupId, chat.scope);
   const { handleSendMessage } = useChatActions({
     chatScope: chat.scope,
+    askScope: chat.askScope,
+    askMeetingId: chat.askMeetingId,
     groupId: chat.groupId,
     onGroupCreated: chat.setGroupId,
     onGroupCreateFailed: chat.rollbackFailedGroup,
@@ -74,6 +76,7 @@ export function ComposerScreen() {
         key={chat.sessionId}
         sessionId={chat.sessionId}
         chatGroupId={chat.groupId}
+        askThreadKey={chat.scope === "general" ? chat.askThreadKey : undefined}
       >
         {(sessionProps) => {
           const sendMessage = (

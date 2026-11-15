@@ -663,6 +663,15 @@ msgstr "All 3 invites have been accepted."
 msgid "All events"
 msgstr "All events"
 
+#: src/chat/components/ask-scope-control.tsx
+#: src/chat/components/message/normal.tsx
+msgid "All meetings"
+msgstr "All meetings"
+
+#: src/chat/components/body/empty.tsx
+msgid "All meetings · separate thread. Answers use excerpts from your meetings."
+msgstr "All meetings · separate thread. Answers use excerpts from your meetings."
+
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
 msgstr "All Notes"
@@ -802,9 +811,17 @@ msgstr "Ask before stopping when a meeting may have ended. When alerts are off, 
 msgid "Ask each meeting"
 msgstr "Ask each meeting"
 
+#: src/chat/components/message/normal.tsx
+msgid "Ask in General"
+msgstr "Ask in General"
+
 #: src/session/components/floating/index.tsx
 msgid "Ask Notes anything"
 msgstr "Ask Notes anything"
+
+#: src/chat/components/ask-scope-control.tsx
+msgid "Ask scope"
+msgstr "Ask scope"
 
 #: src/task/resource-view.tsx
 msgid "Assignees:"
@@ -2857,10 +2874,19 @@ msgstr "Full Screen"
 msgid "Future meetings"
 msgstr "Future meetings"
 
+#: src/chat/components/ask-scope-control.tsx
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
 msgstr "General"
+
+#: src/chat/components/message/normal.tsx
+msgid "General — not from your meetings."
+msgstr "General — not from your meetings."
+
+#: src/chat/components/body/empty.tsx
+msgid "General · separate thread. No meeting content is used."
+msgstr "General · separate thread. No meeting content is used."
 
 #: src/session-sharing/general-access.tsx
 msgid "General access"
@@ -4414,6 +4440,10 @@ msgstr "Open {APP_NAME} from the menu bar."
 #: src/settings/sync/index.tsx
 msgid "Open {APP_NAME} on an existing synced device signed in to the same account. This device will connect automatically."
 msgstr "Open {APP_NAME} on an existing synced device signed in to the same account. This device will connect automatically."
+
+#: src/chat/components/ask-scope-control.tsx
+msgid "Open a meeting to ask about it"
+msgstr "Open a meeting to ask about it"
 
 #: src/chat/components/body/empty.tsx
 msgid "Open AI Settings"
@@ -6624,6 +6654,14 @@ msgstr "This guest needs Team access"
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Notes in action."
 msgstr "This is a prerecorded demo, so your camera stays off. Click Join & record to see Notes in action."
 
+#: src/chat/components/ask-scope-control.tsx
+msgid "This meeting"
+msgstr "This meeting"
+
+#: src/chat/components/body/empty.tsx
+msgid "This meeting · separate thread. Answers use only this meeting."
+msgstr "This meeting · separate thread. Answers use only this meeting."
+
 #: src/settings/sync/index.tsx
 msgid "This name is synced to your other devices signed in to this account."
 msgstr "This name is synced to your other devices signed in to this account."
@@ -6681,6 +6719,10 @@ msgstr "Tip: The Notes team loves our users!"
 #: src/task/tasks-view.tsx
 msgid "Today"
 msgstr "Today"
+
+#: src/settings/ai/llm/usage-line.tsx
+msgid "Today: {calls} AI calls ({hosted} on the built-in key), {redirects} Ask redirects."
+msgstr "Today: {calls} AI calls ({hosted} on the built-in key), {redirects} Ask redirects."
 
 #: src/sidebar/timeline/utils/index.ts
 #: src/task/task-cell-pickers.tsx
