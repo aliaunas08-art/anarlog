@@ -15,14 +15,15 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use listener2_core::speaker_pass::{
-    SELF_MATCH_MIN_SCORE, SelfVoiceprint, SpeakerPassInputWord, SpeakerPassMode,
-    SpeakerPassOutcome, SpeakerPassRequest, load_mono_16k, run_speaker_pass, voice_embedding,
-};
 use anlg_transcript::{
     AttributionSource, RenderTranscriptHuman, RenderTranscriptRequest, RenderedTranscriptSegment,
     StoredSpeakerHint, StoredTranscriptWord, apply_speaker_pass_hints, render_input_from_stored,
     render_transcript_segments,
+};
+use listener2_core::speaker_pass::{
+    PlatformSpeakerSpan, SELF_MATCH_MIN_SCORE, SelfVoiceprint, SpeakerPassInputWord,
+    SpeakerPassMode, SpeakerPassOutcome, SpeakerPassRequest, load_mono_16k, platform_assignments,
+    run_speaker_pass, voice_embedding,
 };
 
 const RATE: usize = 16_000;
@@ -272,6 +273,16 @@ fn pass(
     mode: SpeakerPassMode,
     print: Option<&SelfVoiceprint>,
 ) -> SpeakerPassOutcome {
+    pass_with_spans(path, words, mode, print, &[])
+}
+
+fn pass_with_spans(
+    path: &Path,
+    words: &[TruthWord],
+    mode: SpeakerPassMode,
+    print: Option<&SelfVoiceprint>,
+    platform_spans: &[PlatformSpeakerSpan],
+) -> SpeakerPassOutcome {
     let input = input_words(words);
     let never = || false;
     let outcome = run_speaker_pass(&SpeakerPassRequest {
@@ -279,6 +290,7 @@ fn pass(
         words: &input,
         mode,
         self_voiceprint: print,
+        platform_spans,
         is_cancelled: &never,
     })
     .expect("speaker pass runs");
@@ -708,4 +720,168 @@ fn calibration_scores() {
         println!("calibration: enrolled {USER_VOICE} vs {voice}: {score:.3}");
     }
     let _ = load_mono_16k;
+}
+
+/// Active-speaker spans a meeting platform would report for the remote
+/// turns: each turn shows up ~0.8 s late, lingers ~1 s, and loses one
+/// sample in the middle (a slow accessibility walk).
+fn platform_spans_for(
+    words: &[TruthWord],
+    names: &HashMap<&str, &str>,
+) -> Vec<PlatformSpeakerSpan> {
+    let mut turns: Vec<(String, f64, f64)> = Vec::new();
+    for word in words.iter().filter(|w| w.channel == 1) {
+        match turns.last_mut() {
+            Some((speaker, _, end)) if *speaker == word.speaker && word.start_ms - *end < 700.0 => {
+                *end = word.end_ms;
+            }
+            _ => turns.push((word.speaker.clone(), word.start_ms, word.end_ms)),
+        }
+    }
+    let mut spans = Vec::new();
+    for (speaker, start, end) in turns {
+        let name = names[speaker.as_str()].to_owned();
+        let (from, to) = (start + 800.0, end + 1_000.0);
+        let mid = (from + to) / 2.0;
+        spans.push(PlatformSpeakerSpan {
+            start_ms: from,
+            end_ms: mid - 500.0,
+            names: vec![name.clone()],
+        });
+        spans.push(PlatformSpeakerSpan {
+            start_ms: mid + 500.0,
+            end_ms: to,
+            names: vec![name],
+        });
+    }
+    spans
+}
+
+#[test]
+#[ignore = "needs macOS `say`; run explicitly"]
+fn online_multi_party_is_named_by_platform_tags() {
+    let mut scene = Scene::new(2);
+    for turn in 0..5 {
+        scene.say(0, 0, USER_VOICE, USER_LINES[turn]);
+        scene.say(1, 1, OTHER_VOICE, OTHER_LINES[turn]);
+        scene.say(1, 1, THIRD_VOICE, THIRD_LINES[turn]);
+    }
+    let path = scene.write("online_multi");
+    let names: HashMap<&str, &str> =
+        HashMap::from([(OTHER_VOICE, "Priya Raman"), (THIRD_VOICE, "Sam Lee")]);
+    let spans = platform_spans_for(&scene.words, &names);
+    let mut outcome = pass_with_spans(&path, &scene.words, SpeakerPassMode::Online, None, &spans);
+    println!(
+        "platform names: {:?} tagged_words={}",
+        outcome.platform_names, outcome.platform_tagged_words
+    );
+    assert_eq!(outcome.speaker_count, 2);
+    assert_eq!(outcome.platform_names.len(), 2, "both voices named");
+    // Priya is a calendar invitee; Sam is not, so Sam gets a platform id.
+    outcome.hints.assignments = platform_assignments(&outcome.platform_names, |name| {
+        if name == "Priya Raman" {
+            "h-priya".to_owned()
+        } else {
+            anlg_transcript::platform_human_id(name)
+        }
+    });
+    let hints = apply_speaker_pass_hints(&[], &outcome.hints);
+    let segments = render(
+        &scene.words,
+        &hints,
+        Some("Alex"),
+        &[("h-priya", "Priya Raman")],
+    );
+    let labels = labels_by_word(&segments);
+    let remote: Vec<&TruthWord> = scene.words.iter().filter(|w| w.channel == 1).collect();
+    let correct = remote
+        .iter()
+        .filter(|w| {
+            labels.get(&w.id).map(|(label, _)| label.as_str()) == Some(names[w.speaker.as_str()])
+        })
+        .count();
+    let share = correct as f64 / remote.len() as f64;
+    println!("platform-named remote words correct: {:.1}%", share * 100.0);
+    assert!(share >= 0.9, "named correctly {share}");
+    for segment in segments
+        .iter()
+        .filter(|s| s.key.channel == anlg_transcript::ChannelProfile::RemoteParty)
+    {
+        assert_eq!(segment.attribution.source, AttributionSource::PlatformTag);
+        assert!(!segment.attribution.uncertain || segment.words.len() <= 3);
+    }
+    assert!(
+        segments
+            .iter()
+            .filter(|s| s.key.channel == anlg_transcript::ChannelProfile::DirectMic)
+            .all(|s| s.speaker_label == "Alex")
+    );
+
+    // Renaming the platform-named voice by hand wins and propagates.
+    let sam_word = remote
+        .iter()
+        .find(|w| w.speaker == THIRD_VOICE)
+        .expect("Sam spoke");
+    let sam_index = outcome
+        .hints
+        .words
+        .iter()
+        .find(|w| w.word_id == sam_word.id)
+        .and_then(|w| w.speaker_index)
+        .expect("Sam's word is diarized");
+    let mut renamed = hints.clone();
+    renamed.push(StoredSpeakerHint {
+        id: "manual".into(),
+        word_id: Some(sam_word.id.clone()),
+        hint_type: "user_speaker_assignment".into(),
+        value: serde_json::Value::String(
+            serde_json::json!({"human_id": "h-samuel", "scope": "speaker", "channel": 1, "speaker_index": sam_index})
+                .to_string(),
+        ),
+    });
+    let segments = render(
+        &scene.words,
+        &renamed,
+        Some("Alex"),
+        &[("h-priya", "Priya Raman"), ("h-samuel", "Samuel L.")],
+    );
+    let labels = labels_by_word(&segments);
+    let sam_words: Vec<_> = remote.iter().filter(|w| w.speaker == THIRD_VOICE).collect();
+    let renamed_share = sam_words
+        .iter()
+        .filter(|w| labels.get(&w.id).map(|(l, _)| l.as_str()) == Some("Samuel L."))
+        .count() as f64
+        / sam_words.len() as f64;
+    assert!(renamed_share >= 0.9, "rename propagated {renamed_share}");
+    assert!(!segments.iter().any(|s| s.speaker_label == "Sam Lee"));
+}
+
+#[test]
+#[ignore = "needs macOS `say`; run explicitly"]
+fn online_one_to_one_is_named_by_platform_tags() {
+    let mut scene = Scene::new(2);
+    for turn in 0..4 {
+        scene.say(0, 0, USER_VOICE, USER_LINES[turn]);
+        scene.say(1, 1, OTHER_VOICE, OTHER_LINES[turn]);
+    }
+    let path = scene.write("online_platform_1to1");
+    let names: HashMap<&str, &str> = HashMap::from([(OTHER_VOICE, "Priya Raman")]);
+    let spans = platform_spans_for(&scene.words, &names);
+    let mut outcome = pass_with_spans(&path, &scene.words, SpeakerPassMode::Online, None, &spans);
+    println!("1:1 platform names: {:?}", outcome.platform_names);
+    assert_eq!(outcome.platform_names.len(), 1);
+    assert_eq!(outcome.platform_names[0].speaker_index, None);
+    outcome.hints.assignments =
+        platform_assignments(&outcome.platform_names, anlg_transcript::platform_human_id);
+    let hints = apply_speaker_pass_hints(&[], &outcome.hints);
+    let segments = render(&scene.words, &hints, Some("Alex"), &[]);
+    for segment in &segments {
+        match segment.key.channel {
+            anlg_transcript::ChannelProfile::RemoteParty => {
+                assert_eq!(segment.speaker_label, "Priya Raman");
+                assert_eq!(segment.attribution.source, AttributionSource::PlatformTag);
+            }
+            _ => assert_eq!(segment.speaker_label, "Alex"),
+        }
+    }
 }

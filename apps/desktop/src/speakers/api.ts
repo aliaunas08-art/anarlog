@@ -15,6 +15,7 @@ export type SpeakerAttributionResult = {
   selfMatched: boolean;
   uncertainWords: number;
   skippedReason: string | null;
+  platformNamedSpeakers: number;
 };
 
 export type VoiceEnrollmentStatus = {
@@ -59,6 +60,7 @@ export async function attributeSessionSpeakers(input: {
     selfMatched: raw.self_matched,
     uncertainWords: raw.uncertain_words,
     skippedReason: raw.skipped_reason,
+    platformNamedSpeakers: raw.platform_named_speakers ?? 0,
   };
 }
 

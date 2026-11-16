@@ -351,3 +351,51 @@ mod tests {
         );
     }
 }
+
+/// Starts recording who the meeting platform marks as speaking. Any earlier
+/// unfinished timeline is discarded.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn start_active_speaker_tracking<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), String> {
+    use crate::active_speakers::{ActiveSpeakerTrackerState, SAMPLE_INTERVAL, now_ms};
+
+    let tracker = app.state::<ActiveSpeakerTrackerState>().inner().clone();
+    let (generation, stop) = tracker.start();
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        while !stop.load(std::sync::atomic::Ordering::SeqCst) {
+            tokio::time::sleep(SAMPLE_INTERVAL).await;
+            let Some(followed) = tracker.followed_app(generation) else {
+                break;
+            };
+            let filter: Vec<String> = followed.into_iter().collect();
+            let started = now_ms();
+            let Ok(samples) = handle
+                .state::<AxWorker>()
+                .run(move || anlg_detect::sample_meeting_active_speakers(&filter))
+                .await
+            else {
+                break;
+            };
+            // The tree reflects the moment it was walked; a slow walk is
+            // stamped at its midpoint.
+            let at = started + (now_ms() - started) / 2;
+            tracker.observe(generation, at, &samples);
+        }
+    });
+    Ok(())
+}
+
+/// Stops tracking and returns the timeline, or nothing if tracking was not
+/// running.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn stop_active_speaker_tracking<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Option<crate::active_speakers::ActiveSpeakerTimeline>, String> {
+    Ok(app
+        .state::<crate::active_speakers::ActiveSpeakerTrackerState>()
+        .stop())
+}

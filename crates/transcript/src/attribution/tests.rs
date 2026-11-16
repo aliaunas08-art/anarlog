@@ -163,9 +163,12 @@ fn pass_hints_carry_source_confidence_and_uncertainty() {
         ],
         assignments: vec![SpeakerPassAssignment {
             channel: 2,
-            speaker_index: 0,
+            speaker_index: Some(0),
             human_id: "me".into(),
             confidence: 0.91,
+            source: AttributionSource::Voiceprint,
+            name: None,
+            uncertain: false,
         }],
     };
     let hints = apply_speaker_pass_hints(&[], &pass);
@@ -344,4 +347,119 @@ fn letters_extend_past_z() {
     assert_eq!(letters(25), "Z");
     assert_eq!(letters(26), "AA");
     assert_eq!(letters(27), "AB");
+}
+
+fn platform_assignment(
+    speaker_index: Option<i32>,
+    human_id: &str,
+    name: &str,
+    uncertain: bool,
+) -> SpeakerPassAssignment {
+    SpeakerPassAssignment {
+        channel: 1,
+        speaker_index,
+        human_id: human_id.into(),
+        confidence: 0.85,
+        source: AttributionSource::PlatformTag,
+        name: Some(name.into()),
+        uncertain,
+    }
+}
+
+#[test]
+fn platform_tag_names_a_single_remote_voice_and_a_rename_overrides_it() {
+    let words = vec![
+        word("m", 0.0, 0.0),
+        word("a", 1000.0, 1.0),
+        word("b", 1300.0, 1.0),
+    ];
+    let mut hints = apply_speaker_pass_hints(
+        &[],
+        &SpeakerPassHints {
+            words: vec![
+                pass_word("a", 1, None, false),
+                pass_word("b", 1, None, false),
+            ],
+            assignments: vec![platform_assignment(
+                None,
+                &platform_human_id("Sam Lee"),
+                "Sam Lee",
+                false,
+            )],
+        },
+    );
+    let stored = parse_value(&hints[0].value).unwrap();
+    assert_eq!(stored["source"], "platform_tag");
+    assert_eq!(stored["speaker_index"], Value::Null);
+    assert_eq!(stored["name"], "Sam Lee");
+
+    let segments = render(&words, &hints, &[]);
+    let labels: Vec<_> = segments
+        .iter()
+        .map(|s| (s.speaker_label.as_str(), s.attribution.source))
+        .collect();
+    assert_eq!(
+        labels,
+        vec![
+            ("Me", AttributionSource::Channel),
+            ("Sam Lee", AttributionSource::PlatformTag),
+        ]
+    );
+
+    hints.push(hint(
+        "a",
+        "user_speaker_assignment",
+        Value::String(
+            json!({"human_id": "dana", "scope": "speaker", "channel": 1, "speaker_index": null})
+                .to_string(),
+        ),
+    ));
+    let renamed = render(&words, &hints, &[("dana", "Dana")]);
+    assert_eq!(renamed[1].speaker_label, "Dana");
+    assert_eq!(renamed[1].attribution.source, AttributionSource::Manual);
+}
+
+#[test]
+fn platform_tags_name_diarized_clusters_and_flag_a_shared_device() {
+    let words = vec![
+        word("a", 0.0, 1.0),
+        word("b", 1000.0, 1.0),
+        word("c", 2000.0, 1.0),
+    ];
+    let hints = apply_speaker_pass_hints(
+        &[],
+        &SpeakerPassHints {
+            words: vec![
+                pass_word("a", 1, Some(0), false),
+                pass_word("b", 1, Some(1), false),
+                pass_word("c", 1, Some(2), false),
+            ],
+            assignments: vec![
+                // A calendar invitee the platform name matched.
+                platform_assignment(Some(0), "h-sam", "Sam Lee", false),
+                // Two voices behind one platform name: a shared device.
+                platform_assignment(Some(1), &platform_human_id("Room 4"), "Room 4", true),
+                platform_assignment(Some(2), &platform_human_id("Room 4"), "Room 4", true),
+            ],
+        },
+    );
+    let segments = render(&words, &hints, &[("h-sam", "Sam Lee")]);
+    let labels: Vec<_> = segments
+        .iter()
+        .map(|s| {
+            (
+                s.speaker_label.as_str(),
+                s.attribution.source,
+                s.attribution.uncertain,
+            )
+        })
+        .collect();
+    assert_eq!(
+        labels,
+        vec![
+            ("Sam Lee", AttributionSource::PlatformTag, false),
+            // Adjacent turns of one person render as one segment.
+            ("Room 4", AttributionSource::PlatformTag, true),
+        ]
+    );
 }

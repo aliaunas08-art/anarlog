@@ -559,7 +559,8 @@ pub fn finalize_speaker_labels(
             match human_name(humans, human_id) {
                 Some(name) => name.to_owned(),
                 None if Some(human_id) == self_human_id => self_label.clone(),
-                None => anonymous(segment),
+                None => crate::label::platform_display_name(human_id)
+                    .unwrap_or_else(|| anonymous(segment)),
             }
         } else if let Some(provisional) = &segment.provisional_speaker {
             provisional.name.clone()
@@ -678,9 +679,34 @@ pub struct SpeakerPassWord {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpeakerPassAssignment {
     pub channel: i32,
-    pub speaker_index: i32,
+    /// Diarized cluster; `None` names the whole channel (one remote voice).
+    pub speaker_index: Option<i32>,
     pub human_id: String,
     pub confidence: f32,
+    /// [`AttributionSource::Voiceprint`] or [`AttributionSource::PlatformTag`].
+    pub source: AttributionSource,
+    /// Display name the evidence carried (platform tags), kept with the hint
+    /// so the label survives when no person record matches `human_id`.
+    pub name: Option<String>,
+    pub uncertain: bool,
+}
+
+/// Prefix of a synthetic person id for a name read from a meeting platform
+/// that matched no known person. Renderers show the remainder as the name.
+pub const PLATFORM_HUMAN_ID_PREFIX: &str = "platform:";
+
+pub fn platform_human_id(name: &str) -> String {
+    format!("{PLATFORM_HUMAN_ID_PREFIX}{}", name.trim())
+}
+
+fn source_tag(source: AttributionSource) -> &'static str {
+    match source {
+        AttributionSource::PlatformTag => "platform_tag",
+        AttributionSource::Diarization => "diarization",
+        AttributionSource::Channel => "channel",
+        AttributionSource::Manual => "manual",
+        AttributionSource::Voiceprint => "voiceprint",
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -778,23 +804,31 @@ pub fn apply_speaker_pass_hints(
     }
 
     for assignment in &pass.assignments {
-        let speaker_index = assignment.speaker_index + offset(assignment.channel);
+        let speaker_index = assignment
+            .speaker_index
+            .map(|index| index + offset(assignment.channel));
         let Some(anchor) = pass.words.iter().find(|word| {
             word.channel == assignment.channel
-                && word.speaker_index.map(|index| index + offset(word.channel))
-                    == Some(speaker_index)
+                && word.speaker_index.map(|index| index + offset(word.channel)) == speaker_index
         }) else {
             continue;
         };
-        let value = serde_json::json!({
+        let mut value = serde_json::json!({
             "human_id": assignment.human_id,
             "scope": "speaker",
             "channel": assignment.channel,
+            // Explicit null: the assignment names the whole channel.
             "speaker_index": speaker_index,
-            "source": "voiceprint",
+            "source": source_tag(assignment.source),
             "confidence": round3(assignment.confidence),
             "writer": SPEAKER_PASS_WRITER,
         });
+        if assignment.uncertain {
+            value["uncertain"] = Value::Bool(true);
+        }
+        if let Some(name) = assignment.name.as_ref() {
+            value["name"] = Value::String(name.clone());
+        }
         next.push(StoredSpeakerHint {
             id: format!("{}:automatic_speaker_assignment", anchor.word_id),
             word_id: Some(anchor.word_id.clone()),

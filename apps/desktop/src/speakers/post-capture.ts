@@ -55,6 +55,7 @@ export async function runPostCaptureSpeakerPass({
       mode,
       speakerCount: result?.speakerCount,
       skippedReason: result?.skippedReason,
+      platformNamed: result?.platformNamedSpeakers,
     });
     return result;
   } catch (error) {

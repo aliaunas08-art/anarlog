@@ -14,6 +14,7 @@ const result = {
   selfMatched: false,
   uncertainWords: 0,
   skippedReason: null,
+  platformNamedSpeakers: 0,
 };
 
 describe("resolveSpeakerAttributionMode", () => {

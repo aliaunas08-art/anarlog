@@ -78,6 +78,21 @@ impl SegmentKey {
     }
 }
 
+/// A person id with no known name. A name read from a meeting platform is
+/// carried in its synthetic id, so show that name rather than the id.
+fn display_human_id(human_id: &str) -> String {
+    platform_display_name(human_id).unwrap_or_else(|| human_id.to_string())
+}
+
+/// The name inside a synthetic platform person id (`platform:Sam Lee`).
+pub(crate) fn platform_display_name(human_id: &str) -> Option<String> {
+    human_id
+        .strip_prefix(crate::PLATFORM_HUMAN_ID_PREFIX)
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+}
+
 pub fn render_speaker_label(
     key: &SegmentKey,
     ctx: Option<&SpeakerLabelContext>,
@@ -88,7 +103,7 @@ pub fn render_speaker_label(
             if let Some(name) = ctx.human_name_by_id.get(human_id) {
                 return name.clone();
             }
-            return human_id.clone();
+            return display_human_id(human_id);
         }
 
         if key.channel == ChannelProfile::DirectMic
@@ -100,7 +115,7 @@ pub fn render_speaker_label(
             return "Me".to_string();
         }
     } else if let Some(human_id) = key.speaker_human_id.as_ref() {
-        return human_id.clone();
+        return display_human_id(human_id);
     }
 
     if let Some(labeler) = labeler.as_mut() {

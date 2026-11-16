@@ -511,7 +511,11 @@ voiceEnrollmentLevelEvent: "plugin:transcription:voice-enrollment-level-event"
 /** user-defined types **/
 
 export type AttributionSource = "channel" | "platform_tag" | "diarization" | "voiceprint" | "manual"
-export type AttributionSummary = { diarized_channels: number[]; speaker_count: number; self_match_score: number | null; self_matched: boolean; uncertain_words: number; skipped_reason: string | null }
+export type AttributionSummary = { diarized_channels: number[]; speaker_count: number; self_match_score: number | null; self_matched: boolean; uncertain_words: number; skipped_reason: string | null; 
+/**
+ * Remote voices named from the meeting platform's active-speaker tags.
+ */
+platform_named_speakers?: number }
 export type BatchAlternatives = { transcript: string; confidence: number; words?: BatchWord[] }
 export type BatchChannel = { alternatives: BatchAlternatives[] }
 export type BatchErrorCode = "unknown" | "timed_out" | "audio_metadata_join_failed" | "audio_metadata_read_failed" | "batch_capability_unsupported" | "direct_batch_unsupported" | "progressive_batch_unsupported" | "direct_request_failed" | "progressive_actor_spawn_failed" | "progressive_start_cancelled" | "progressive_stopped_without_completion_signal" | "progressive_finished_without_status" | "progressive_start_failed" | "progressive_stream_error" | "progressive_stream_timeout"

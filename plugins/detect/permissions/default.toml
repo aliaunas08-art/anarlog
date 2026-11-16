@@ -15,4 +15,6 @@ permissions = [
     "allow-get-preferred-languages",
     "allow-get-current-locale-identifier",
     "allow-set-mic-active-threshold",
+    "allow-start-active-speaker-tracking",
+    "allow-stop-active-speaker-tracking",
 ]

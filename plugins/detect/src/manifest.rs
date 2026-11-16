@@ -17,4 +17,6 @@ pub(crate) const COMMANDS: &[&str] = &[
     "get_preferred_languages",
     "get_current_locale_identifier",
     "set_mic_active_threshold",
+    "start_active_speaker_tracking",
+    "stop_active_speaker_tracking",
 ];

@@ -21,7 +21,9 @@ use anlg_pyannote_local::{
     AudioSource, Diarization, DiarizationConfig, DiarizeRequest, Diarizer, SpeakerBounds,
     segmentation::{Segmenter, WINDOW_SAMPLES, frame_start_sample, frames_for_samples},
 };
-use anlg_transcript::{SpeakerPassAssignment, SpeakerPassHints, SpeakerPassWord};
+use anlg_transcript::{
+    AttributionSource, SpeakerPassAssignment, SpeakerPassHints, SpeakerPassWord,
+};
 use anlg_voiceprint::cosine_similarity;
 
 use super::diarize::{ChannelAudio, MixedAudioSource, SAMPLE_RATE};
@@ -90,7 +92,33 @@ pub struct SpeakerPassRequest<'a> {
     pub words: &'a [SpeakerPassInputWord],
     pub mode: SpeakerPassMode,
     pub self_voiceprint: Option<&'a SelfVoiceprint>,
+    /// Who the meeting platform marked as speaking, on the transcript's
+    /// clock. Empty when nothing was recorded.
+    pub platform_spans: &'a [PlatformSpeakerSpan],
     pub is_cancelled: &'a dyn Fn() -> bool,
+}
+
+/// A stretch during which the meeting platform marked remote participants
+/// as speaking. Times are milliseconds on the transcript's clock; `names`
+/// never includes the user.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlatformSpeakerSpan {
+    pub start_ms: f64,
+    pub end_ms: f64,
+    pub names: Vec<String>,
+}
+
+/// A remote voice named from platform tags.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlatformNaming {
+    /// Diarized cluster on the system channel; `None` is the whole channel.
+    pub speaker_index: Option<i32>,
+    pub name: String,
+    /// Share of the voice's tagged words that carried this name.
+    pub confidence: f32,
+    /// The same name won more than one voice: a shared device or room.
+    pub uncertain: bool,
+    pub tagged_words: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -108,6 +136,10 @@ pub struct SpeakerPassOutcome {
     pub cluster_self_scores: Vec<f32>,
     pub uncertain_words: u32,
     pub skipped_reason: Option<String>,
+    /// Remote voices the platform's active-speaker tags named.
+    pub platform_names: Vec<PlatformNaming>,
+    /// System-channel words with exactly one platform-tagged speaker.
+    pub platform_tagged_words: u32,
 }
 
 pub fn run_speaker_pass(request: &SpeakerPassRequest<'_>) -> Result<SpeakerPassOutcome, String> {
@@ -307,9 +339,22 @@ fn online_pass(
                 uncertain: false,
             })
             .collect();
+        let clusters = vec![None; system_words.len()];
+        let (names, tagged) =
+            name_voices_from_platform(&system_words, &clusters, request.platform_spans);
+        outcome.platform_names = names;
+        outcome.platform_tagged_words = tagged;
         return Ok(outcome);
     }
     let labels = label_words(&system_words, &diarization);
+    let clusters: Vec<Option<i32>> = labels
+        .iter()
+        .map(|label| label.speaker.map(|speaker| speaker as i32))
+        .collect();
+    let (names, tagged) =
+        name_voices_from_platform(&system_words, &clusters, request.platform_spans);
+    outcome.platform_names = names;
+    outcome.platform_tagged_words = tagged;
     outcome.uncertain_words = labels.iter().filter(|label| label.uncertain).count() as u32;
     outcome.hints.words = system_words
         .iter()
@@ -402,12 +447,169 @@ fn in_person_pass(
         let index = diarization.speakers[cluster].index as i32;
         outcome.hints.assignments.push(SpeakerPassAssignment {
             channel: 2,
-            speaker_index: index,
+            speaker_index: Some(index),
             human_id: print.human_id.clone(),
             confidence: scores[cluster],
+            source: AttributionSource::Voiceprint,
+            name: None,
+            uncertain: false,
         });
     }
     Ok(outcome)
+}
+
+/// The platform's indicator trails the voice it reflects (render delay plus
+/// the sampling period), so a word is looked up slightly into the future.
+const PLATFORM_LOOKAHEAD_MS: f64 = 1_500.0;
+const PLATFORM_LOOKBEHIND_MS: f64 = 250.0;
+/// A voice needs this many tagged words, and this share of its words
+/// tagged, before any name is considered.
+const PLATFORM_MIN_TAGGED_WORDS: usize = 5;
+const PLATFORM_MIN_TAGGED_SHARE: f32 = 0.3;
+/// The winning name must carry this share of the voice's tagged words.
+const PLATFORM_MIN_NAME_SHARE: f32 = 0.7;
+
+/// The one remote name the platform showed around a word, if exactly one.
+pub fn platform_tag_for_word(
+    word: &SpeakerPassInputWord,
+    spans: &[PlatformSpeakerSpan],
+) -> Option<String> {
+    let mid = (word.start_ms + word.end_ms) / 2.0;
+    let (from, to) = (mid - PLATFORM_LOOKBEHIND_MS, mid + PLATFORM_LOOKAHEAD_MS);
+    let first = spans.partition_point(|span| span.end_ms <= from);
+    let mut found: Option<&str> = None;
+    for span in spans[first..].iter().take_while(|span| span.start_ms < to) {
+        if span.end_ms <= from {
+            continue;
+        }
+        for name in &span.names {
+            match found {
+                None => found = Some(name),
+                Some(existing) if existing.eq_ignore_ascii_case(name) => {}
+                Some(_) => return None,
+            }
+        }
+    }
+    found.map(str::to_owned)
+}
+
+/// Names voices on the system channel from platform active-speaker tags.
+/// `clusters[i]` is the diarized voice of `words[i]` (`None` = the single
+/// remote voice). A voice is named only when enough of its words were
+/// tagged and one name clearly dominates; a name that dominates several
+/// voices names them all but flags them uncertain (one device, several
+/// people). Returns the namings and how many words carried a tag.
+pub fn name_voices_from_platform(
+    words: &[&SpeakerPassInputWord],
+    clusters: &[Option<i32>],
+    spans: &[PlatformSpeakerSpan],
+) -> (Vec<PlatformNaming>, u32) {
+    if spans.is_empty() {
+        return (Vec::new(), 0);
+    }
+    let mut spans = spans.to_vec();
+    spans.sort_by(|a, b| a.start_ms.total_cmp(&b.start_ms));
+
+    struct Votes {
+        total: usize,
+        tagged: usize,
+        names: Vec<(String, usize)>,
+    }
+    let mut voices: Vec<(Option<i32>, Votes)> = Vec::new();
+    let mut tagged_words = 0u32;
+    for (word, cluster) in words.iter().zip(clusters) {
+        let position = match voices.iter().position(|(key, _)| key == cluster) {
+            Some(position) => position,
+            None => {
+                voices.push((
+                    *cluster,
+                    Votes {
+                        total: 0,
+                        tagged: 0,
+                        names: Vec::new(),
+                    },
+                ));
+                voices.len() - 1
+            }
+        };
+        let votes = &mut voices[position].1;
+        votes.total += 1;
+        let Some(name) = platform_tag_for_word(word, &spans) else {
+            continue;
+        };
+        tagged_words += 1;
+        votes.tagged += 1;
+        match votes
+            .names
+            .iter_mut()
+            .find(|(existing, _)| existing.eq_ignore_ascii_case(&name))
+        {
+            Some((_, count)) => *count += 1,
+            None => votes.names.push((name, 1)),
+        }
+    }
+
+    let mut namings: Vec<PlatformNaming> = voices
+        .into_iter()
+        .filter_map(|(speaker_index, votes)| {
+            if votes.tagged < PLATFORM_MIN_TAGGED_WORDS
+                || (votes.tagged as f32) < PLATFORM_MIN_TAGGED_SHARE * votes.total as f32
+            {
+                return None;
+            }
+            let (name, count) = votes
+                .names
+                .into_iter()
+                .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(&a.0)))?;
+            let share = count as f32 / votes.tagged as f32;
+            (share >= PLATFORM_MIN_NAME_SHARE).then_some(PlatformNaming {
+                speaker_index,
+                name,
+                confidence: share,
+                uncertain: false,
+                tagged_words: votes.tagged as u32,
+            })
+        })
+        .collect();
+    let shared: Vec<String> = namings
+        .iter()
+        .filter(|naming| {
+            namings
+                .iter()
+                .filter(|other| other.name.eq_ignore_ascii_case(&naming.name))
+                .count()
+                >= 2
+        })
+        .map(|naming| naming.name.clone())
+        .collect();
+    for naming in &mut namings {
+        if shared.contains(&naming.name) {
+            naming.uncertain = true;
+        }
+    }
+    namings.sort_by_key(|naming| naming.speaker_index);
+    (namings, tagged_words)
+}
+
+/// Turns platform namings into speaker-pass assignments on the system
+/// channel. `resolve` maps a platform name to a person id (a matching
+/// calendar invitee, else a synthetic `platform:` id).
+pub fn platform_assignments(
+    names: &[PlatformNaming],
+    resolve: impl Fn(&str) -> String,
+) -> Vec<SpeakerPassAssignment> {
+    names
+        .iter()
+        .map(|naming| SpeakerPassAssignment {
+            channel: 1,
+            speaker_index: naming.speaker_index,
+            human_id: resolve(&naming.name),
+            confidence: naming.confidence,
+            source: AttributionSource::PlatformTag,
+            name: Some(naming.name.clone()),
+            uncertain: naming.uncertain,
+        })
+        .collect()
 }
 
 /// Index of the cluster that is unambiguously the enrolled user, if any.
@@ -721,6 +923,116 @@ mod tests {
             end,
             speaker,
         }
+    }
+
+    fn span(start: f64, end: f64, names: &[&str]) -> PlatformSpeakerSpan {
+        PlatformSpeakerSpan {
+            start_ms: start,
+            end_ms: end,
+            names: names.iter().map(|name| name.to_string()).collect(),
+        }
+    }
+
+    /// Words every 400 ms from `from` to `to` (ms).
+    fn words_between(from: f64, to: f64) -> Vec<SpeakerPassInputWord> {
+        let mut words = Vec::new();
+        let mut at = from;
+        while at < to {
+            words.push(word(at, at + 300.0));
+            at += 400.0;
+        }
+        words
+    }
+
+    #[test]
+    fn platform_tags_name_each_diarized_voice() {
+        // Sam talks 0-10 s, Priya 10-20 s; the indicator trails by ~1 s.
+        let mut words = words_between(0.0, 10_000.0);
+        let sam = words.len();
+        words.extend(words_between(10_000.0, 20_000.0));
+        let refs: Vec<&SpeakerPassInputWord> = words.iter().collect();
+        let clusters: Vec<Option<i32>> = (0..words.len())
+            .map(|i| Some(if i < sam { 0 } else { 1 }))
+            .collect();
+        let spans = vec![
+            span(1_000.0, 11_000.0, &["Sam Lee"]),
+            span(11_000.0, 21_000.0, &["Priya Raman"]),
+        ];
+        let (names, tagged) = name_voices_from_platform(&refs, &clusters, &spans);
+        // Words at the hand-over see both names in the look-ahead and stay untagged.
+        assert!(tagged as usize >= words.len() - 6, "tagged {tagged}");
+        assert_eq!(
+            names
+                .iter()
+                .map(|n| (n.speaker_index, n.name.as_str(), n.uncertain))
+                .collect::<Vec<_>>(),
+            vec![(Some(0), "Sam Lee", false), (Some(1), "Priya Raman", false)]
+        );
+        assert!(names.iter().all(|n| n.confidence >= 0.9));
+    }
+
+    #[test]
+    fn platform_tags_need_a_clear_majority_and_enough_coverage() {
+        let words = words_between(0.0, 10_000.0);
+        let refs: Vec<&SpeakerPassInputWord> = words.iter().collect();
+        let clusters = vec![None; words.len()];
+        // Two names alternate on one voice: no name.
+        let alternating: Vec<_> = (0..10)
+            .map(|i| {
+                let name = if i % 2 == 0 { "Sam" } else { "Priya" };
+                span(i as f64 * 1_000.0, (i + 1) as f64 * 1_000.0, &[name])
+            })
+            .collect();
+        assert!(
+            name_voices_from_platform(&refs, &clusters, &alternating)
+                .0
+                .is_empty()
+        );
+        // A single tag over a long voice is not enough evidence.
+        let sparse = vec![span(4_000.0, 4_600.0, &["Sam"])];
+        assert!(
+            name_voices_from_platform(&refs, &clusters, &sparse)
+                .0
+                .is_empty()
+        );
+        // Two people marked speaking at once tag nothing.
+        let overlap = vec![span(0.0, 11_000.0, &["Sam", "Priya"])];
+        let (names, tagged) = name_voices_from_platform(&refs, &clusters, &overlap);
+        assert!(names.is_empty());
+        assert_eq!(tagged, 0);
+        // No timeline at all.
+        assert!(
+            name_voices_from_platform(&refs, &clusters, &[])
+                .0
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn one_name_on_two_voices_is_a_shared_device() {
+        let mut words = words_between(0.0, 10_000.0);
+        let first = words.len();
+        words.extend(words_between(10_000.0, 20_000.0));
+        let refs: Vec<&SpeakerPassInputWord> = words.iter().collect();
+        let clusters: Vec<Option<i32>> = (0..words.len())
+            .map(|i| Some(if i < first { 0 } else { 1 }))
+            .collect();
+        let spans = vec![span(0.0, 21_000.0, &["Boardroom"])];
+        let (names, _) = name_voices_from_platform(&refs, &clusters, &spans);
+        assert_eq!(names.len(), 2);
+        assert!(names.iter().all(|n| n.uncertain && n.name == "Boardroom"));
+    }
+
+    #[test]
+    fn a_single_remote_voice_takes_the_platform_name() {
+        let words = words_between(0.0, 8_000.0);
+        let refs: Vec<&SpeakerPassInputWord> = words.iter().collect();
+        let clusters = vec![None; words.len()];
+        let spans = vec![span(500.0, 9_000.0, &["Sam Lee"])];
+        let (names, _) = name_voices_from_platform(&refs, &clusters, &spans);
+        assert_eq!(names.len(), 1);
+        assert_eq!(names[0].speaker_index, None);
+        assert_eq!(names[0].name, "Sam Lee");
     }
 
     #[test]

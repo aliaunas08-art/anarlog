@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
 
+mod active_speakers;
 mod ax_worker;
 mod commands;
 mod dnd;
@@ -27,6 +28,7 @@ pub mod policy;
 #[cfg(not(feature = "test-support"))]
 mod policy;
 
+pub use active_speakers::{ActiveSpeakerInterval, ActiveSpeakerTimeline};
 pub use dnd::*;
 pub use error::*;
 pub use events::*;
@@ -78,6 +80,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_preferred_languages::<tauri::Wry>,
             commands::get_current_locale_identifier::<tauri::Wry>,
             commands::set_mic_active_threshold::<tauri::Wry>,
+            commands::start_active_speaker_tracking::<tauri::Wry>,
+            commands::stop_active_speaker_tracking::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![DetectEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -95,6 +99,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             app.manage(ProcessorState::default());
             app.manage(ScreenShareSamplerState::default());
             app.manage(ax_worker::AxWorker::default());
+            app.manage(active_speakers::ActiveSpeakerTrackerState::default());
 
             let app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {

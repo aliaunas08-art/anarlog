@@ -18,10 +18,10 @@ mod types;
 mod words;
 
 pub use attribution::{
-    AttributionIndex, AttributionSource, RenderSpeakerHint, SPEAKER_PASS_WRITER,
-    SegmentAttribution, SpeakerPassAssignment, SpeakerPassHints, SpeakerPassWord,
-    UNCERTAIN_SEGMENT_WORD_SHARE, WordAttribution, apply_speaker_pass_hints,
-    finalize_speaker_labels, manually_assigned_word_ids, segment_speaker_id,
+    AttributionIndex, AttributionSource, PLATFORM_HUMAN_ID_PREFIX, RenderSpeakerHint,
+    SPEAKER_PASS_WRITER, SegmentAttribution, SpeakerPassAssignment, SpeakerPassHints,
+    SpeakerPassWord, UNCERTAIN_SEGMENT_WORD_SHARE, WordAttribution, apply_speaker_pass_hints,
+    finalize_speaker_labels, manually_assigned_word_ids, platform_human_id, segment_speaker_id,
 };
 pub use batch_refine::{
     BatchRefinementOutcome, BatchRefinementRequest, BatchRefinementSource,

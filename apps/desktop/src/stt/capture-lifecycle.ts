@@ -68,6 +68,7 @@ import {
   runPostCaptureSpeakerPass,
 } from "~/speakers/post-capture";
 import { maybeShowSpeakerSetupPrompt } from "~/speakers/setup-prompt";
+import { waitForSpeakerContextStop } from "~/stt/speaker-context-capture";
 import { getLivePausedMs } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import type {
@@ -487,13 +488,9 @@ export function useCaptureLifecycle(sessionId: string) {
           .filter(
             (capture) => chunk.capture_started_at >= capture.startedAt - 5_000,
           )
-          .reduce<InheritedCapture | undefined>(
-            (latest, capture) =>
-              !latest || capture.startedAt > latest.startedAt
-                ? capture
-                : latest,
-            undefined,
-          );
+          .reduce<
+            InheritedCapture | undefined
+          >((latest, capture) => (!latest || capture.startedAt > latest.startedAt ? capture : latest), undefined);
       };
       const listRecoveryChunks = async () => {
         const result =
@@ -1180,6 +1177,9 @@ export function useCaptureLifecycle(sessionId: string) {
         // Speaker pass runs before the summary so minutes and action owners
         // use resolved names. It never blocks saving or the summary.
         if (hasTranscriptEvidence && transcriptIsComplete) {
+          // The platform's active-speaker timeline is saved as the capture
+          // stops; let that land before the pass reads it.
+          await waitForSpeakerContextStop(sessionId);
           await runPostCaptureSpeakerPass({
             sessionId,
             transcriptId,
