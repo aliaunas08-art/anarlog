@@ -50,9 +50,10 @@ impl CatalogStore {
         &self,
         pool: &SqlitePool,
         sql: &str,
+        authorizer: Option<&std::sync::Arc<anlg_db_core::WebviewSqlAuthorizer>>,
     ) -> Result<HashSet<DependencyTarget>, DependencyResolutionError> {
         let catalog = self.catalog(pool, false).await?;
-        catalog.resolve_query(pool, sql).await
+        catalog.resolve_query(pool, sql, authorizer).await
     }
 
     pub(crate) async fn canonicalize_raw_table_sequences(
@@ -245,11 +246,28 @@ impl SchemaCatalog {
         &self,
         pool: &SqlitePool,
         sql: &str,
+        authorizer: Option<&std::sync::Arc<anlg_db_core::WebviewSqlAuthorizer>>,
     ) -> Result<HashSet<DependencyTarget>, DependencyResolutionError> {
         let alias_map = super::explain::build_alias_map(sql, &self.query_objects);
-        let eqp_rows = sqlx::query(sqlx::AssertSqlSafe(format!("EXPLAIN QUERY PLAN {sql}")))
-            .fetch_all(pool)
-            .await?;
+        let explain = format!("EXPLAIN QUERY PLAN {sql}");
+        // Webview SQL is interpolated here, so it must be prepared under the
+        // webview authorizer: a trailing `; ATTACH ...` would otherwise run.
+        let eqp_rows = match authorizer {
+            Some(authorizer) => {
+                let mut connection =
+                    anlg_db_core::AuthorizedConnection::acquire(pool, authorizer).await?;
+                let rows = sqlx::query(sqlx::AssertSqlSafe(explain))
+                    .fetch_all(connection.connection())
+                    .await;
+                connection.release().await?;
+                rows?
+            }
+            None => {
+                sqlx::query(sqlx::AssertSqlSafe(explain))
+                    .fetch_all(pool)
+                    .await?
+            }
+        };
 
         let mut targets = HashSet::new();
 

@@ -5,6 +5,8 @@ mod query;
 
 use std::sync::Arc;
 
+use anlg_db_core::{AuthorizedConnection, WebviewSqlAuthorizer};
+
 pub use error::{Error, Result};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -42,14 +44,32 @@ pub struct TransactionStatement {
     pub expected_rows_affected: Option<u64>,
 }
 
+/// Runs raw SQL. An executor built with [`DbExecutor::for_webview`] runs every
+/// statement under the webview SQL authorizer (ASPC A2.4); one built with
+/// [`DbExecutor::new`] is for trusted internal callers.
 #[derive(Clone)]
 pub struct DbExecutor {
     db: Arc<anlg_db_core::Db>,
+    authorizer: Option<Arc<WebviewSqlAuthorizer>>,
 }
 
 impl DbExecutor {
     pub fn new(db: Arc<anlg_db_core::Db>) -> Self {
-        Self { db }
+        Self {
+            db,
+            authorizer: None,
+        }
+    }
+
+    pub fn for_webview(db: Arc<anlg_db_core::Db>, authorizer: Arc<WebviewSqlAuthorizer>) -> Self {
+        Self {
+            db,
+            authorizer: Some(authorizer),
+        }
+    }
+
+    pub fn authorizer(&self) -> Option<&Arc<WebviewSqlAuthorizer>> {
+        self.authorizer.as_ref()
     }
 
     pub async fn execute(
@@ -57,9 +77,15 @@ impl DbExecutor {
         sql: String,
         params: Vec<serde_json::Value>,
     ) -> Result<Vec<serde_json::Value>> {
-        query::run_query(self.db.as_ref(), &sql, &params)
-            .await
-            .map_err(Into::into)
+        let Some(authorizer) = &self.authorizer else {
+            return query::run_query(self.db.pool(), &sql, &params)
+                .await
+                .map_err(Into::into);
+        };
+        let mut connection = AuthorizedConnection::acquire(self.db.pool(), authorizer).await?;
+        let result = query::run_query(connection.connection(), &sql, &params).await;
+        connection.release().await?;
+        result.map_err(Into::into)
     }
 
     pub async fn execute_proxy(
@@ -68,15 +94,28 @@ impl DbExecutor {
         params: Vec<serde_json::Value>,
         method: ProxyQueryMethod,
     ) -> Result<ProxyQueryResult> {
-        query::run_query_proxy(self.db.as_ref(), &sql, &params, method)
-            .await
-            .map_err(Into::into)
+        let Some(authorizer) = &self.authorizer else {
+            return query::run_query_proxy(self.db.pool(), &sql, &params, method)
+                .await
+                .map_err(Into::into);
+        };
+        let mut connection = AuthorizedConnection::acquire(self.db.pool(), authorizer).await?;
+        let result = query::run_query_proxy(connection.connection(), &sql, &params, method).await;
+        connection.release().await?;
+        result.map_err(Into::into)
     }
 
     pub async fn execute_transaction(
         &self,
         statements: Vec<TransactionStatement>,
     ) -> Result<Vec<u64>> {
-        query::run_transaction(self.db.as_ref(), statements).await
+        let Some(authorizer) = &self.authorizer else {
+            let mut connection = self.db.pool().acquire().await?;
+            return query::run_transaction(&mut connection, statements).await;
+        };
+        let mut connection = AuthorizedConnection::acquire(self.db.pool(), authorizer).await?;
+        let result = query::run_transaction(connection.connection(), statements).await;
+        connection.release().await?;
+        result
     }
 }

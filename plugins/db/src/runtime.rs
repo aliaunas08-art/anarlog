@@ -81,67 +81,13 @@ impl QueryEventSink for QueryEventChannel {
     }
 }
 
-struct ExplicitRollbackTransaction {
-    transaction: Option<sqlx::Transaction<'static, sqlx::Sqlite>>,
-}
-
-impl ExplicitRollbackTransaction {
-    fn new(transaction: sqlx::Transaction<'static, sqlx::Sqlite>) -> Self {
-        Self {
-            transaction: Some(transaction),
-        }
-    }
-
-    fn connection(&mut self) -> &mut sqlx::SqliteConnection {
-        &mut *self
-            .transaction
-            .as_mut()
-            .expect("transaction should be present")
-    }
-
-    async fn commit(mut self) -> std::result::Result<(), sqlx::Error> {
-        self.transaction
-            .take()
-            .expect("transaction should be present")
-            .commit()
-            .await
-    }
-
-    async fn rollback(mut self) -> std::result::Result<(), sqlx::Error> {
-        self.transaction
-            .take()
-            .expect("transaction should be present")
-            .rollback()
-            .await
-    }
-}
-
-impl Drop for ExplicitRollbackTransaction {
-    fn drop(&mut self) {
-        let Some(transaction) = self.transaction.take() else {
-            return;
-        };
-
-        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
-            tracing::error!("sqlite_transaction_cancelled_without_async_runtime");
-            drop(transaction);
-            return;
-        };
-
-        runtime.spawn(async move {
-            if let Err(error) = transaction.rollback().await {
-                tracing::error!(%error, "sqlite_cancelled_transaction_rollback_failed");
-            }
-        });
-    }
-}
-
 pub struct PluginDbRuntime {
     db: std::sync::Arc<Db>,
     schema_ready: tokio::sync::OnceCell<()>,
     startup_tx: tokio::sync::watch::Sender<Option<std::result::Result<(), String>>>,
     startup_status: std::sync::RwLock<crate::StartupStatus>,
     synced_write_barrier: tokio::sync::RwLock<()>,
+    webview_sql: std::sync::Arc<anlg_db_core::WebviewSqlAuthorizer>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     renderer_subscriptions: renderer::RendererSubscriptions,
@@ -224,6 +170,7 @@ impl PluginDbRuntime {
             std::sync::Arc::clone(&e2ee_sync_hook),
         );
         let (startup_tx, _) = tokio::sync::watch::channel(None);
+        let webview_sql = anlg_db_core::WebviewSqlAuthorizer::new();
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
@@ -232,8 +179,15 @@ impl PluginDbRuntime {
                 crate::StartupPhase::PreparingDatabase,
             )),
             synced_write_barrier: tokio::sync::RwLock::new(()),
-            executor: DbExecutor::new(std::sync::Arc::clone(&db)),
-            live_query_runtime: LiveQueryRuntime::new(db),
+            executor: DbExecutor::for_webview(
+                std::sync::Arc::clone(&db),
+                std::sync::Arc::clone(&webview_sql),
+            ),
+            live_query_runtime: LiveQueryRuntime::new_for_webview(
+                db,
+                std::sync::Arc::clone(&webview_sql),
+            ),
+            webview_sql,
             renderer_subscriptions: Default::default(),
             e2ee_sync_hook,
             _witness_watch: witness_watch,
@@ -566,8 +520,26 @@ impl PluginDbRuntime {
     ) -> Result<Vec<u64>> {
         let _write_guard = self.synced_write_barrier.read().await;
         self.ensure_app_schema().await?;
-        let mut transaction =
-            ExplicitRollbackTransaction::new(self.db.pool().begin_with("BEGIN IMMEDIATE").await?);
+        let mut authorized =
+            anlg_db_core::AuthorizedConnection::acquire(self.db.pool(), &self.webview_sql).await?;
+        let result = self
+            .run_webview_transaction(authorized.connection(), statements)
+            .await;
+        authorized.release().await?;
+        result
+    }
+
+    /// Runs on a connection that has the webview SQL authorizer installed. If
+    /// the caller is cancelled, dropping the borrowed transaction queues a
+    /// rollback before `AuthorizedConnection` clears the authorizer.
+    async fn run_webview_transaction(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+        statements: Vec<TransactionStatement>,
+    ) -> Result<Vec<u64>> {
+        use sqlx::Connection as _;
+
+        let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
         #[cfg(test)]
         if self
             .pause_transaction_after_begin
@@ -583,7 +555,7 @@ impl PluginDbRuntime {
                 sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
                 &statement.params,
             )
-            .execute(transaction.connection())
+            .execute(&mut *transaction)
             .await
             {
                 Ok(result) => result,
@@ -619,6 +591,17 @@ impl PluginDbRuntime {
 
         transaction.commit().await?;
         Ok(rows_affected)
+    }
+
+    /// Lock or unlock all SQL from the webview (`db:execute*`, live queries).
+    /// While locked, the SQLite authorizer denies every webview statement.
+    /// Internal Rust paths are unaffected. Default: unlocked.
+    pub fn set_webview_sql_locked(&self, locked: bool) {
+        self.webview_sql.set_locked(locked);
+    }
+
+    pub fn webview_sql_locked(&self) -> bool {
+        self.webview_sql.is_locked()
     }
 
     pub async fn execute_proxy(

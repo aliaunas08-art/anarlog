@@ -97,7 +97,7 @@ Most of the ASPC work is closing that boundary.
 
 | Entry point | Problem |
 | --- | --- |
-| `db:execute`, `execute_proxy`, `execute_transaction` (`plugins/db/src/commands.rs:110-150`) [V] | Raw SQL from the webview with no authorizer, so any read or write is possible, including `ATTACH`. |
+| `db:execute`, `execute_proxy`, `execute_transaction` (`plugins/db/src/commands.rs:110-150`) [V] | ~~Raw SQL from the webview with no authorizer, so any read or write is possible, including `ATTACH`.~~ **PARTIAL (Phase 1):** now runs under the webview SQL authorizer, see Phase 1 → A2.4. Row-level and per-`DataType` mapping still missing. |
 | `fs2:write_text_file` (`plugins/fs2/src/commands.rs:27-32`) [V] | Writes any path. |
 | `export:export` (`plugins/export/src/commands.rs:7-15`) | Writes a PDF to any path. |
 | `settings:save` + `hooks:run_event_hooks` (`crates/hooks/src/runner.rs:48-65`) [V] | A `hooks` entry written to settings is run as a program. |
@@ -224,7 +224,7 @@ Most of the ASPC work is closing that boundary.
 
 | Attack | Verdict | Evidence |
 | --- | --- | --- |
-| SQL injection | **APPLIES** | values are bound, but the webview's raw-SQL command is equivalent to injection by design (`plugins/db/src/commands.rs:110-150`) |
+| SQL injection | **APPLIES (reduced)** | values are bound, but the webview's raw-SQL command is equivalent to injection by design (`plugins/db/src/commands.rs:110-150`). Since Phase 1 it runs under an SQLite authorizer that blocks ATTACH, extensions, pragmas, DDL and audit tables (Phase 1 → A2.4); reads and writes of app tables are still allowed |
 | HTTP/2 Rapid Reset | N/A | the desktop app serves no HTTP/2. GUESS: the hosted `apps/api` is behind its platform's edge (not in scope) |
 | Forged SAML | N/A locally | there's no SAML in the desktop app. The hosted SSO is Supabase's (`supabase/migrations/20260826120000_enforce_required_sso.sql`) |
 | Username truncation | N/A | there are no local usernames or passwords |
@@ -251,6 +251,25 @@ Most of the ASPC work is closing that boundary.
 | XSS output encoding | OK today | React escaping, no raw HTML sinks. CSP missing as a second layer |
 | Rate limiting on IPC | MISSING | none |
 | Rotate leaked keys | none found leaked | see §3 scan |
+
+## Phase 1 changes (webview lockdown), 2026-11-16
+
+Status of each Phase 1 item after the change. File references are to the code as committed.
+
+### A2.4 SQL authorizer: PARTIAL
+
+- **What exists now:**
+  - `crates/db-core/src/webview_sql.rs`: an `sqlite3_set_authorizer` callback (`authorizer_callback`, :175) and a pure policy function (`decide`, :103).
+  - The authorizer is installed on a pool connection only for the duration of a webview statement (`AuthorizedConnection`, :204) and cleared before the connection returns to the pool. If the statement is cancelled, a task clears it after the in-flight statement finishes; if that fails, the connection is closed instead.
+  - Every webview SQL path uses it:
+    - `db:execute` / `execute_proxy` through `DbExecutor::for_webview` (`crates/db-execute/src/lib.rs:64`, wired at `plugins/db/src/runtime.rs:182`);
+    - `db:execute_transaction` (`plugins/db/src/runtime.rs:517-596`);
+    - live queries (`db:subscribe`): initial load, refreshes and the `EXPLAIN QUERY PLAN {sql}` dependency analysis (`crates/db-reactive/src/runtime.rs:36`, `crates/db-reactive/src/schema.rs:255`). The EXPLAIN path mattered: a subscription ending in `; ATTACH ...` used to run the second statement (regression test `webview_runtime_never_runs_smuggled_statements`).
+  - Internal Rust paths (migrations, CloudSync, importers, `agent-access`) keep using the pool without the authorizer.
+- **Policy:** denies `ATTACH`/`DETACH`; the `load_extension` and `fts3_tokenizer` functions; every `PRAGMA` except a read-only allowlist (`webview_sql.rs:24-45`; the frontend itself uses none, the allowlist covers what the CloudSync extension runs internally during writes); any write to `sqlite_*` tables; all DDL (CREATE/DROP/ALTER of tables, indexes, views, triggers, virtual tables), `REINDEX` and `ANALYZE`; any read or write of a table whose name starts with `audit`; every action code it doesn't know (fail closed).
+- **Lock flag:** `WebviewSqlAuthorizer::set_locked` (`webview_sql.rs:62`), exposed as `PluginDbRuntime::set_webview_sql_locked` (`plugins/db/src/runtime.rs:599`). Default unlocked. While locked every webview statement is denied; internal paths are not. **Not wired to the app lock yet** (Phase 2).
+- **Tests:** `crates/db-core/src/webview_sql.rs` (denials, normal SELECT/INSERT/UPDATE/DELETE, lock, internal queries unaffected after release, unknown action denied, CloudSync-enabled table accepts webview writes and records them), `crates/db-execute/src/query.rs` (`webview_executor_runs_under_authorizer`), `plugins/db/src/tests/transactions.rs` (`webview_sql_runs_under_the_authorizer_and_lock`, plus the existing cancellation test still passes).
+- **Still missing (why PARTIAL):** the per-table `DataType` / Read-vs-Edit mapping and the `Viewer` write denial from A2.4's first bullet (they need Phase 2's `authorize()`); the frontend can still read and write every app table, including `webhook_endpoints.secret`. The CLI/MCP path (A2.7) doesn't use the authorizer.
 
 ## Not verified
 

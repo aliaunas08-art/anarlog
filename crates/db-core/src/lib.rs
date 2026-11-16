@@ -1,4 +1,5 @@
 mod cloudsync;
+mod webview_sql;
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -18,6 +19,9 @@ pub use crate::cloudsync::{
     cloudsync_receive_error,
 };
 use crate::cloudsync::{CloudsyncInterruptHandle, CloudsyncRuntimeState};
+pub use crate::webview_sql::{
+    AuthorizedConnection, WebviewSqlAuthorizer, with_authorized_connection,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub enum DbStorage<'a> {

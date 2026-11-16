@@ -27,11 +27,26 @@ pub struct LiveQueryRuntime<S> {
 impl<S: QueryEventSink> LiveQueryRuntime<S> {
     pub fn new(db: Arc<Db>) -> Self {
         let change_notifier = db.change_notifier().clone();
-        Self::new_with_notifier(db, change_notifier)
+        let executor = DbExecutor::new(Arc::clone(&db));
+        Self::new_with_notifier(db, change_notifier, executor)
     }
 
-    fn new_with_notifier(db: Arc<Db>, change_notifier: ChangeNotifier) -> Self {
-        let executor = DbExecutor::new(Arc::clone(&db));
+    /// Live queries whose SQL comes from the webview: initial loads, refreshes
+    /// and dependency analysis all run under the webview SQL authorizer.
+    pub fn new_for_webview(
+        db: Arc<Db>,
+        authorizer: Arc<anlg_db_core::WebviewSqlAuthorizer>,
+    ) -> Self {
+        let change_notifier = db.change_notifier().clone();
+        let executor = DbExecutor::for_webview(Arc::clone(&db), authorizer);
+        Self::new_with_notifier(db, change_notifier, executor)
+    }
+
+    fn new_with_notifier(
+        db: Arc<Db>,
+        change_notifier: ChangeNotifier,
+        executor: DbExecutor,
+    ) -> Self {
         let catalog = CatalogStore::default();
         let subscriptions = Registry::default();
         let (shutdown_tx, mut shutdown_rx) = tokio_watch::channel(false);
@@ -141,7 +156,11 @@ impl<S: QueryEventSink> LiveQueryRuntime<S> {
     }
 
     async fn analyze_subscription(&self, sql: &str) -> DependencyAnalysis {
-        match self.catalog.analyze_query(self.db.pool(), sql).await {
+        match self
+            .catalog
+            .analyze_query(self.db.pool(), sql, self.executor.authorizer())
+            .await
+        {
             Ok(targets) => DependencyAnalysis::Reactive { targets },
             Err(error) => DependencyAnalysis::NonReactive {
                 reason: error.to_string(),
@@ -552,6 +571,49 @@ mod tests {
 
         let pool = db.pool().clone();
         (dir, pool, LiveQueryRuntime::new(Arc::new(db)))
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn webview_runtime_never_runs_smuggled_statements() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        anlg_db_migrate::migrate(&db, live_query_test_schema())
+            .await
+            .unwrap();
+        let pool = db.pool().clone();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        let runtime =
+            LiveQueryRuntime::<TestSink>::new_for_webview(Arc::new(db), Arc::clone(&authorizer));
+        let attach = dir.path().join("smuggled.db");
+        let sql = format!(
+            "SELECT id FROM daily_notes; ATTACH DATABASE '{}' AS smuggled",
+            attach.display()
+        );
+        let (sink, _events) = TestSink::capture();
+        let _ = runtime.subscribe(sql, vec![], sink).await;
+
+        let databases: Vec<String> = sqlx::query_scalar("SELECT name FROM pragma_database_list")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert!(!databases.iter().any(|name| name == "smuggled"));
+        assert!(!attach.exists());
+
+        let (sink, events) = TestSink::capture();
+        runtime
+            .subscribe("SELECT id FROM daily_notes".to_string(), vec![], sink)
+            .await
+            .unwrap();
+        assert!(!events.lock().unwrap().is_empty());
     }
 
     async fn next_event(

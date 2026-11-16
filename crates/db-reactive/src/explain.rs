@@ -13,7 +13,7 @@ pub async fn extract_dependencies(
     pool: &SqlitePool,
     sql: &str,
 ) -> Result<HashSet<DependencyTarget>, DependencyResolutionError> {
-    CatalogStore::default().analyze_query(pool, sql).await
+    CatalogStore::default().analyze_query(pool, sql, None).await
 }
 
 pub(crate) fn parse_table_from_detail(detail: &str) -> Option<&str> {

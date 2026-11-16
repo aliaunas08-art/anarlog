@@ -1,31 +1,36 @@
-use anlg_db_core::Db;
-use sqlx::{Column, Row, TypeInfo, ValueRef};
+use sqlx::{Column, Connection, Row, SqliteConnection, TypeInfo, ValueRef};
 
 use crate::{Error, ProxyQueryMethod, ProxyQueryResult, TransactionStatement};
 
-pub async fn run_query(
-    db: &Db,
+pub async fn run_query<'c, E>(
+    executor: E,
     sql: &str,
     params: &[serde_json::Value],
-) -> std::result::Result<Vec<serde_json::Value>, sqlx::Error> {
-    let rows = fetch_rows(db, sql, params).await?;
+) -> std::result::Result<Vec<serde_json::Value>, sqlx::Error>
+where
+    E: sqlx::SqliteExecutor<'c>,
+{
+    let rows = fetch_rows(executor, sql, params).await?;
     Ok(rows.iter().map(row_to_json).collect())
 }
 
-pub async fn run_query_proxy(
-    db: &Db,
+pub async fn run_query_proxy<'c, E>(
+    executor: E,
     sql: &str,
     params: &[serde_json::Value],
     method: ProxyQueryMethod,
-) -> std::result::Result<ProxyQueryResult, sqlx::Error> {
+) -> std::result::Result<ProxyQueryResult, sqlx::Error>
+where
+    E: sqlx::SqliteExecutor<'c>,
+{
     if method == ProxyQueryMethod::Run {
         bind_params(sqlx::query(sqlx::AssertSqlSafe(sql)), params)
-            .execute(db.pool())
+            .execute(executor)
             .await?;
         return Ok(ProxyQueryResult { rows: Vec::new() });
     }
 
-    let rows = fetch_rows(db, sql, params).await?;
+    let rows = fetch_rows(executor, sql, params).await?;
     let rows = match method {
         ProxyQueryMethod::Get => rows
             .first()
@@ -42,10 +47,10 @@ pub async fn run_query_proxy(
 }
 
 pub async fn run_transaction(
-    db: &Db,
+    connection: &mut SqliteConnection,
     statements: Vec<TransactionStatement>,
 ) -> crate::Result<Vec<u64>> {
-    let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
     let mut rows_affected = Vec::with_capacity(statements.len());
 
     for (statement_index, statement) in statements.into_iter().enumerate() {
@@ -73,13 +78,16 @@ pub async fn run_transaction(
     Ok(rows_affected)
 }
 
-async fn fetch_rows(
-    db: &Db,
+async fn fetch_rows<'c, E>(
+    executor: E,
     sql: &str,
     params: &[serde_json::Value],
-) -> std::result::Result<Vec<sqlx::sqlite::SqliteRow>, sqlx::Error> {
+) -> std::result::Result<Vec<sqlx::sqlite::SqliteRow>, sqlx::Error>
+where
+    E: sqlx::SqliteExecutor<'c>,
+{
     bind_params(sqlx::query(sqlx::AssertSqlSafe(sql)), params)
-        .fetch_all(db.pool())
+        .fetch_all(executor)
         .await
 }
 
@@ -375,5 +383,61 @@ mod tests {
             .await
             .unwrap();
         assert!(rows.is_empty());
+    }
+
+    #[tokio::test]
+    async fn webview_executor_runs_under_authorizer() {
+        let db = std::sync::Arc::new(test_db().await);
+        sqlx::query("CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        let executor = DbExecutor::for_webview(std::sync::Arc::clone(&db), authorizer.clone());
+
+        executor
+            .execute_transaction(vec![TransactionStatement {
+                sql: "INSERT INTO notes (id, body) VALUES (?, ?)".to_string(),
+                params: vec![json!("a"), json!("hi")],
+                expected_rows_affected: Some(1),
+            }])
+            .await
+            .unwrap();
+        let rows = executor
+            .execute("SELECT body FROM notes".to_string(), vec![])
+            .await
+            .unwrap();
+        assert_eq!(rows, vec![json!({ "body": "hi" })]);
+
+        for sql in [
+            "ATTACH DATABASE ':memory:' AS x",
+            "PRAGMA writable_schema=1",
+        ] {
+            assert!(executor.execute(sql.to_string(), vec![]).await.is_err());
+            assert!(
+                executor
+                    .execute_proxy(sql.to_string(), vec![], ProxyQueryMethod::Run)
+                    .await
+                    .is_err()
+            );
+        }
+
+        authorizer.set_locked(true);
+        assert!(
+            executor
+                .execute("SELECT body FROM notes".to_string(), vec![])
+                .await
+                .is_err()
+        );
+        // Internal executors are not affected by the webview lock.
+        let internal = DbExecutor::new(db);
+        assert_eq!(
+            internal
+                .execute("SELECT body FROM notes".to_string(), vec![])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }
