@@ -6,4 +6,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Opener(#[from] tauri_plugin_opener::Error),
+    #[error("opening with {0:?} is not allowed")]
+    OpenWithNotAllowed(String),
 }
