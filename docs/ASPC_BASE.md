@@ -89,7 +89,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### A3. Least privilege
 
-- **A3.1** `tauri.conf.json` has a CSP. It allows `default-src 'self'`, provider API hosts in `connect-src` only, and no `unsafe-eval`. `withGlobalTauri` is `false`.
+- **A3.1** `tauri.conf.json` has a CSP (`app.security.csp`, with `devCsp` for the dev server only). It allows `default-src 'self'`, `script-src 'self'` with no `unsafe-eval` or `unsafe-inline`, and in `connect-src` only the IPC and asset schemes plus the fixed hosts the webview's own `fetch` uses (app API, Supabase, Sentry, GitHub release notes). Model providers are not in `connect-src`: they are reached through the `http` plugin, whose scope is A3.3. `style-src` allows `'unsafe-inline'` (and Tauri's style nonce is disabled) because React style attributes, the editor and the boot splash use inline styles; this is the only inline allowance. `withGlobalTauri` is `false`.
 - **A3.2** The asset protocol scope is only the vault's `sessions/**` and the app's cache directory.
 - **A3.3** The `http` plugin scope is an allowlist of HTTPS hosts (providers, calendar APIs, updates), plus loopback only for local model servers. `http://**` is not allowed.
 - **A3.4** OAuth scopes are only what's used. Calendar is read-only: Google `calendar.readonly`, Microsoft `Calendars.Read`. Any new scope needs an entry here.

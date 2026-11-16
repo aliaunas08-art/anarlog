@@ -248,9 +248,11 @@ pub enum Level {
 pub const JS_INIT_SCRIPT: &str = r#"
 (function() {
     function initConsoleOverride() {
-        if (typeof window.__TAURI__ === 'undefined' || 
-            typeof window.__TAURI__.core === 'undefined' ||
-            typeof window.__TAURI__.core.invoke === 'undefined') {
+        // `withGlobalTauri` is off (ASPC A3.1), so use the internal IPC bridge
+        // that Tauri injects before plugin init scripts.
+        const internals = window.__TAURI_INTERNALS__;
+        if (typeof internals === 'undefined' ||
+            typeof internals.invoke !== 'function') {
             setTimeout(initConsoleOverride, 10);
             return;
         }
@@ -261,7 +263,7 @@ pub const JS_INIT_SCRIPT: &str = r#"
         const originalWarn = console.warn.bind(console);
         const originalError = console.error.bind(console);
         
-        const invoke = window.__TAURI__.core.invoke;
+        const invoke = internals.invoke.bind(internals);
         const log = (level, ...args) => invoke('plugin:tracing|do_log', { level, data: args });
         
         console.log = (...args) => { originalLog(...args); log('INFO', ...args); };
@@ -371,10 +373,8 @@ mod tests {
                     };
                 }
                 
-                globalThis.window.__TAURI__ = {
-                    core: {
-                        invoke: function() { return Promise.resolve(); }
-                    }
+                globalThis.window.__TAURI_INTERNALS__ = {
+                    invoke: function() { return Promise.resolve(); }
                 };
             "#;
             ctx.eval::<(), _>(setup).unwrap();
