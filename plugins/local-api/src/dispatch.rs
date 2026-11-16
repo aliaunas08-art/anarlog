@@ -147,9 +147,7 @@ pub async fn create_endpoint(
         .lock()
         .await;
     let url = url.trim();
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err("url must start with http:// or https://".to_string());
-    }
+    let parsed = parse_webhook_url(url)?;
     if let Some(unknown) = events
         .iter()
         .find(|event| !KNOWN_EVENTS.contains(&event.as_str()))
@@ -168,6 +166,8 @@ pub async fn create_endpoint(
             "at most {MAX_WEBHOOK_ENDPOINTS} webhook endpoints can be configured"
         ));
     }
+
+    resolve_public_addrs(&parsed).await?;
 
     let events_json = serde_json::to_string(events).map_err(|error| error.to_string())?;
     let secret = anlg_db_app::generate_webhook_secret();
@@ -326,16 +326,123 @@ async fn deliver_with_retry(
     }
 }
 
+/// Webhook URLs must be `https://` and resolve only to public addresses
+/// (ASPC B2.2). There is no user override yet.
+pub(crate) fn parse_webhook_url(url: &str) -> Result<reqwest::Url, String> {
+    let parsed =
+        reqwest::Url::parse(url).map_err(|_| "url must start with https://".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("url must start with https://".to_string());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("url must not contain credentials".to_string());
+    }
+    match parsed.host() {
+        Some(url::Host::Domain(domain))
+            if domain.eq_ignore_ascii_case("localhost")
+                || domain.to_ascii_lowercase().ends_with(".localhost") =>
+        {
+            Err("url must not point at this computer".to_string())
+        }
+        Some(_) => Ok(parsed),
+        None => Err("url must include a host".to_string()),
+    }
+}
+
+fn is_public_ip(ip: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+
+    match ip {
+        IpAddr::V4(v4) => {
+            let [a, b, ..] = v4.octets();
+            !(v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_broadcast()
+                || v4.is_multicast()
+                || (a == 192 && b == 0 && v4.octets()[2] == 2)
+                || (a == 198 && b == 51 && v4.octets()[2] == 100)
+                || (a == 203 && b == 0 && v4.octets()[2] == 113)
+                || a == 0
+                || (a == 100 && (64..128).contains(&b))
+                || (a == 192 && b == 0 && v4.octets()[2] == 0)
+                || (a == 198 && (b == 18 || b == 19))
+                || a >= 240)
+        }
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_public_ip(IpAddr::V4(v4));
+            }
+            let first = v6.segments()[0];
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                || (first & 0xfe00) == 0xfc00
+                || (first & 0xffc0) == 0xfe80
+                || (first == 0x2001 && v6.segments()[1] == 0x0db8)
+                || (first == 0x0064 && v6.segments()[1] == 0xff9b))
+        }
+    }
+}
+
+/// Resolves the URL's host and fails unless every address is public, so a
+/// name can't smuggle in loopback, link-local or private ranges.
+pub(crate) async fn resolve_public_addrs(
+    url: &reqwest::Url,
+) -> Result<Vec<std::net::SocketAddr>, String> {
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addrs: Vec<std::net::SocketAddr> = match url.host() {
+        Some(url::Host::Ipv4(ip)) => vec![(ip, port).into()],
+        Some(url::Host::Ipv6(ip)) => vec![(ip, port).into()],
+        Some(url::Host::Domain(domain)) => tokio::net::lookup_host((domain, port))
+            .await
+            .map_err(|error| format!("could not resolve webhook host: {error}"))?
+            .collect(),
+        None => return Err("url must include a host".to_string()),
+    };
+    if addrs.is_empty() {
+        return Err("could not resolve webhook host".to_string());
+    }
+    if let Some(blocked) = addrs.iter().find(|addr| !is_public_ip(addr.ip())) {
+        return Err(format!(
+            "webhook host resolves to a non-public address ({})",
+            blocked.ip()
+        ));
+    }
+    Ok(addrs)
+}
+
 async fn deliver_once(
     endpoint: &anlg_db_app::WebhookEndpointRow,
     event: &str,
     body: &Bytes,
     delivery_id: &str,
 ) -> DeliveryOutcome {
-    let client = match reqwest::Client::builder()
+    // Re-check on every delivery: rows can be written without
+    // `create_endpoint`, and DNS can change after creation. The checked
+    // addresses are pinned so the connection can't be rebound, and redirects
+    // are not followed.
+    let checked = match parse_webhook_url(&endpoint.url) {
+        Ok(url) => resolve_public_addrs(&url).await.map(|addrs| (url, addrs)),
+        Err(error) => Err(error),
+    };
+    let (url, addrs) = match checked {
+        Ok(checked) => checked,
+        Err(error) => {
+            return DeliveryOutcome {
+                delivered: false,
+                status: format!("blocked: {error}"),
+            };
+        }
+    };
+    let mut builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(DELIVERY_TIMEOUT_SECS))
-        .build()
-    {
+        .redirect(reqwest::redirect::Policy::none());
+    if let Some(domain) = url.domain() {
+        builder = builder.resolve_to_addrs(domain, &addrs);
+    }
+    let client = match builder.build() {
         Ok(client) => client,
         Err(error) => {
             return DeliveryOutcome {
@@ -346,7 +453,7 @@ async fn deliver_once(
     };
 
     let response = client
-        .post(&endpoint.url)
+        .post(url)
         .header("content-type", "application/json")
         .header("x-anarlog-event", event)
         .header("x-anarlog-delivery", delivery_id)
@@ -475,6 +582,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn public_addresses_are_allowed() {
+        for ip in ["8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"] {
+            assert!(is_public_ip(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in [
+            "0.0.0.0",
+            "100.100.1.1",
+            "198.18.0.1",
+            "::",
+            "64:ff9b::7f00:1",
+        ] {
+            assert!(!is_public_ip(ip.parse().unwrap()), "{ip}");
+        }
+    }
+
     #[tokio::test]
     async fn endpoint_creation_rejects_bad_urls_and_unknown_events() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
@@ -484,8 +607,28 @@ mod tests {
             create_endpoint(db.pool(), "example.com", &[])
                 .await
                 .unwrap_err(),
-            "url must start with http:// or https://"
+            "url must start with https://"
         );
+        for blocked in [
+            "http://example.com/hook",
+            "https://localhost/hook",
+            "https://127.0.0.1/hook",
+            "https://10.0.0.5/hook",
+            "https://172.16.4.1/hook",
+            "https://192.168.1.10/hook",
+            "https://169.254.169.254/latest/meta-data",
+            "https://100.64.0.1/hook",
+            "https://[::1]/hook",
+            "https://[fe80::1]/hook",
+            "https://[fd00::1]/hook",
+            "https://[::ffff:127.0.0.1]/hook",
+            "https://user:pass@8.8.8.8/hook",
+        ] {
+            assert!(
+                create_endpoint(db.pool(), blocked, &[]).await.is_err(),
+                "{blocked} should be rejected"
+            );
+        }
         assert!(
             create_endpoint(db.pool(), "https://example.com", &["nope".to_string()])
                 .await

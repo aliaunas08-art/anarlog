@@ -127,7 +127,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - extension and magic bytes against an allowlist;
   - size limit;
   - that the path is a regular file, after resolving symlinks.
-- **B2.2** Webhook and other outbound URLs must be `https://`. Loopback, link-local and private ranges are rejected unless the user confirms.
+- **B2.2** Webhook and other outbound URLs must be `https://`. Loopback, link-local and private ranges are rejected, checked after DNS resolution when the webhook is created and again, with the address pinned, on every delivery. A user-confirmed exception for LAN targets is allowed but not built yet.
 - **B2.3** Calendar and AI responses are parsed into typed structs. Unknown fields are dropped and string lengths are capped.
 - **B2.4** Templates the user supplies or imports render with a fuel/time limit.
 - **B2.5** All external content is data, never instructions. That covers transcripts, invites, titles, attendee names, pasted text, imported files and AI output.
