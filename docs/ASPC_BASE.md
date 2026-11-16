@@ -78,7 +78,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - denies `ATTACH`, `DETACH`, `load_extension` and `PRAGMA`s outside an allowlist;
   - denies any write to audit tables;
   - denies everything while the app is locked.
-- **A2.5** Windows get only the capabilities they need. Only the main window has database, file and secret access. The floating bar, overlays and captions get only their own commands. `"windows": ["*"]` is not allowed.
+- **A2.5** Windows get only the capabilities they need, from one capability file per window kind in `apps/desktop/src-tauri/capabilities/`. Only the main and note windows (`main`, `note-*`) have file, export, import, webhook and shell access; the composer gets what its chat uses. The floating bar and caption overlays get their own commands plus the shared boot path's settings read; until Phase 2 replaces it with a settings command, that read is `db:execute`/`db:subscribe` under the A2.4 authorizer. The dictation overlay gets no capability. `"windows": ["*"]` is not allowed.
 - **A2.6** Non-IPC entry points:
   - local servers bind loopback only;
   - they check Origin and a per-launch token;
