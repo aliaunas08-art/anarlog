@@ -1,6 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { downloadDir } from "@tauri-apps/api/path";
-import { open as selectFile } from "@tauri-apps/plugin-dialog";
 import { Effect, pipe } from "effect";
 import { useCallback } from "react";
 
@@ -9,6 +7,7 @@ import {
   commands as fsSyncCommands,
   events as fsSyncEvents,
 } from "@anlg/plugin-fs-sync";
+import { commands as fs2Commands } from "@anlg/plugin-fs2";
 import { commands as listener2Commands } from "@anlg/plugin-transcription";
 
 import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
@@ -393,24 +392,16 @@ export function useUploadFile(sessionId: string) {
           ? [{ name: "Audio", extensions: AUDIO_EXTENSIONS }]
           : [{ name: "Transcript", extensions: TRANSCRIPT_EXTENSIONS }];
 
-      const program = pipe(
-        Effect.promise(() => downloadDir()),
-        Effect.flatMap((defaultPath) =>
-          Effect.promise(() =>
-            selectFile({
-              title: kind === "audio" ? "Upload Audio" : "Upload Transcript",
-              multiple: false,
-              directory: false,
-              defaultPath,
-              filters,
-            }),
-          ),
-        ),
-      );
-
-      Effect.runPromise(program)
-        .then((selection) => {
-          const path = Array.isArray(selection) ? selection[0] : selection;
+      // Picked in Rust so `fs-sync:audio_import` accepts the path (ASPC A3.6).
+      fs2Commands
+        .pickOpenPaths(
+          kind === "audio" ? "Upload Audio" : "Upload Transcript",
+          false,
+          filters,
+        )
+        .then((result) => {
+          if (result.status === "error") throw new Error(result.error);
+          const path = result.data[0];
           if (path) {
             processFile(path, kind);
           }

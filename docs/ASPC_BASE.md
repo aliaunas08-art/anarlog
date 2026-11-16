@@ -94,7 +94,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 - **A3.3** The `http` plugin scope is an allowlist of HTTPS hosts (providers, calendar APIs, updates), plus loopback only for local model servers. `http://**` is not allowed.
 - **A3.4** OAuth scopes are only what's used. Calendar is read-only: Google `calendar.readonly`, Microsoft `Calendars.Read`. Any new scope needs an entry here.
 - **A3.5** Info.plist asks only for permissions that a shipped feature uses, each with a specific reason.
-- **A3.6** No command takes an arbitrary filesystem path from the webview, except a path the user just picked in a native dialog. The dialog returns a single-use token rather than a raw path.
+- **A3.6** No command takes an arbitrary filesystem path from the webview. A path is accepted only if it resolves (no `..`, symlinks resolved) inside the app's own roots (the vault and the app data directory; writes there are limited to document types), or if the user just picked it in a native dialog opened by Rust (`fs2:pick_save_path` / `pick_open_paths`), which is honoured once. Target: the dialog returns an opaque single-use token rather than a raw path.
 - **A3.7** No command returns environment variables, except an allowlist of non-secret build flags.
 
 ### A4. Session and device

@@ -316,9 +316,16 @@ pub(crate) async fn audio_import<R: tauri::Runtime>(
     session_id: String,
     source_path: String,
 ) -> Result<String, String> {
+    // ASPC A3.6: the source must be a file the user just picked or one
+    // inside the vault (staged recording imports live there).
+    let source_path = {
+        use tauri_plugin_fs2::Fs2PluginExt;
+        app.fs2()
+            .authorize_read(Path::new(&source_path))
+            .map_err(|e| e.to_string())?
+    };
     let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let session_dir = resolve_session_dir(&app, &session_id)?;
-    let source_path = PathBuf::from(&source_path);
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
     spawn_blocking!({
         crate::audio::import_to_session(&runtime, &session_id, &session_dir, &source_path)

@@ -19,8 +19,7 @@ const mocks = vi.hoisted(() => ({
   writeTextFile: vi.fn(),
   revealItemInDir: vi.fn(),
   onOpenChange: vi.fn(),
-  save: vi.fn(),
-  isAppStoreBuild: vi.fn(),
+  pickSavePath: vi.fn(),
   sharedNote: undefined as { body: unknown } | undefined,
 }));
 
@@ -28,12 +27,14 @@ vi.mock("@tauri-apps/api/path", () => ({
   downloadDir: mocks.downloadDir,
   join: async (...parts: string[]) => parts.join("/"),
 }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ save: mocks.save }));
 vi.mock("@anlg/plugin-export", () => ({
   commands: { export: mocks.exportPdf },
 }));
 vi.mock("@anlg/plugin-fs2", () => ({
-  commands: { writeTextFile: mocks.writeTextFile },
+  commands: {
+    writeTextFile: mocks.writeTextFile,
+    pickSavePath: mocks.pickSavePath,
+  },
 }));
 vi.mock("@anlg/plugin-opener2", () => ({
   commands: { revealItemInDir: mocks.revealItemInDir },
@@ -50,9 +51,6 @@ vi.mock("~/settings/queries", () => ({
     error: null,
   }),
   useSetSettingValues: () => mocks.persistSettings,
-}));
-vi.mock("~/shared/app-store", () => ({
-  isAppStoreBuild: mocks.isAppStoreBuild,
 }));
 vi.mock("~/session/queries", () => ({
   useSession: () => ({ title: "Project review" }),
@@ -107,7 +105,11 @@ describe("ExportModal", () => {
     mocks.downloadDir.mockResolvedValue("/Users/test/Downloads");
     mocks.exportPdf.mockResolvedValue({ status: "ok", data: null });
     mocks.writeTextFile.mockResolvedValue({ status: "ok", data: null });
-    mocks.isAppStoreBuild.mockReturnValue(false);
+    // The native save dialog accepts the suggested path by default.
+    mocks.pickSavePath.mockImplementation(async (defaultPath: string) => ({
+      status: "ok",
+      data: defaultPath,
+    }));
   });
   afterEach(cleanup);
 
@@ -133,7 +135,9 @@ describe("ExportModal", () => {
     );
     expect(mocks.revealItemInDir).toHaveBeenCalledWith(writer.mock.calls[0][0]);
     expect(mocks.downloadDir).not.toHaveBeenCalled();
-    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.pickSavePath).toHaveBeenCalledWith(writer.mock.calls[0][0], [
+      { name: extension.toUpperCase(), extensions: [extension] },
+    ]);
   });
 
   it.each([undefined, ""])(
@@ -196,12 +200,14 @@ describe("ExportModal", () => {
     expect(mocks.revealItemInDir).not.toHaveBeenCalled();
   });
 
-  it("uses the saved folder as the App Store save dialog default", async () => {
-    mocks.isAppStoreBuild.mockReturnValue(true);
+  it("writes to the path picked in the native save dialog", async () => {
     mocks.settings.mockResolvedValue({
       values: { export_directory: "/Users/test/Documents" },
     });
-    mocks.save.mockResolvedValue("/Users/test/Documents/review.pdf");
+    mocks.pickSavePath.mockResolvedValue({
+      status: "ok",
+      data: "/Users/test/Documents/review.pdf",
+    });
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
     await waitFor(() =>
@@ -210,18 +216,17 @@ describe("ExportModal", () => {
         expect.any(Object),
       ),
     );
-    expect(mocks.save).toHaveBeenCalledWith({
-      defaultPath: expect.stringMatching(/^\/Users\/test\/Documents\//),
-      filters: [{ name: "PDF", extensions: ["pdf"] }],
-    });
+    expect(mocks.pickSavePath).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/Users\/test\/Documents\//),
+      [{ name: "PDF", extensions: ["pdf"] }],
+    );
   });
 
   it("leaves the export modal open when the native save dialog is canceled", async () => {
-    mocks.isAppStoreBuild.mockReturnValue(true);
-    mocks.save.mockResolvedValue(null);
+    mocks.pickSavePath.mockResolvedValue({ status: "ok", data: null });
     renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
-    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.pickSavePath).toHaveBeenCalled());
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Export" }).hasAttribute("disabled"),

@@ -113,17 +113,26 @@ export function E2eeSetupDialog({
     mutationFn: async (recoveryKey: string) => {
       const downloadsPath = await downloadDir();
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const path = await join(
+      const defaultPath = await join(
         downloadsPath,
         `anarlog-recovery-key_${timestamp}.txt`,
       );
+      // Writes outside the vault need a path picked in the native dialog (ASPC A3.6).
+      const picked = await fs2Commands.pickSavePath(defaultPath, [
+        { name: "Text", extensions: ["txt"] },
+      ]);
+      if (picked.status === "error") throw new Error(picked.error);
+      const path = picked.data;
+      if (!path) return null;
       const result = await fs2Commands.writeTextFile(path, `${recoveryKey}\n`);
       if (result.status === "error") {
         throw new Error(result.error);
       }
       return path;
     },
-    onSuccess: (path) => void openerCommands.revealItemInDir(path),
+    onSuccess: (path) => {
+      if (path) void openerCommands.revealItemInDir(path);
+    },
   });
   const importForm = useForm({
     defaultValues: { recoveryKey: "" },

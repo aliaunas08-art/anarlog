@@ -59,8 +59,8 @@ vi.mock("@tauri-apps/api/path", () => ({
   sep: vi.fn().mockReturnValue("/"),
 }));
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: selectFileMock,
+vi.mock("@anlg/plugin-fs2", () => ({
+  commands: { pickOpenPaths: selectFileMock },
 }));
 
 vi.mock("@anlg/plugin-fs-sync", () => ({
@@ -151,7 +151,10 @@ describe("useUploadFile", () => {
       },
     });
     downloadDirMock.mockResolvedValue("/downloads");
-    selectFileMock.mockResolvedValue("/tmp/replacement.wav");
+    selectFileMock.mockResolvedValue({
+      status: "ok",
+      data: ["/tmp/replacement.wav"],
+    });
     catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     runBatchMock.mockResolvedValue(undefined);
     createTranscriptMock.mockResolvedValue(undefined);

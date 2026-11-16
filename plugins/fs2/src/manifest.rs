@@ -2,4 +2,10 @@
 // this file to drive permission generation, and the lib tests assert the
 // specta bindings and generated permission files stay in sync with it.
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const COMMANDS: &[&str] = &["read_text_file", "remove", "write_text_file"];
+pub(crate) const COMMANDS: &[&str] = &[
+    "read_text_file",
+    "remove",
+    "write_text_file",
+    "pick_save_path",
+    "pick_open_paths",
+];

@@ -66,7 +66,12 @@ pub async fn sync_connected_import(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn read_text_files(paths: Vec<String>) -> Result<Vec<ImportTextFile>, String> {
+pub async fn read_text_files<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    paths: Vec<String>,
+) -> Result<Vec<ImportTextFile>, String> {
+    use tauri_plugin_fs2::Fs2PluginExt;
+
     if paths.len() > MAX_IMPORT_FILE_COUNT {
         return Err(format!(
             "select at most {MAX_IMPORT_FILE_COUNT} files per import"
@@ -76,7 +81,11 @@ pub async fn read_text_files(paths: Vec<String>) -> Result<Vec<ImportTextFile>, 
     let mut total_bytes = 0_u64;
     let mut files = Vec::with_capacity(paths.len());
     for path in paths {
-        let path_buf = std::path::PathBuf::from(&path);
+        // ASPC A3.6: only files the user just picked (or inside the vault).
+        let path_buf = app
+            .fs2()
+            .authorize_read(std::path::Path::new(&path))
+            .map_err(|error| error.to_string())?;
         let name = path_buf
             .file_name()
             .and_then(|name| name.to_str())

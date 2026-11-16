@@ -22,6 +22,7 @@ serde_json = { workspace = true }
 specta = { workspace = true, features = ["serde_json"] }
 tauri = { workspace = true, features = ["test", "protocol-asset"] }
 tauri-plugin-notify = { workspace = true }
+tauri-plugin-fs2 = { workspace = true }
 tauri-plugin-settings = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 

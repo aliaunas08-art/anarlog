@@ -16926,6 +16926,7 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-fs2",
  "tauri-specta",
  "tokio",
 ]
@@ -16965,6 +16966,7 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-fs2",
  "tauri-plugin-notify",
  "tauri-plugin-settings",
  "tauri-specta",
@@ -16982,8 +16984,10 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-dialog",
  "tauri-plugin-settings",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -17058,6 +17062,7 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-fs2",
  "tauri-specta",
  "tokio",
  "tokio-util",
@@ -17104,6 +17109,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "url",
  "uuid",
 ]
 

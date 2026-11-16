@@ -16,6 +16,7 @@ tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
 tauri = { workspace = true, features = ["test"] }
+tauri-plugin-fs2 = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 anlg-export-core = { workspace = true }

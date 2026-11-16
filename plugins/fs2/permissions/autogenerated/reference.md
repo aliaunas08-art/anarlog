@@ -7,6 +7,8 @@ Default permissions for the fs2 plugin
 - `allow-read-text-file`
 - `allow-remove`
 - `allow-write-text-file`
+- `allow-pick-save-path`
+- `allow-pick-open-paths`
 
 ## Permission Table
 
@@ -16,6 +18,58 @@ Default permissions for the fs2 plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`fs2:allow-pick-open-paths`
+
+</td>
+<td>
+
+Enables the pick_open_paths command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs2:deny-pick-open-paths`
+
+</td>
+<td>
+
+Denies the pick_open_paths command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs2:allow-pick-save-path`
+
+</td>
+<td>
+
+Enables the pick_save_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs2:deny-pick-save-path`
+
+</td>
+<td>
+
+Denies the pick_save_path command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
