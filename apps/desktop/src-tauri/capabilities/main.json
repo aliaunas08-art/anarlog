@@ -98,21 +98,192 @@
     "dictation:default",
     {
       "identifier": "http:default",
-      "deny": [],
       "allow": [
         {
-          "url": "http://localhost:*/**"
+          "url": "https://api.anarlog.so"
         },
         {
-          "url": "http://*.*.*.*:*/**"
+          "url": "https://*.supabase.co"
         },
         {
-          "url": "https://**"
+          "url": "https://claude.ai"
         },
         {
-          "url": "http://**"
+          "url": "https://platform.claude.com"
+        },
+        {
+          "url": "https://auth.openai.com"
+        },
+        {
+          "url": "https://auth.x.ai"
+        },
+        {
+          "url": "https://github.com"
+        },
+        {
+          "url": "https://api.github.com"
+        },
+        {
+          "url": "https://api.anthropic.com"
+        },
+        {
+          "url": "https://api.aquavoice.com"
+        },
+        {
+          "url": "https://api.assemblyai.com"
+        },
+        {
+          "url": "https://api.cartesia.ai"
+        },
+        {
+          "url": "https://api.cerebras.ai"
+        },
+        {
+          "url": "https://api.cohere.ai"
+        },
+        {
+          "url": "https://api.cohere.com"
+        },
+        {
+          "url": "https://api.deepgram.com"
+        },
+        {
+          "url": "https://api.deepseek.com"
+        },
+        {
+          "url": "https://api.elevenlabs.io"
+        },
+        {
+          "url": "https://api.fireworks.ai"
+        },
+        {
+          "url": "https://api.githubcopilot.com"
+        },
+        {
+          "url": "https://api.gladia.io"
+        },
+        {
+          "url": "https://api.gradium.ai"
+        },
+        {
+          "url": "https://api.groq.com"
+        },
+        {
+          "url": "https://api.inworld.ai"
+        },
+        {
+          "url": "https://api.kimi.com"
+        },
+        {
+          "url": "https://api.meta.ai"
+        },
+        {
+          "url": "https://api.mistral.ai"
+        },
+        {
+          "url": "https://api.moonshot.ai"
+        },
+        {
+          "url": "https://api.narilabs.com"
+        },
+        {
+          "url": "https://api.openai.com"
+        },
+        {
+          "url": "https://api.pyannote.ai"
+        },
+        {
+          "url": "https://api.rev.ai"
+        },
+        {
+          "url": "https://api.siliconflow.com"
+        },
+        {
+          "url": "https://api.smallest.ai"
+        },
+        {
+          "url": "https://api.soniox.com"
+        },
+        {
+          "url": "https://api.together.xyz"
+        },
+        {
+          "url": "https://api.venice.ai"
+        },
+        {
+          "url": "https://api.x.ai"
+        },
+        {
+          "url": "https://api.z.ai"
+        },
+        {
+          "url": "https://asr.alebex.ai"
+        },
+        {
+          "url": "https://chatgpt.com"
+        },
+        {
+          "url": "https://dashscope-intl.aliyuncs.com"
+        },
+        {
+          "url": "https://generativelanguage.googleapis.com"
+        },
+        {
+          "url": "https://openrouter.ai"
+        },
+        {
+          "url": "https://platform-api.wisprflow.ai"
+        },
+        {
+          "url": "https://platform.modulate.ai"
+        },
+        {
+          "url": "https://speech.googleapis.com"
+        },
+        {
+          "url": "https://*.asr.api.speechmatics.com"
+        },
+        {
+          "url": "https://*.openai.azure.com"
+        },
+        {
+          "url": "https://*.services.ai.azure.com"
+        },
+        {
+          "url": "https://*.cognitiveservices.azure.com"
+        },
+        {
+          "url": "https://aiplatform.googleapis.com"
+        },
+        {
+          "url": "https://*-aiplatform.googleapis.com"
+        },
+        {
+          "url": "https://api.cloudflare.com"
+        },
+        {
+          "url": "https://gateway.ai.cloudflare.com"
+        },
+        {
+          "url": "https://bedrock-mantle.*.api.aws"
+        },
+        {
+          "url": "https://bedrock-runtime.*.amazonaws.com"
+        },
+        {
+          "url": "http://localhost:*"
+        },
+        {
+          "url": "http://127.0.0.1:*"
+        },
+        {
+          "url": "https://localhost:*"
+        },
+        {
+          "url": "https://127.0.0.1:*"
         }
-      ]
+      ],
+      "deny": []
     }
   ]
 }

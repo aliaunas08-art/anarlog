@@ -17232,12 +17232,17 @@ dependencies = [
  "buffer",
  "host",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
  "sysinfo",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-dialog",
  "tauri-specta",
+ "tokio",
+ "tracing",
+ "url",
  "vergen-gix",
 ]
 

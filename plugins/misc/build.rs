@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "audio_path",
     "audio_import",
     "reveal_session_in_finder",
+    "allow_http_origin",
 ];
 
 fn main() {

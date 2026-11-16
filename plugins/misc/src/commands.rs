@@ -39,3 +39,15 @@ pub async fn opinionated_md_to_html<R: tauri::Runtime>(
 ) -> Result<String, String> {
     app.misc().opinionated_md_to_html(&text)
 }
+
+/// Asks the user, in a native dialog, to allow an extra host for the `http`
+/// plugin (a custom provider base URL). Returns whether it is allowed.
+#[tauri::command]
+#[specta::specta]
+pub async fn allow_http_origin<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::WebviewWindow<R>,
+    url: String,
+) -> Result<bool, String> {
+    crate::http_origins::request(&app, &window, &url).await
+}

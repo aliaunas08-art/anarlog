@@ -795,10 +795,44 @@ mod test {
         assert!(!crash_reporting_consent_from_rows(&[]));
     }
 
+    const CAPABILITIES: &[&str] = &[
+        include_str!("../capabilities/main.json"),
+        include_str!("../capabilities/composer.json"),
+        include_str!("../capabilities/floating-bar.json"),
+        include_str!("../capabilities/live-caption.json"),
+    ];
+
+    #[test]
+    fn capabilities_are_per_window_with_a_host_allowlist() {
+        for raw in CAPABILITIES {
+            let capability: serde_json::Value = serde_json::from_str(raw).unwrap();
+            let windows = capability["windows"].as_array().unwrap();
+            assert!(!windows.iter().any(|window| window == "*"));
+            for permission in capability["permissions"].as_array().unwrap() {
+                let Some(allow) = permission.get("allow").and_then(|a| a.as_array()) else {
+                    continue;
+                };
+                for entry in allow {
+                    let url = entry["url"].as_str().unwrap();
+                    assert!(
+                        !url.contains("**") && !url.contains("*.*.*.*"),
+                        "wildcard http scope: {url}"
+                    );
+                    assert!(
+                        url.starts_with("https://")
+                            || url.starts_with("http://localhost:")
+                            || url.starts_with("http://127.0.0.1:"),
+                        "non-https http scope: {url}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn main_capability_allows_cloudsync_lifecycle_commands() {
         let capability: serde_json::Value =
-            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+            serde_json::from_str(include_str!("../capabilities/main.json")).unwrap();
         let permissions = capability["permissions"].as_array().unwrap();
 
         for expected in [

@@ -45,6 +45,18 @@ async opinionatedMdToHtml(text: string) : Promise<Result<string, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Asks the user, in a native dialog, to allow an extra host for the `http`
+ * plugin (a custom provider base URL). Returns whether it is allowed.
+ */
+async allowHttpOrigin(url: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:misc|allow_http_origin", { url }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
