@@ -221,6 +221,18 @@ msgstr ""
 msgid "{months} months ago"
 msgstr ""
 
+#: src/accounts/local.ts
+msgid "{name} access wasn't granted."
+msgstr ""
+
+#: src/accounts/local.ts
+msgid "{name} sign-in isn't set up in this build."
+msgstr ""
+
+#: src/accounts/local.ts
+msgid "{name} sign-in timed out. Try again when you're ready."
+msgstr ""
+
 #: src/meeting-float/overlay/bar.tsx
 msgid "{notice}; stop listening"
 msgstr ""
@@ -510,6 +522,11 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Add and configure at least one action first."
+msgstr ""
+
+#. placeholder {0}: providerLabel(provider)
+#: src/calendar/components/oauth/local-provider-content.tsx
+msgid "Add another {0} account"
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -1083,6 +1100,7 @@ msgid "Can view"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/calendar/components/oauth/local-provider-content.tsx
 #: src/folders/folder-editor.tsx
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
@@ -1650,6 +1668,7 @@ msgid "Connect {0}"
 msgstr ""
 
 #. placeholder {0}: config.displayName
+#: src/calendar/components/oauth/local-provider-content.tsx
 #: src/calendar/components/oauth/provider-content.tsx
 msgid "Connect {0} Calendar"
 msgstr ""
@@ -1722,6 +1741,10 @@ msgstr ""
 msgid "Connected"
 msgstr ""
 
+#: src/accounts/local.ts
+msgid "Connected {who}"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
 msgstr ""
@@ -1737,6 +1760,11 @@ msgstr ""
 
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your existing subscription."
+msgstr ""
+
+#. placeholder {0}: providerLabel(provider)
+#: src/accounts/local.ts
+msgid "Connected your {0} account"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -2048,12 +2076,21 @@ msgstr ""
 msgid "Couldn’t check availability. You can still try Save."
 msgstr ""
 
+#: src/accounts/local.ts
+msgid "Couldn't connect your {name} account."
+msgstr ""
+
 #: src/settings/referrals.tsx
 msgid "Couldn't copy the invite link. Try again."
 msgstr "초대 링크를 복사하지 못했어요. 다시 시도해 주세요."
 
 #: src/session/components/session-actions.tsx
 msgid "Couldn't copy the summary"
+msgstr ""
+
+#. placeholder {0}: account.email ?? "the account"
+#: src/accounts/local.ts
+msgid "Couldn't disconnect {0}."
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -2080,6 +2117,18 @@ msgstr ""
 #: src/settings/referrals.tsx
 msgid "Couldn't open sign-in. Try again."
 msgstr "로그인 화면을 열지 못했어요. 다시 시도해 주세요."
+
+#: src/accounts/local.ts
+msgid "Couldn't reach {name}. Check your connection and try again."
+msgstr ""
+
+#: src/calendar/components/oauth/local-provider-content.tsx
+msgid "Couldn't read your connected accounts from the Keychain"
+msgstr ""
+
+#: src/accounts/local.ts
+msgid "Couldn't save the {name} account to the Keychain."
+msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -2397,6 +2446,7 @@ msgstr ""
 msgid "Disable all notifications"
 msgstr ""
 
+#: src/calendar/components/oauth/local-provider-content.tsx
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
@@ -3575,6 +3625,10 @@ msgstr ""
 msgid "Loading calendars..."
 msgstr ""
 
+#: src/calendar/components/oauth/local-provider-content.tsx
+msgid "Loading calendars…"
+msgstr ""
+
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/automations/starter-config.tsx
 msgid "Loading channels…"
@@ -4084,6 +4138,10 @@ msgstr ""
 msgid "No calendars found"
 msgstr ""
 
+#: src/calendar/components/oauth/local-provider-content.tsx
+msgid "No calendars found yet"
+msgstr ""
+
 #: src/changelog/index.tsx
 msgid "No changelog available for this version."
 msgstr ""
@@ -4369,6 +4427,10 @@ msgstr ""
 msgid "Notes list"
 msgstr ""
 
+#: src/accounts/local.ts
+msgid "Notes needs access to your {name} calendar. Connect again and leave calendar access ticked."
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
@@ -4575,6 +4637,7 @@ msgid "Optional. Labels your own voice in in-person meetings. Other people are n
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/calendar/components/oauth/local-provider-content.tsx
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
@@ -5015,10 +5078,16 @@ msgstr ""
 msgid "Recipient email"
 msgstr ""
 
+#: src/calendar/components/oauth/local-provider-content.tsx
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/settings/crm/index.tsx
 msgid "Reconnect"
+msgstr ""
+
+#. placeholder {0}: account.email ?? providerLabel(provider)
+#: src/calendar/components/oauth/local-provider-content.tsx
+msgid "Reconnect {0} to keep syncing"
 msgstr ""
 
 #: src/settings/automations/google-drive-config.tsx
@@ -7252,6 +7321,11 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Wait until the transcript and note are complete."
+msgstr ""
+
+#. placeholder {0}: providerLabel(provider)
+#: src/calendar/components/oauth/local-provider-content.tsx
+msgid "Waiting for {0} in your browser…"
 msgstr ""
 
 #: src/settings/sync/index.tsx
