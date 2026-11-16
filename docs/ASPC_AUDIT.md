@@ -1,6 +1,6 @@
 # ASPC audit: Access, Security, Protection, Compliance
 
-Audit of the `prototype` branch of this fork, done on 2026-11-16, before any ASPC code changes.
+Audit of the `prototype` branch of this fork, done on 2026-11-16, before any ASPC code changes. Phase 1 (webview lockdown, same day) changed some items; their current status is in "Phase 1 changes" below, and the tables mark them.
 Rules being audited against: [ASPC_BASE.md](ASPC_BASE.md). Paths are relative to the repo root.
 
 **How to read this:**
@@ -208,7 +208,7 @@ Most of the ASPC work is closing that boundary.
 | ----------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | A1 RBAC                             | PARTIAL           | the role/workspace/share schema above                                                                                                                                                     | no local role model, no matrix, no central check                                                                                                                                                 |
 | A2 Auth on every endpoint           | PARTIAL (Phase 1) | §2; per-window capabilities and the SQL authorizer (Phase 1 → A2.4, A2.5)                                                                                                                 | no caller/session check or `authorize()`; overlays still need `db:execute` for settings                                                                                                          |
-| A3 Least privilege                  | PARTIAL           | calendar is read-only with tokens in the Keychain [V]; Info.plist requests contacts, calendars, reminders and local network                                                               | over-broad capabilities, `http` scope, asset scope, `shell:allow-open` (`default.json:76`)                                                                                                       |
+| A3 Least privilege                  | PARTIAL (Phase 1) | calendar is read-only with tokens in the Keychain [V]; CSP, per-window capabilities, HTTP host allowlist, narrowed asset scope, path checks, `get_env` allowlist (Phase 1)                | Info.plist still requests contacts, calendars, reminders and local network; `shell:allow-open` stays in `main.json`; see each Phase 1 item's gaps                                                |
 | A4 Session/device, app lock         | PARTIAL           | Touch ID/password lock off by default (`schema.ts:259-262`, `plugins/local-auth/src/macos.rs:41-61`)                                                                                      | lock is UI-only; data stays readable via IPC, CLI and MCP; silently skipped when device auth is unavailable (`lock/gate.tsx:39`)                                                                 |
 | B1 Hardening checklist              | PARTIAL           | SQL values bound with `?`; identifier `format!` uses allowlists (`crates/db-app/src/session_deletion.rs:29-37`); no `Math.random` tokens; no `dangerouslySetInnerHTML`/`innerHTML` writes | raw-SQL command; no CSP; no `cargo audit`/`deny`/`pnpm audit` in CI; no constant-time compares                                                                                                   |
 | B2 Input validation                 | PARTIAL           | import formats are JSON/VTT only (`crates/meeting-import`)                                                                                                                                | unchecked import paths; `render_custom`; webhook URLs; no response schema checks on calendar/AI                                                                                                  |
@@ -384,6 +384,23 @@ How the overlay lists were derived: the floating bar and live caption load the w
 - Removed both `runEventHooks` callers (`beforeListeningStarted`, `afterListeningStopped`) from `apps/desktop/src/store/zustand/listener/general-live.ts`; starting a recording no longer needs `settings:vault_base`.
 - There was no settings-schema entry or settings UI for `hooks` (the plugin read the raw `hooks` key from `settings.json`). A leftover key is ignored.
 - Removed the "shell hooks" claim from `apps/web/content/articles/char-vs-meetily.mdx`.
+
+### Phase 1 runtime check
+
+None of Phase 1 was run in the app; only unit tests, `tsc`, vitest and `cargo check` ran. Screens and flows most at risk, to check for CSP violations (Web Inspector console) and ACL errors (`not allowed` in `app.log`):
+
+1. **App boot in every window** (main, note window, composer): `withGlobalTauri: false`, the CSP, and the Zod jitless switch all apply at startup. A blank window means a blocked script or style.
+2. **Composer (quick Ask)**: lost several plugins (`capabilities/composer.json`). Ask a question with each kind of provider; open a note link from the answer.
+3. **Ask / enhance with a custom or Azure/Vertex/Bedrock/Cloudflare base URL**: should show the "Allow connection?" dialog once, then work. Built-in providers should work with no dialog. Check model listing and key verification in Settings → AI.
+4. **Local models** (Ollama, LM Studio on `127.0.0.1`/`localhost`): should work with no dialog. A LAN server by IP shows the dialog; by plain hostname over http it no longer works.
+5. **Sign-in and sync**: Supabase auth refresh, billing/trial dialogs, team workspace mirror, E2EE setup (recovery-key download now opens a save dialog).
+6. **Note export** (PDF/MD/TXT/Org): always opens a save dialog now. **Meeting import from files** and **audio/transcript upload**: use the new Rust file picker. **Recording-import jobs** from the CLI/MCP.
+7. **Audio playback and waveform** on a past meeting, **attachments/screenshots** in notes, **shared-note previews**: asset scope is now cache + `<vault>/sessions`. A custom vault outside the default location is the riskiest case.
+8. **Images and avatars** (team avatars, GitHub assignees, Gravatar), **code blocks in Ask answers** (Shiki), **Mermaid diagrams** in Streamdown: rely on `img-src https:`, inline styles, and no wasm.
+9. **Changelog / What's new** (GitHub raw content), **resource lists** (`anarlog.so`), **Sentry** error reporting if enabled.
+10. **Floating bar / live caption** (Windows/Linux only): boot with the reduced overlay capability.
+11. **Developers → Webhooks**: creating `http://` or LAN URLs is now refused; test delivery to a public `https://` receiver.
+12. **Dev mode** (`pnpm dev:desktop`): `devCsp` must allow Vite HMR and the relay shim.
 
 ## Not verified
 
