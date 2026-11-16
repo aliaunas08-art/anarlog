@@ -564,6 +564,25 @@ To check by hand in the running app (look in `app.log` for `aspc.` errors, and i
 11. **Note windows** and **overlays** (the Windows/Linux floating bar and live caption) follow the same lock state.
 12. **Sign-in refresh while locked:** leave the app hidden and locked for over an hour while signed in. After unlocking you must still be signed in.
 
+## Phase 2b changes (C1 workspace isolation), 2026-11-16
+
+Nothing below was run in the app; see "Phase 2b runtime check".
+
+### C1 local identity: changed from Phase 2a
+
+- The data model already had a local workspace: the CloudSync binding (`app_settings.cloudsync_workspace_binding`), a UUID made on first run that becomes the account id when an account claims the device. Rust create paths already write it (`insert_session`), and the claim (`crates/db-app/src/cloudsync/binding.rs:152`) moves `''` rows and that workspace's rows into the account, and **fails with `ForeignWorkspace` if any domain row has another workspace id**.
+- Phase 2a's context used a Keychain actor id and a new `local-workspace-<uuid>` row. Backfilling rows with those ids would have broken sign-in (the claim) and the owner rekey. So the context now uses the data model's identity: `anlg_db_app::local_content_identity` (`crates/db-app/src/content_identity.rs:92`): workspace = binding workspace; owner/actor = the active local library's workspace, else the binding workspace (the rule `insert_session` uses). The Keychain actor item is no longer read.
+- Startup: `plugins/local-auth/src/access.rs:87` reads it if the schema is ready; otherwise the workspace is empty and every check denies. This also fixes a Phase 2a gap: on a fresh install the schema is not migrated when the context is built, so the first launch had no workspace. The db plugin sets the identity once the schema is ready (`plugins/db/src/lib.rs:395` → `runtime.rs:624`, `AspcState::set_identity`, `crates/aspc/src/state.rs:74`) and again after a claim (`runtime.rs:1307`, `:1342`). The webview SQL context follows through `on_identity_change` (`apps/desktop/src-tauri/src/lib.rs`, `wire_app_lock`).
+
+### C1.1 backfill: EXISTS
+
+- `backfill_content_identity` (`crates/db-app/src/content_identity.rs:152`), run at every startup after migrations and the legacy import, and after a claim. Idempotent.
+  - Tables: `WORKSPACE_CONTENT_TABLES` (21: the 13 E2EE domain tables plus chats, entity mentions, folder attachments, document versions, proposals, voiceprints). Not included: CloudSync/e2ee bookkeeping, `shared_session_cache` (other people's notes, keyed by the sharer's workspace), `workspaces`/`workspace_memberships` (cloud projection), enterprise outbox. There are no `artifacts` or `chunks` tables; attachments are `session_attachments`.
+  - `workspace_id = ''` gets the local workspace; `owner_user_id = ''` gets the local owner only on rows of the local workspace or `''`. Rows of any other (signed-in/team) workspace are never touched. The legacy `00000000-…` owner is left for the claim's rekey.
+  - **No sync churn:** CloudSync syncs only `e2ee_records`; plaintext tables reach it through the `e2ee_dirty_rows` triggers. The backfill guards exactly its rows with `e2ee_apply_guard` (as sync's own apply does), so no dirty rows are queued. A `''` row was never uploaded (only workspaces with keys are), and it uploads with its next real edit. The search queue is refilled for changed sessions, which the new index fields need.
+- The claim now also moves the non-E2EE content tables (`NON_E2EE_CONTENT_TABLES`, `binding.rs:199`), so no row is left in the pre-claim workspace.
+- Tests (`content_identity.rs`): `identity_is_the_cloudsync_binding_and_library_owner`, `backfill_assigns_unassigned_rows_only_and_is_idempotent` (asserts zero dirty rows and no leftover guards), `backfill_refuses_an_empty_identity`, `claim_still_works_after_the_backfill_and_moves_every_content_table`.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

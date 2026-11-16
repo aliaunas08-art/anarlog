@@ -4,6 +4,7 @@ use crate::lock::{AuthResult, LockMachine, LockSnapshot, UnlockOutcome};
 use crate::{AccessContext, Role};
 
 type LockListener = Box<dyn Fn(LockSnapshot) + Send + Sync>;
+type IdentityListener = Box<dyn Fn(&AccessContext) + Send + Sync>;
 
 /// The process-wide access state: who the local actor is and the lock.
 /// The desktop app manages one `Arc<AspcState>` as Tauri state.
@@ -11,6 +12,7 @@ pub struct AspcState {
     base: RwLock<AccessContext>,
     lock: Mutex<LockMachine>,
     listeners: Mutex<Vec<LockListener>>,
+    identity_listeners: Mutex<Vec<IdentityListener>>,
 }
 
 impl AspcState {
@@ -23,6 +25,7 @@ impl AspcState {
             base: RwLock::new(base),
             lock: Mutex::new(LockMachine::new(lock_enabled)),
             listeners: Mutex::new(Vec::new()),
+            identity_listeners: Mutex::new(Vec::new()),
         }
     }
 
@@ -56,6 +59,45 @@ impl AspcState {
         ctx.window = window.map(str::to_owned);
         ctx.unlocked = self.machine().is_unlocked();
         ctx
+    }
+
+    /// The local workspace scope (C1.2), or `None` (fail closed) while the
+    /// context has no workspace.
+    pub fn scope(&self) -> Option<crate::WorkspaceScope> {
+        crate::WorkspaceScope::from_context(&self.context(None))
+    }
+
+    /// Replaces the actor and workspace (C1). The desktop app calls this once
+    /// the schema is ready and the local identity is known; until then a
+    /// fresh install has an empty workspace and every check denies.
+    /// Listeners run only when something changed.
+    pub fn set_identity(&self, actor_id: String, workspace_id: String) {
+        let changed = {
+            let mut base = self.base.write().unwrap_or_else(|e| e.into_inner());
+            let changed = base.actor_id != actor_id || base.workspace_id != workspace_id;
+            base.actor_id = actor_id;
+            base.workspace_id = workspace_id;
+            changed
+        };
+        if changed {
+            let ctx = self.context(None);
+            for listener in self
+                .identity_listeners
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .iter()
+            {
+                listener(&ctx);
+            }
+        }
+    }
+
+    /// Registers a callback run after every identity change.
+    pub fn on_identity_change(&self, listener: impl Fn(&AccessContext) + Send + Sync + 'static) {
+        self.identity_listeners
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Box::new(listener));
     }
 
     pub fn lock_snapshot(&self) -> LockSnapshot {
@@ -250,5 +292,27 @@ mod tests {
         }
         // The SQL commands skip only the lock check.
         assert!(check(Some(&locked), "main", DataType::Notes, Action::Read, false).is_ok());
+    }
+
+    #[test]
+    fn identity_change_updates_context_scope_and_listeners() {
+        let state = AspcState::local_owner("a".into(), String::new(), "d".into(), false);
+        // Fresh install before the schema is ready: no workspace, fail closed.
+        assert!(state.scope().is_none());
+        assert_eq!(
+            check(Some(&state), "main", DataType::Notes, Action::Read, true)
+                .unwrap_err()
+                .code,
+            DenyCode::WrongWorkspace
+        );
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = Arc::clone(&seen);
+        state.on_identity_change(move |ctx| sink.lock().unwrap().push(ctx.workspace_id.clone()));
+        state.set_identity("owner".into(), "w1".into());
+        state.set_identity("owner".into(), "w1".into());
+        assert_eq!(*seen.lock().unwrap(), vec!["w1".to_string()]);
+        assert_eq!(state.scope().unwrap().workspace_id(), "w1");
+        assert_eq!(state.context(None).actor_id, "owner");
+        assert!(check(Some(&state), "main", DataType::Notes, Action::Read, true).is_ok());
     }
 }

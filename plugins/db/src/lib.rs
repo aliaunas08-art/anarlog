@@ -389,6 +389,10 @@ async fn bootstrap_app_database<R: tauri::Runtime>(
     import::import_legacy_data(&app, db.pool())
         .await
         .map_err(|error| error.to_string())?;
+    if let Some(state) = app.try_state::<std::sync::Arc<anlg_aspc::AspcState>>() {
+        runtime.set_access_state(std::sync::Arc::clone(state.inner()));
+    }
+    runtime.apply_content_identity().await;
     if let Some(config) = startup_config {
         runtime.set_startup_status_if_running(StartupStatus::for_phase(
             StartupPhase::ConfiguringCloudsync,

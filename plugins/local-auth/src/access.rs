@@ -1,88 +1,37 @@
 //! Builds the local access context at startup (A1.3) and persists the app
 //! lock setting. Runs in Rust before any window exists.
+//!
+//! The actor and workspace are the data model's own local identity
+//! (`anlg_db_app::local_content_identity`: the CloudSync binding's workspace,
+//! and the owner id `insert_session` writes). Phase 2a used a Keychain actor
+//! id and a new `local-workspace-…` row instead; rows stamped with those ids
+//! would make CloudSync's claim fail (`ForeignWorkspace`) and would not be
+//! rekeyed to the account on sign-in, so Phase 2b (C1) replaced them.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anlg_aspc::AspcState;
 use anlg_db_core::Db;
-use anlg_local_accounts::{KeychainStore, SecretStore};
 
-const ACTOR_ID_KEY: &str = "local-actor-id";
-const KEYCHAIN_TIMEOUT: Duration = Duration::from_secs(3);
 pub const LOCK_SETTING_ID: &str = "lock_app";
 const LEGACY_SETTINGS_ID: &str = "legacy_settings_document";
 
-/// Keychain service for the access context's items.
-pub fn keychain_service(identifier: &str) -> String {
-    format!("{identifier}.access")
-}
-
-/// The stable local actor id: read from the Keychain, or created once and
-/// stored there. Returns `None` if the Keychain is unusable.
-pub fn load_or_create_actor_id(store: &dyn SecretStore) -> Option<String> {
-    match store.get(ACTOR_ID_KEY) {
-        Ok(Some(id)) if !id.trim().is_empty() => Some(id),
-        Ok(_) => {
-            let id = format!("local-{}", uuid::Uuid::new_v4());
-            match store.set(ACTOR_ID_KEY, &id) {
-                Ok(()) => Some(id),
-                Err(error) => {
-                    tracing::warn!(%error, "aspc_actor_id_store_failed");
-                    None
-                }
-            }
+/// The local actor and workspace ids, or empty strings (every check denies)
+/// when the database has no binding yet. On a fresh install the schema is not
+/// ready when the app starts; the db plugin sets the identity once it is
+/// (`tauri_plugin_db` startup, after the C1 backfill).
+pub async fn local_identity(db: &Db) -> (String, String) {
+    match anlg_db_app::local_content_identity(db.pool()).await {
+        Ok(Some(identity)) => (identity.owner_user_id, identity.workspace_id),
+        Ok(None) => {
+            tracing::info!("aspc_identity_pending_schema");
+            (String::new(), String::new())
         }
         Err(error) => {
-            tracing::warn!(%error, "aspc_actor_id_read_failed");
-            None
+            tracing::info!(%error, "aspc_identity_pending_schema");
+            (String::new(), String::new())
         }
     }
-}
-
-/// The Keychain can block on an access prompt (dev builds with ad-hoc
-/// signatures). Startup waits at most `KEYCHAIN_TIMEOUT`, then uses an id
-/// for this launch only.
-fn actor_id_from_keychain(identifier: &str) -> String {
-    let service = keychain_service(identifier);
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let store = KeychainStore::new(service);
-        let _ = tx.send(load_or_create_actor_id(&store));
-    });
-    match rx.recv_timeout(KEYCHAIN_TIMEOUT) {
-        Ok(Some(id)) => id,
-        _ => {
-            tracing::warn!("aspc_actor_id_ephemeral");
-            format!("ephemeral-{}", uuid::Uuid::new_v4())
-        }
-    }
-}
-
-/// Reuses the device's personal workspace, else creates one owned by the
-/// actor. Inserts a row; never changes the schema.
-pub async fn ensure_personal_workspace(db: &Db, actor_id: &str) -> Result<String, sqlx::Error> {
-    let existing: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM workspaces
-         WHERE kind = 'personal' AND deleted_at IS NULL AND id != ''
-         ORDER BY (owner_user_id = ?) DESC, created_at, id
-         LIMIT 1",
-    )
-    .bind(actor_id)
-    .fetch_optional(db.pool())
-    .await?;
-    if let Some(id) = existing {
-        return Ok(id);
-    }
-    let id = format!("local-workspace-{}", uuid::Uuid::new_v4());
-    sqlx::query(
-        "INSERT INTO workspaces (id, owner_user_id, kind, name) VALUES (?, ?, 'personal', 'Personal')",
-    )
-    .bind(&id)
-    .bind(actor_id)
-    .execute(db.pool())
-    .await?;
-    Ok(id)
 }
 
 fn parse_bool(value_json: &str) -> Option<bool> {
@@ -131,27 +80,12 @@ pub async fn write_lock_setting(db: &Db, enabled: bool) -> Result<(), sqlx::Erro
     Ok(())
 }
 
-/// Startup: the local Owner of the personal workspace, with the lock state
+/// Startup: the local Owner of the local workspace, with the lock state
 /// from the stored setting (locked when it is on). If the setting can't be
 /// read the lock is treated as off and the error is logged; the database it
 /// lives in is then unreadable too, so nothing is exposed by it.
-pub async fn bootstrap(db: &Db, identifier: &str) -> Arc<AspcState> {
-    let identifier = identifier.to_string();
-    let actor_id = tokio::task::spawn_blocking(move || actor_id_from_keychain(&identifier))
-        .await
-        .unwrap_or_else(|_| format!("ephemeral-{}", uuid::Uuid::new_v4()));
-    bootstrap_with_actor(db, actor_id).await
-}
-
-pub async fn bootstrap_with_actor(db: &Db, actor_id: String) -> Arc<AspcState> {
-    let workspace_id = match ensure_personal_workspace(db, &actor_id).await {
-        Ok(id) => id,
-        Err(error) => {
-            // An empty workspace id makes every check deny (fail closed).
-            tracing::error!(%error, "aspc_personal_workspace_failed");
-            String::new()
-        }
-    };
+pub async fn bootstrap(db: &Db) -> Arc<AspcState> {
+    let (actor_id, workspace_id) = local_identity(db).await;
     let lock_enabled = read_lock_setting(db).await.unwrap_or_else(|error| {
         tracing::error!(%error, "aspc_lock_setting_read_failed");
         false
@@ -167,21 +101,18 @@ pub async fn bootstrap_with_actor(db: &Db, actor_id: String) -> Arc<AspcState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anlg_local_accounts::MemoryStore;
 
     async fn test_db() -> Db {
         let db = Db::connect_memory_plain().await.unwrap();
         sqlx::raw_sql(
-            "CREATE TABLE workspaces (
-               id TEXT PRIMARY KEY NOT NULL, owner_user_id TEXT NOT NULL DEFAULT '',
-               kind TEXT NOT NULL DEFAULT 'personal', name TEXT NOT NULL DEFAULT '',
-               created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-               updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-               deleted_at TEXT);
-             CREATE TABLE app_settings (
+            "CREATE TABLE app_settings (
                id TEXT PRIMARY KEY NOT NULL, value_json TEXT NOT NULL DEFAULT 'null',
                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-               updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));",
+               updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));
+             CREATE TABLE local_library_connections (
+               account_user_id TEXT PRIMARY KEY NOT NULL,
+               library_workspace_id TEXT NOT NULL DEFAULT '',
+               active INTEGER NOT NULL DEFAULT 0);",
         )
         .execute(db.pool())
         .await
@@ -189,37 +120,36 @@ mod tests {
         db
     }
 
-    #[test]
-    fn actor_id_is_created_once() {
-        let store = MemoryStore::default();
-        let first = load_or_create_actor_id(&store).unwrap();
-        assert!(first.starts_with("local-"));
-        assert_eq!(load_or_create_actor_id(&store).unwrap(), first);
+    async fn bind(db: &Db, workspace_id: &str) {
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json) VALUES ('cloudsync_workspace_binding', ?)",
+        )
+        .bind(format!(
+            "{{\"workspace_id\":\"{workspace_id}\",\"account_user_id\":null}}"
+        ))
+        .execute(db.pool())
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn personal_workspace_is_reused_or_created() {
+    async fn identity_comes_from_the_cloudsync_binding() {
         let db = test_db().await;
-        let created = ensure_personal_workspace(&db, "actor").await.unwrap();
+        bind(&db, "local-binding").await;
         assert_eq!(
-            ensure_personal_workspace(&db, "actor").await.unwrap(),
-            created
+            local_identity(&db).await,
+            ("local-binding".to_string(), "local-binding".to_string())
         );
-        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM workspaces")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-        assert_eq!(count, 1);
+    }
 
+    #[tokio::test]
+    async fn no_binding_or_schema_means_no_identity() {
         let db = test_db().await;
-        sqlx::query("INSERT INTO workspaces (id, owner_user_id, kind) VALUES ('shared-1', 'x', 'shared'), ('account-1', 'user', 'personal')")
-            .execute(db.pool())
-            .await
-            .unwrap();
-        assert_eq!(
-            ensure_personal_workspace(&db, "actor").await.unwrap(),
-            "account-1"
-        );
+        assert_eq!(local_identity(&db).await, (String::new(), String::new()));
+        let bare = Db::connect_memory_plain().await.unwrap();
+        assert_eq!(local_identity(&bare).await, (String::new(), String::new()));
+        let state = bootstrap(&bare).await;
+        assert!(state.scope().is_none());
     }
 
     #[tokio::test]
@@ -240,14 +170,15 @@ mod tests {
     #[tokio::test]
     async fn bootstrap_starts_locked_when_the_setting_is_on() {
         let db = test_db().await;
-        let state = bootstrap_with_actor(&db, "actor".into()).await;
+        bind(&db, "local-binding").await;
+        let state = bootstrap(&db).await;
         assert!(state.is_unlocked());
         let ctx = state.context(None);
         assert_eq!(ctx.role, Some(anlg_aspc::Role::Owner));
-        assert!(!ctx.workspace_id.is_empty());
+        assert_eq!(ctx.workspace_id, "local-binding");
 
         write_lock_setting(&db, true).await.unwrap();
-        let state = bootstrap_with_actor(&db, "actor".into()).await;
+        let state = bootstrap(&db).await;
         assert!(!state.is_unlocked());
         assert_eq!(state.context(None).workspace_id, ctx.workspace_id);
     }

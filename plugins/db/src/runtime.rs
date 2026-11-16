@@ -88,6 +88,8 @@ pub struct PluginDbRuntime {
     startup_status: std::sync::RwLock<crate::StartupStatus>,
     synced_write_barrier: tokio::sync::RwLock<()>,
     webview_sql: std::sync::Arc<anlg_db_core::WebviewSqlAuthorizer>,
+    /// The app's access state (ASPC), set at startup when the app manages one.
+    access_state: std::sync::OnceLock<std::sync::Arc<anlg_aspc::AspcState>>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     renderer_subscriptions: renderer::RendererSubscriptions,
@@ -188,6 +190,7 @@ impl PluginDbRuntime {
                 std::sync::Arc::clone(&webview_sql),
             ),
             webview_sql,
+            access_state: Default::default(),
             renderer_subscriptions: Default::default(),
             e2ee_sync_hook,
             _witness_watch: witness_watch,
@@ -606,6 +609,40 @@ impl PluginDbRuntime {
     /// table (A2.4).
     pub fn set_webview_sql_context(&self, context: anlg_aspc::AccessContext) {
         self.webview_sql.set_context(context);
+    }
+
+    pub fn set_access_state(&self, state: std::sync::Arc<anlg_aspc::AspcState>) {
+        let _ = self.access_state.set(state);
+    }
+
+    /// ASPC C1: resolves the local workspace and owner ids, gives unassigned
+    /// content rows those ids (idempotent; no sync churn, see
+    /// `anlg_db_app::backfill_content_identity`), and hands the ids to the
+    /// access state. Runs at startup once the schema is ready and again after
+    /// an account claims the device. Failures are logged; without an identity
+    /// the access state keeps an empty workspace and denies (fail closed).
+    pub(crate) async fn apply_content_identity(&self) {
+        let identity = match anlg_db_app::local_content_identity(self.db.pool()).await {
+            Ok(Some(identity)) => identity,
+            Ok(None) => {
+                tracing::error!("aspc_content_identity_missing");
+                return;
+            }
+            Err(error) => {
+                tracing::error!(%error, "aspc_content_identity_failed");
+                return;
+            }
+        };
+        match anlg_db_app::backfill_content_identity(self.db.pool(), &identity).await {
+            Ok(report) if report.total() > 0 => {
+                tracing::info!(rows = report.total(), "aspc_content_identity_backfilled");
+            }
+            Ok(_) => {}
+            Err(error) => tracing::error!(%error, "aspc_content_identity_backfill_failed"),
+        }
+        if let Some(state) = self.access_state.get() {
+            state.set_identity(identity.owner_user_id, identity.workspace_id);
+        }
     }
 
     pub fn webview_sql_locked(&self) -> bool {
@@ -1266,7 +1303,10 @@ impl PluginDbRuntime {
         )
         .await
         {
-            Ok(()) => Ok(true),
+            Ok(()) => {
+                self.apply_content_identity().await;
+                Ok(true)
+            }
             Err(anlg_db_app::CloudsyncWorkspaceError::ClaimCancelled) => {
                 Err(crate::Error::CloudsyncConfigurationCancelled)
             }
@@ -1298,7 +1338,10 @@ impl PluginDbRuntime {
         )
         .await
         {
-            Ok(()) => Ok(true),
+            Ok(()) => {
+                self.apply_content_identity().await;
+                Ok(true)
+            }
             Err(anlg_db_app::CloudsyncWorkspaceError::ClaimCancelled) => {
                 Err(crate::Error::CloudsyncConfigurationCancelled)
             }

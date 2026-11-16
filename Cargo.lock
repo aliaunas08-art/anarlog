@@ -4403,6 +4403,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 name = "db-app"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "base64 0.22.1",
  "cloudsync",
  "db-core",
@@ -17137,9 +17138,9 @@ version = "0.1.0"
 dependencies = [
  "aspc",
  "block2",
+ "db-app",
  "db-core",
  "host",
- "local-accounts",
  "objc2",
  "objc2-foundation",
  "objc2-local-authentication",
@@ -17154,7 +17155,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
- "uuid",
  "windows 0.62.2",
 ]
 

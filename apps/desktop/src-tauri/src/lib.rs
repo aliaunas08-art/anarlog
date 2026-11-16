@@ -184,7 +184,7 @@ pub fn main() {
             let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
             // ASPC A1.3/A4.2: the local Owner's access context and the
             // Rust-held app lock, built before any window exists.
-            let access_state = tauri_plugin_local_auth::access::bootstrap(&db, &identifier).await;
+            let access_state = tauri_plugin_local_auth::access::bootstrap(&db).await;
             (
                 root_supervisor_ctx,
                 root_supervisor_handle,
@@ -792,6 +792,10 @@ fn wire_app_lock(app: &tauri::AppHandle<tauri::Wry>, access_state: &Arc<anlg_asp
     if let Some(runtime) = app.try_state::<tauri_plugin_db::ManagedState>() {
         let runtime = runtime.inner().clone();
         runtime.set_webview_sql_context(access_state.context(None));
+        let identity_runtime = runtime.clone();
+        access_state.on_identity_change(move |context| {
+            identity_runtime.set_webview_sql_context(context.clone());
+        });
         access_state.on_lock_change(move |snapshot| {
             runtime.set_webview_sql_locked(!snapshot.unlocked);
         });

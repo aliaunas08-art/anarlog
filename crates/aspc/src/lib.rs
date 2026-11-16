@@ -6,11 +6,13 @@
 
 pub mod commands;
 pub mod lock;
+mod scope;
 mod state;
 #[cfg(feature = "tauri")]
 mod tauri_guard;
 
 pub use lock::{AuthResult, LockMachine, LockSnapshot, UnlockOutcome};
+pub use scope::WorkspaceScope;
 pub use state::AspcState;
 #[cfg(feature = "tauri")]
 pub use tauri_guard::{CallerLabel, require, require_ignoring_lock};
@@ -117,7 +119,9 @@ impl Action {
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct AccessContext {
-    /// Local mode: a stable id created once and kept in the Keychain.
+    /// Local mode: the id the data model writes as `owner_user_id` (the
+    /// CloudSync binding's local workspace id, or the account id once
+    /// claimed; see `anlg_db_app::local_content_identity`).
     pub actor_id: String,
     /// `None` means the stored role was not one of the four: denied.
     pub role: Option<Role>,
