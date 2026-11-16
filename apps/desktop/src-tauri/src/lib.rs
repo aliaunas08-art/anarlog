@@ -415,6 +415,8 @@ pub fn main() {
 
             specta_builder.mount_events(&app_handle);
 
+            allow_vault_sessions_in_asset_scope(&app_handle);
+
             {
                 use tauri_specta::Event;
                 let stop_handle = app_handle.clone();
@@ -743,6 +745,33 @@ fn get_onboarding_flag() -> Option<bool> {
                 .ok()
                 .and_then(|v| parse_value(&v))
         })
+}
+
+/// The asset protocol serves only the app cache (static scope in
+/// `tauri.conf.json`) and the vault's `sessions/` folder (audio, attachments),
+/// added here because the vault location is user-configurable (ASPC A3.2).
+/// Other files in a custom vault (for example an Obsidian vault) stay out.
+fn allow_vault_sessions_in_asset_scope<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Manager;
+    use tauri_plugin_settings::SettingsPluginExt;
+
+    let Ok(base) = app.settings().vault_base() else {
+        tracing::warn!("asset_scope_vault_unavailable");
+        return;
+    };
+    let sessions = base.as_std_path().join("sessions");
+    let scope = app.asset_protocol_scope();
+    let mut targets = vec![sessions.clone()];
+    if let Ok(canonical) = sessions.canonicalize()
+        && canonical != sessions
+    {
+        targets.push(canonical);
+    }
+    for target in targets {
+        if let Err(error) = scope.allow_directory(&target, true) {
+            tracing::warn!(%error, "asset_scope_allow_vault_failed");
+        }
+    }
 }
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
