@@ -583,6 +583,15 @@ Nothing below was run in the app; see "Phase 2b runtime check".
 - The claim now also moves the non-E2EE content tables (`NON_E2EE_CONTENT_TABLES`, `binding.rs:199`), so no row is left in the pre-claim workspace.
 - Tests (`content_identity.rs`): `identity_is_the_cloudsync_binding_and_library_owner`, `backfill_assigns_unassigned_rows_only_and_is_idempotent` (asserts zero dirty rows and no leftover guards), `backfill_refuses_an_empty_identity`, `claim_still_works_after_the_backfill_and_moves_every_content_table`.
 
+### C1.2 / B4.1 search: EXISTS (search layer)
+
+- Tantivy schema version 3 adds `workspace_id` and `session_id` (`plugins/tantivy/src/schema.rs:56`); the version change re-creates the index and the desktop indexer's projection version 5 (`apps/desktop/src-tauri/src/search_index.rs:13`) rebuilds it from SQLite. Rows with `workspace_id = ''` are indexed under `_unassigned` (`schema.rs:24`), which only a local scope matches.
+- `search_collection` (`plugins/tantivy/src/ext.rs:455`) always adds a workspace clause from a `WorkspaceScope`, and a `session_id` clause when `filters.session_id` is set (an empty id matches nothing). `tantivy:search` takes the scope from the access state and returns an error with no workspace (`plugins/tantivy/src/commands.rs:21`).
+- The indexer's count check uses `document_count` (`ext.rs:188`), which returns a number only.
+- Tests: `search_returns_only_the_scoped_workspace` (C1.4 at the search layer), `session_filter_limits_results_to_one_meeting` (B4.2 at the search layer), `ext.rs:786`, `:830`.
+- Ask: "This meeting" scope does not query Tantivy today (it reads the pinned meeting and pins `search_meeting_content`, `apps/desktop/src/chat/guardrails/tools.ts`). The filter is there for when it does. Ask's library search (`chat/guardrails/deps.ts`) goes through `tantivy:search`, so it is workspace-scoped.
+- **Gap:** `tantivy:add_document`/`update_document(s)`/`remove_document`/`reindex` are still `Pending` webview commands; a webview could add documents with any workspace id. It cannot read another workspace through them.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

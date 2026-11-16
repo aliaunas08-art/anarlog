@@ -6,11 +6,13 @@ use tantivy::query::{
 };
 use tantivy::schema::{Facet, IndexRecordOption};
 use tantivy::snippet::SnippetGenerator;
-use tantivy::{DateTime, Index, ReloadPolicy, TantivyDocument, Term};
+use tantivy::{Index, ReloadPolicy, TantivyDocument, Term};
 use tauri_plugin_settings::SettingsPluginExt;
 
 use crate::query::build_created_at_range_query;
-use crate::schema::{extract_search_document, get_fields};
+use crate::schema::{
+    extract_search_document, get_fields, to_tantivy_document, workspace_term_value,
+};
 use crate::tokenizer::register_tokenizers;
 use crate::{
     CollectionConfig, CollectionIndex, HighlightRange, IndexState, SearchDocument, SearchHit,
@@ -162,8 +164,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         collection.unwrap_or_else(|| "default".to_string())
     }
 
-    pub async fn search(&self, request: SearchRequest) -> Result<SearchResult, crate::Error> {
-        let collection_name = Self::get_collection_name(request.collection);
+    /// Searches only `scope`'s documents (ASPC C1.2), and only one meeting's
+    /// when `request.filters.session_id` is set (B4.1).
+    pub async fn search(
+        &self,
+        scope: &anlg_aspc::WorkspaceScope,
+        request: SearchRequest,
+    ) -> Result<SearchResult, crate::Error> {
+        let collection_name = Self::get_collection_name(request.collection.clone());
         let state = self.manager.state::<IndexState>();
         let guard = state.inner.read().await;
 
@@ -172,221 +180,20 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             .get(&collection_name)
             .ok_or_else(|| crate::Error::CollectionNotFound(collection_name.clone()))?;
 
-        let schema = &collection_index.schema;
-        let index = &collection_index.index;
-        let reader = &collection_index.reader;
+        search_collection(collection_index, scope, request)
+    }
 
-        let fields = get_fields(schema);
-        let searcher = reader.searcher();
-
-        let use_fuzzy = request.options.fuzzy.unwrap_or(false);
-        let phrase_slop = request.options.phrase_slop.unwrap_or(0);
-        let has_query = !request.query.trim().is_empty();
-
-        // Title boost factor (3x) to match Orama's title:3, content:1 behavior
-        const TITLE_BOOST: f32 = 3.0;
-
-        let mut combined_query: Box<dyn Query> = if !has_query {
-            Box::new(AllQuery)
-        } else if use_fuzzy {
-            let distance = request.options.distance.unwrap_or(1);
-
-            // Parse query to extract phrases (quoted) and regular terms
-            let (phrases, regular_terms) = parse_query_parts(&request.query);
-
-            let mut term_queries: Vec<(Occur, Box<dyn Query>)> = Vec::new();
-
-            // Handle quoted phrases with PhraseQuery
-            for phrase in phrases {
-                let words: Vec<&str> = phrase.split_whitespace().collect();
-                if words.len() > 1 {
-                    // Create phrase query for title field
-                    let title_terms: Vec<Term> = words
-                        .iter()
-                        .map(|w| Term::from_field_text(fields.title, w))
-                        .collect();
-                    let mut title_phrase = PhraseQuery::new(title_terms);
-                    title_phrase.set_slop(phrase_slop);
-
-                    // Create phrase query for content field
-                    let content_terms: Vec<Term> = words
-                        .iter()
-                        .map(|w| Term::from_field_text(fields.content, w))
-                        .collect();
-                    let mut content_phrase = PhraseQuery::new(content_terms);
-                    content_phrase.set_slop(phrase_slop);
-
-                    // Boost title matches by 3x
-                    let boosted_title: Box<dyn Query> =
-                        Box::new(BoostQuery::new(Box::new(title_phrase), TITLE_BOOST));
-                    let content_query: Box<dyn Query> = Box::new(content_phrase);
-
-                    // Phrase must match in at least one field (title OR content)
-                    let phrase_field_query = BooleanQuery::new(vec![
-                        (Occur::Should, boosted_title),
-                        (Occur::Should, content_query),
-                    ]);
-
-                    term_queries.push((Occur::Must, Box::new(phrase_field_query)));
-                } else if !words.is_empty() {
-                    // Single word "phrase" - treat as regular term
-                    let word = words[0];
-                    let title_fuzzy = FuzzyTermQuery::new(
-                        Term::from_field_text(fields.title, word),
-                        distance,
-                        true,
-                    );
-                    let content_fuzzy = FuzzyTermQuery::new(
-                        Term::from_field_text(fields.content, word),
-                        distance,
-                        true,
-                    );
-
-                    let boosted_title: Box<dyn Query> =
-                        Box::new(BoostQuery::new(Box::new(title_fuzzy), TITLE_BOOST));
-                    let content_query: Box<dyn Query> = Box::new(content_fuzzy);
-
-                    let term_field_query = BooleanQuery::new(vec![
-                        (Occur::Should, boosted_title),
-                        (Occur::Should, content_query),
-                    ]);
-
-                    term_queries.push((Occur::Must, Box::new(term_field_query)));
-                }
-            }
-
-            // Handle regular (unquoted) terms with fuzzy matching
-            for term in regular_terms {
-                let title_fuzzy =
-                    FuzzyTermQuery::new(Term::from_field_text(fields.title, term), distance, true);
-                let content_fuzzy = FuzzyTermQuery::new(
-                    Term::from_field_text(fields.content, term),
-                    distance,
-                    true,
-                );
-
-                // Boost title matches by 3x
-                let boosted_title: Box<dyn Query> =
-                    Box::new(BoostQuery::new(Box::new(title_fuzzy), TITLE_BOOST));
-                let content_query: Box<dyn Query> = Box::new(content_fuzzy);
-
-                // Each term must match in at least one field (title OR content)
-                let term_field_query = BooleanQuery::new(vec![
-                    (Occur::Should, boosted_title),
-                    (Occur::Should, content_query),
-                ]);
-
-                // All terms must be present (Must for each term)
-                term_queries.push((Occur::Must, Box::new(term_field_query)));
-            }
-
-            Box::new(BooleanQuery::new(term_queries))
-        } else {
-            let query_parser = QueryParser::for_index(index, vec![fields.title, fields.content]);
-            query_parser.parse_query(&request.query)?
-        };
-
-        // Apply created_at filter
-        if let Some(ref created_at_filter) = request.filters.created_at {
-            let range_query = build_created_at_range_query(fields.created_at, created_at_filter);
-            if let Some(rq) = range_query {
-                combined_query = Box::new(BooleanQuery::new(vec![
-                    (Occur::Must, combined_query),
-                    (Occur::Must, rq),
-                ]));
-            }
-        }
-
-        // Apply doc_type filter
-        if let Some(ref doc_type) = request.filters.doc_type {
-            let doc_type_term = Term::from_field_text(fields.doc_type, doc_type);
-            let doc_type_query = TermQuery::new(doc_type_term, IndexRecordOption::Basic);
-            combined_query = Box::new(BooleanQuery::new(vec![
-                (Occur::Must, combined_query),
-                (Occur::Must, Box::new(doc_type_query)),
-            ]));
-        }
-
-        // Apply facet filter
-        if let Some(ref facet_path) = request.filters.facet
-            && let Ok(facet) = Facet::from_text(facet_path)
-        {
-            let facet_term = Term::from_facet(fields.facets, &facet);
-            let facet_query = TermQuery::new(facet_term, IndexRecordOption::Basic);
-            combined_query = Box::new(BooleanQuery::new(vec![
-                (Occur::Must, combined_query),
-                (Occur::Must, Box::new(facet_query)),
-            ]));
-        }
-
-        // Use tuple collector to get both top docs and total count
-        let (top_docs, count) = searcher.search(
-            &combined_query,
-            &(TopDocs::with_limit(request.limit), Count),
-        )?;
-
-        let generate_snippets = request.options.snippets.unwrap_or(false);
-        let snippet_max_chars = request.options.snippet_max_chars.unwrap_or(150);
-
-        let (title_snippet_gen, content_snippet_gen) = if generate_snippets {
-            let mut title_gen =
-                SnippetGenerator::create(&searcher, &*combined_query, fields.title)?;
-            title_gen.set_max_num_chars(snippet_max_chars);
-
-            let mut content_gen =
-                SnippetGenerator::create(&searcher, &*combined_query, fields.content)?;
-            content_gen.set_max_num_chars(snippet_max_chars);
-
-            (Some(title_gen), Some(content_gen))
-        } else {
-            (None, None)
-        };
-
-        let mut hits = Vec::new();
-        for (score, doc_address) in top_docs {
-            let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
-
-            if let Some(search_doc) = extract_search_document(schema, &fields, &retrieved_doc) {
-                let title_snippet = title_snippet_gen.as_ref().map(|generator| {
-                    let snippet = generator.snippet_from_doc(&retrieved_doc);
-                    Snippet {
-                        fragment: snippet.fragment().to_string(),
-                        highlights: snippet
-                            .highlighted()
-                            .iter()
-                            .map(|range| HighlightRange {
-                                start: range.start,
-                                end: range.end,
-                            })
-                            .collect(),
-                    }
-                });
-
-                let content_snippet = content_snippet_gen.as_ref().map(|generator| {
-                    let snippet = generator.snippet_from_doc(&retrieved_doc);
-                    Snippet {
-                        fragment: snippet.fragment().to_string(),
-                        highlights: snippet
-                            .highlighted()
-                            .iter()
-                            .map(|range| HighlightRange {
-                                start: range.start,
-                                end: range.end,
-                            })
-                            .collect(),
-                    }
-                });
-
-                hits.push(SearchHit {
-                    score,
-                    document: search_doc,
-                    title_snippet,
-                    content_snippet,
-                });
-            }
-        }
-
-        Ok(SearchResult { hits, count })
+    /// Number of documents in a collection, across all workspaces. For the
+    /// indexer's consistency check only; never returns content.
+    pub async fn document_count(&self, collection: Option<String>) -> Result<usize, crate::Error> {
+        let collection_name = Self::get_collection_name(collection);
+        let state = self.manager.state::<IndexState>();
+        let guard = state.inner.read().await;
+        let collection_index = guard
+            .collections
+            .get(&collection_name)
+            .ok_or_else(|| crate::Error::CollectionNotFound(collection_name.clone()))?;
+        Ok(collection_index.reader.searcher().num_docs() as usize)
     }
 
     pub async fn reindex(&self, collection: Option<String>) -> Result<(), crate::Error> {
@@ -435,22 +242,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         let writer = &mut collection_index.writer;
         let fields = get_fields(schema);
 
-        let mut doc = TantivyDocument::new();
-        doc.add_text(fields.id, &document.id);
-        doc.add_text(fields.doc_type, &document.doc_type);
-        doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
-        doc.add_text(fields.title, &document.title);
-        doc.add_text(fields.content, &document.content);
-        doc.add_date(
-            fields.created_at,
-            DateTime::from_timestamp_millis(document.created_at),
-        );
-
-        for facet_path in &document.facets {
-            if let Ok(facet) = Facet::from_text(facet_path) {
-                doc.add_facet(fields.facets, facet);
-            }
-        }
+        let doc = to_tantivy_document(&fields, &document);
 
         writer.add_document(doc)?;
         writer.commit()?;
@@ -485,22 +277,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         let id_term = Term::from_field_text(fields.id, &document.id);
         writer.delete_term(id_term);
 
-        let mut doc = TantivyDocument::new();
-        doc.add_text(fields.id, &document.id);
-        doc.add_text(fields.doc_type, &document.doc_type);
-        doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
-        doc.add_text(fields.title, &document.title);
-        doc.add_text(fields.content, &document.content);
-        doc.add_date(
-            fields.created_at,
-            DateTime::from_timestamp_millis(document.created_at),
-        );
-
-        for facet_path in &document.facets {
-            if let Ok(facet) = Facet::from_text(facet_path) {
-                doc.add_facet(fields.facets, facet);
-            }
-        }
+        let doc = to_tantivy_document(&fields, &document);
 
         writer.add_document(doc)?;
         writer.commit()?;
@@ -538,22 +315,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             let id_term = Term::from_field_text(fields.id, &document.id);
             writer.delete_term(id_term);
 
-            let mut doc = TantivyDocument::new();
-            doc.add_text(fields.id, &document.id);
-            doc.add_text(fields.doc_type, &document.doc_type);
-            doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
-            doc.add_text(fields.title, &document.title);
-            doc.add_text(fields.content, &document.content);
-            doc.add_date(
-                fields.created_at,
-                DateTime::from_timestamp_millis(document.created_at),
-            );
-
-            for facet_path in &document.facets {
-                if let Ok(facet) = Facet::from_text(facet_path) {
-                    doc.add_facet(fields.facets, facet);
-                }
-            }
+            let doc = to_tantivy_document(&fields, &document);
 
             writer.add_document(doc)?;
         }
@@ -597,22 +359,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         for document in documents {
             writer.delete_term(Term::from_field_text(fields.id, &document.id));
 
-            let mut doc = TantivyDocument::new();
-            doc.add_text(fields.id, &document.id);
-            doc.add_text(fields.doc_type, &document.doc_type);
-            doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
-            doc.add_text(fields.title, &document.title);
-            doc.add_text(fields.content, &document.content);
-            doc.add_date(
-                fields.created_at,
-                DateTime::from_timestamp_millis(document.created_at),
-            );
-
-            for facet_path in &document.facets {
-                if let Ok(facet) = Facet::from_text(facet_path) {
-                    doc.add_facet(fields.facets, facet);
-                }
-            }
+            let doc = to_tantivy_document(&fields, &document);
 
             writer.add_document(doc)?;
         }
@@ -700,5 +447,404 @@ mod tests {
         let index = Index::create_in_ram(schema.build());
 
         create_index_writer(&index).unwrap();
+    }
+}
+
+/// The search itself, on one collection: always limited to `scope`
+/// (C1.2) and, with `filters.session_id`, to one meeting (B4.1).
+pub(crate) fn search_collection(
+    collection_index: &CollectionIndex,
+    scope: &anlg_aspc::WorkspaceScope,
+    request: SearchRequest,
+) -> Result<SearchResult, crate::Error> {
+    let schema = &collection_index.schema;
+    let index = &collection_index.index;
+    let reader = &collection_index.reader;
+
+    let fields = get_fields(schema);
+    let searcher = reader.searcher();
+
+    let use_fuzzy = request.options.fuzzy.unwrap_or(false);
+    let phrase_slop = request.options.phrase_slop.unwrap_or(0);
+    let has_query = !request.query.trim().is_empty();
+
+    // Title boost factor (3x) to match Orama's title:3, content:1 behavior
+    const TITLE_BOOST: f32 = 3.0;
+
+    let mut combined_query: Box<dyn Query> = if !has_query {
+        Box::new(AllQuery)
+    } else if use_fuzzy {
+        let distance = request.options.distance.unwrap_or(1);
+
+        // Parse query to extract phrases (quoted) and regular terms
+        let (phrases, regular_terms) = parse_query_parts(&request.query);
+
+        let mut term_queries: Vec<(Occur, Box<dyn Query>)> = Vec::new();
+
+        // Handle quoted phrases with PhraseQuery
+        for phrase in phrases {
+            let words: Vec<&str> = phrase.split_whitespace().collect();
+            if words.len() > 1 {
+                // Create phrase query for title field
+                let title_terms: Vec<Term> = words
+                    .iter()
+                    .map(|w| Term::from_field_text(fields.title, w))
+                    .collect();
+                let mut title_phrase = PhraseQuery::new(title_terms);
+                title_phrase.set_slop(phrase_slop);
+
+                // Create phrase query for content field
+                let content_terms: Vec<Term> = words
+                    .iter()
+                    .map(|w| Term::from_field_text(fields.content, w))
+                    .collect();
+                let mut content_phrase = PhraseQuery::new(content_terms);
+                content_phrase.set_slop(phrase_slop);
+
+                // Boost title matches by 3x
+                let boosted_title: Box<dyn Query> =
+                    Box::new(BoostQuery::new(Box::new(title_phrase), TITLE_BOOST));
+                let content_query: Box<dyn Query> = Box::new(content_phrase);
+
+                // Phrase must match in at least one field (title OR content)
+                let phrase_field_query = BooleanQuery::new(vec![
+                    (Occur::Should, boosted_title),
+                    (Occur::Should, content_query),
+                ]);
+
+                term_queries.push((Occur::Must, Box::new(phrase_field_query)));
+            } else if !words.is_empty() {
+                // Single word "phrase" - treat as regular term
+                let word = words[0];
+                let title_fuzzy =
+                    FuzzyTermQuery::new(Term::from_field_text(fields.title, word), distance, true);
+                let content_fuzzy = FuzzyTermQuery::new(
+                    Term::from_field_text(fields.content, word),
+                    distance,
+                    true,
+                );
+
+                let boosted_title: Box<dyn Query> =
+                    Box::new(BoostQuery::new(Box::new(title_fuzzy), TITLE_BOOST));
+                let content_query: Box<dyn Query> = Box::new(content_fuzzy);
+
+                let term_field_query = BooleanQuery::new(vec![
+                    (Occur::Should, boosted_title),
+                    (Occur::Should, content_query),
+                ]);
+
+                term_queries.push((Occur::Must, Box::new(term_field_query)));
+            }
+        }
+
+        // Handle regular (unquoted) terms with fuzzy matching
+        for term in regular_terms {
+            let title_fuzzy =
+                FuzzyTermQuery::new(Term::from_field_text(fields.title, term), distance, true);
+            let content_fuzzy =
+                FuzzyTermQuery::new(Term::from_field_text(fields.content, term), distance, true);
+
+            // Boost title matches by 3x
+            let boosted_title: Box<dyn Query> =
+                Box::new(BoostQuery::new(Box::new(title_fuzzy), TITLE_BOOST));
+            let content_query: Box<dyn Query> = Box::new(content_fuzzy);
+
+            // Each term must match in at least one field (title OR content)
+            let term_field_query = BooleanQuery::new(vec![
+                (Occur::Should, boosted_title),
+                (Occur::Should, content_query),
+            ]);
+
+            // All terms must be present (Must for each term)
+            term_queries.push((Occur::Must, Box::new(term_field_query)));
+        }
+
+        Box::new(BooleanQuery::new(term_queries))
+    } else {
+        let query_parser = QueryParser::for_index(index, vec![fields.title, fields.content]);
+        query_parser.parse_query(&request.query)?
+    };
+
+    // Apply created_at filter
+    if let Some(ref created_at_filter) = request.filters.created_at {
+        let range_query = build_created_at_range_query(fields.created_at, created_at_filter);
+        if let Some(rq) = range_query {
+            combined_query = Box::new(BooleanQuery::new(vec![
+                (Occur::Must, combined_query),
+                (Occur::Must, rq),
+            ]));
+        }
+    }
+
+    // Workspace filter (always applied; C1.2).
+    let mut workspace_terms: Vec<(Occur, Box<dyn Query>)> = vec![(
+        Occur::Should,
+        Box::new(TermQuery::new(
+            Term::from_field_text(fields.workspace_id, scope.workspace_id()),
+            IndexRecordOption::Basic,
+        )),
+    )];
+    if scope.includes_unassigned() {
+        workspace_terms.push((
+            Occur::Should,
+            Box::new(TermQuery::new(
+                Term::from_field_text(fields.workspace_id, workspace_term_value("")),
+                IndexRecordOption::Basic,
+            )),
+        ));
+    }
+    combined_query = Box::new(BooleanQuery::new(vec![
+        (Occur::Must, combined_query),
+        (Occur::Must, Box::new(BooleanQuery::new(workspace_terms))),
+    ]));
+
+    // Session filter ("This meeting" scope; B4.1). An empty id matches
+    // nothing rather than everything.
+    if let Some(ref session_id) = request.filters.session_id {
+        let session_query = TermQuery::new(
+            Term::from_field_text(fields.session_id, session_id),
+            IndexRecordOption::Basic,
+        );
+        let session_query: Box<dyn Query> = if session_id.is_empty() {
+            Box::new(tantivy::query::EmptyQuery)
+        } else {
+            Box::new(session_query)
+        };
+        combined_query = Box::new(BooleanQuery::new(vec![
+            (Occur::Must, combined_query),
+            (Occur::Must, session_query),
+        ]));
+    }
+
+    // Apply doc_type filter
+    if let Some(ref doc_type) = request.filters.doc_type {
+        let doc_type_term = Term::from_field_text(fields.doc_type, doc_type);
+        let doc_type_query = TermQuery::new(doc_type_term, IndexRecordOption::Basic);
+        combined_query = Box::new(BooleanQuery::new(vec![
+            (Occur::Must, combined_query),
+            (Occur::Must, Box::new(doc_type_query)),
+        ]));
+    }
+
+    // Apply facet filter
+    if let Some(ref facet_path) = request.filters.facet
+        && let Ok(facet) = Facet::from_text(facet_path)
+    {
+        let facet_term = Term::from_facet(fields.facets, &facet);
+        let facet_query = TermQuery::new(facet_term, IndexRecordOption::Basic);
+        combined_query = Box::new(BooleanQuery::new(vec![
+            (Occur::Must, combined_query),
+            (Occur::Must, Box::new(facet_query)),
+        ]));
+    }
+
+    // Use tuple collector to get both top docs and total count
+    let (top_docs, count) = searcher.search(
+        &combined_query,
+        &(TopDocs::with_limit(request.limit), Count),
+    )?;
+
+    let generate_snippets = request.options.snippets.unwrap_or(false);
+    let snippet_max_chars = request.options.snippet_max_chars.unwrap_or(150);
+
+    let (title_snippet_gen, content_snippet_gen) = if generate_snippets {
+        let mut title_gen = SnippetGenerator::create(&searcher, &*combined_query, fields.title)?;
+        title_gen.set_max_num_chars(snippet_max_chars);
+
+        let mut content_gen =
+            SnippetGenerator::create(&searcher, &*combined_query, fields.content)?;
+        content_gen.set_max_num_chars(snippet_max_chars);
+
+        (Some(title_gen), Some(content_gen))
+    } else {
+        (None, None)
+    };
+
+    let mut hits = Vec::new();
+    for (score, doc_address) in top_docs {
+        let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
+
+        if let Some(search_doc) = extract_search_document(schema, &fields, &retrieved_doc) {
+            let title_snippet = title_snippet_gen.as_ref().map(|generator| {
+                let snippet = generator.snippet_from_doc(&retrieved_doc);
+                Snippet {
+                    fragment: snippet.fragment().to_string(),
+                    highlights: snippet
+                        .highlighted()
+                        .iter()
+                        .map(|range| HighlightRange {
+                            start: range.start,
+                            end: range.end,
+                        })
+                        .collect(),
+                }
+            });
+
+            let content_snippet = content_snippet_gen.as_ref().map(|generator| {
+                let snippet = generator.snippet_from_doc(&retrieved_doc);
+                Snippet {
+                    fragment: snippet.fragment().to_string(),
+                    highlights: snippet
+                        .highlighted()
+                        .iter()
+                        .map(|range| HighlightRange {
+                            start: range.start,
+                            end: range.end,
+                        })
+                        .collect(),
+                }
+            });
+
+            hits.push(SearchHit {
+                score,
+                document: search_doc,
+                title_snippet,
+                content_snippet,
+            });
+        }
+    }
+
+    Ok(SearchResult { hits, count })
+}
+
+#[cfg(test)]
+mod scoped_search_tests {
+    use super::*;
+    use crate::SearchFilters;
+    use anlg_aspc::WorkspaceScope;
+
+    fn document(id: &str, workspace_id: &str, session_id: &str, marker: &str) -> SearchDocument {
+        SearchDocument {
+            id: id.to_string(),
+            doc_type: "session".to_string(),
+            language: None,
+            title: format!("Meeting {id}"),
+            content: format!("shared words {marker}"),
+            created_at: 1_700_000_000_000,
+            facets: Vec::new(),
+            workspace_id: workspace_id.to_string(),
+            session_id: session_id.to_string(),
+        }
+    }
+
+    fn collection(documents: &[SearchDocument]) -> CollectionIndex {
+        let schema = crate::build_schema();
+        let index = Index::create_in_ram(schema.clone());
+        register_tokenizers(&index);
+        let mut writer = create_index_writer(&index).unwrap();
+        let fields = get_fields(&schema);
+        for document in documents {
+            writer
+                .add_document(to_tantivy_document(&fields, document))
+                .unwrap();
+        }
+        writer.commit().unwrap();
+        let reader = index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::Manual)
+            .try_into()
+            .unwrap();
+        CollectionIndex {
+            schema,
+            index,
+            reader,
+            writer,
+        }
+    }
+
+    fn ids(
+        collection: &CollectionIndex,
+        scope: &WorkspaceScope,
+        query: &str,
+        session: Option<&str>,
+    ) -> Vec<String> {
+        let mut ids: Vec<String> = search_collection(
+            collection,
+            scope,
+            SearchRequest {
+                query: query.to_string(),
+                collection: None,
+                filters: SearchFilters {
+                    session_id: session.map(str::to_string),
+                    ..SearchFilters::default()
+                },
+                limit: 100,
+                options: Default::default(),
+            },
+        )
+        .unwrap()
+        .hits
+        .into_iter()
+        .map(|hit| hit.document.id)
+        .collect();
+        ids.sort();
+        ids
+    }
+
+    /// C1.4 at the search layer: workspace 1 never sees workspace 2.
+    #[test]
+    fn search_returns_only_the_scoped_workspace() {
+        let collection = collection(&[
+            document("w1-a", "w1", "w1-a", "markerone"),
+            document("w1-unassigned", "", "w1-unassigned", "markerone"),
+            document("w2-a", "w2", "w2-a", "markertwo"),
+        ]);
+        let local = WorkspaceScope::local("w1").unwrap();
+        assert_eq!(
+            ids(&collection, &local, "", None),
+            ["w1-a", "w1-unassigned"]
+        );
+        assert_eq!(
+            ids(&collection, &local, "shared", None),
+            ["w1-a", "w1-unassigned"]
+        );
+        assert!(ids(&collection, &local, "markertwo", None).is_empty());
+
+        let exact = WorkspaceScope::new("w1").unwrap();
+        assert_eq!(ids(&collection, &exact, "shared", None), ["w1-a"]);
+        let other = WorkspaceScope::new("w2").unwrap();
+        assert_eq!(ids(&collection, &other, "", None), ["w2-a"]);
+        // The unassigned sentinel is not reported back as a workspace.
+        let hit = search_collection(
+            &collection,
+            &local,
+            SearchRequest {
+                query: "w1-unassigned".to_string(),
+                collection: None,
+                filters: SearchFilters::default(),
+                limit: 10,
+                options: Default::default(),
+            },
+        )
+        .unwrap();
+        assert!(
+            hit.hits
+                .iter()
+                .all(|hit| hit.document.workspace_id != crate::UNASSIGNED_WORKSPACE)
+        );
+    }
+
+    /// B4.2 at the search layer: "This meeting" scope returns only that
+    /// meeting, even when the query asks for another meeting's marker.
+    #[test]
+    fn session_filter_limits_results_to_one_meeting() {
+        let collection = collection(&[
+            document("meeting-a", "w1", "meeting-a", "markera"),
+            document("meeting-b", "w1", "meeting-b", "markerb"),
+            document("other-ws", "w2", "meeting-a", "markera"),
+        ]);
+        let scope = WorkspaceScope::local("w1").unwrap();
+        assert_eq!(
+            ids(&collection, &scope, "shared", Some("meeting-a")),
+            ["meeting-a"]
+        );
+        assert!(ids(&collection, &scope, "markerb", Some("meeting-a")).is_empty());
+        // Same session id in another workspace is still excluded.
+        assert_eq!(
+            ids(&collection, &scope, "markera", Some("meeting-a")),
+            ["meeting-a"]
+        );
+        // An empty session id matches nothing, not everything.
+        assert!(ids(&collection, &scope, "", Some("")).is_empty());
     }
 }

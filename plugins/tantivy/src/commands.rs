@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 use crate::{SearchDocument, SearchRequest, SearchResult, TantivyPluginExt};
 
 #[tauri::command]
@@ -14,8 +16,14 @@ pub(crate) async fn search<R: tauri::Runtime>(
         anlg_aspc::Action::Read,
     )
     .map_err(|denied| denied.to_string())?;
+    // C1.2: only the local workspace's documents. No workspace yet (schema
+    // not ready) means no results, never all of them.
+    let scope = app
+        .try_state::<std::sync::Arc<anlg_aspc::AspcState>>()
+        .and_then(|state| state.scope())
+        .ok_or_else(|| "aspc.no_context: no workspace".to_string())?;
     app.tantivy()
-        .search(request)
+        .search(&scope, request)
         .await
         .map_err(|e| e.to_string())
 }

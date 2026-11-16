@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 
 pub use error::{Error, Result};
 pub use ext::*;
-pub use schema::build_schema;
+pub use schema::{UNASSIGNED_WORKSPACE, build_schema};
 pub use tokenizer::get_tokenizer_name_for_language;
 
 const PLUGIN_NAME: &str = "tantivy";
@@ -29,6 +29,13 @@ pub struct SearchDocument {
     pub created_at: i64,
     #[serde(default)]
     pub facets: Vec<String>,
+    /// ASPC C1: the row's workspace (`''` = the local workspace, unassigned).
+    #[serde(default)]
+    pub workspace_id: String,
+    /// The meeting a document belongs to (`''` for contacts), for "This
+    /// meeting" scope (B4.1).
+    #[serde(default)]
+    pub session_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -71,6 +78,9 @@ pub struct SearchFilters {
     pub created_at: Option<CreatedAtFilter>,
     pub doc_type: Option<String>,
     pub facet: Option<String>,
+    /// Only documents of this meeting (B4.1, "This meeting" scope).
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
@@ -99,7 +109,9 @@ pub struct SearchRequest {
     pub options: SearchOptions,
 }
 
-pub const SCHEMA_VERSION: u32 = 2;
+/// 3: `workspace_id` and `session_id` fields (ASPC C1/B4). A version change
+/// re-creates the index, and the desktop indexer rebuilds it.
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Clone)]
 pub struct CollectionConfig {

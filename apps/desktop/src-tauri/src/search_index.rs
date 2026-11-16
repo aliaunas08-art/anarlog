@@ -5,12 +5,11 @@ use chrono::DateTime;
 use serde_json::{Map, Value};
 use sqlx::{Connection, Row, SqlitePool};
 use tauri::{AppHandle, Manager};
-use tauri_plugin_tantivy::{
-    SearchDocument, SearchFilters, SearchOptions, SearchRequest, TantivyPluginExt,
-};
+use tauri_plugin_tantivy::{SearchDocument, TantivyPluginExt};
 
 // Increment when the SQLite-to-Tantivy document shape changes so existing indexes are rebuilt.
-const PROJECTION_VERSION: i64 = 4;
+// 5: documents carry `workspace_id` and `session_id` (ASPC C1/B4).
+const PROJECTION_VERSION: i64 = 5;
 const BATCH_SIZE: i64 = 64;
 const DIRTY_DEBOUNCE: Duration = Duration::from_millis(250);
 const RETRY_INTERVAL: Duration = Duration::from_secs(5);
@@ -344,7 +343,7 @@ async fn build_session_document(
     id: &str,
 ) -> WorkerResult<IndexAction> {
     let Some(session) = sqlx::query(
-        "SELECT title, created_at, event_json, source_apps_json, locked
+        "SELECT title, created_at, event_json, source_apps_json, locked, workspace_id
          FROM sessions
          WHERE id = ? AND deleted_at IS NULL",
     )
@@ -368,6 +367,8 @@ async fn build_session_document(
             content: String::new(),
             created_at: session_search_timestamp(&event_json, &created_at),
             facets: Vec::new(),
+            workspace_id: session.get("workspace_id"),
+            session_id: id.to_string(),
         }));
     }
 
@@ -448,6 +449,8 @@ async fn build_session_document(
         content: merge_content(content_parts.iter().map(String::as_str)),
         created_at: session_search_timestamp(&event_json, &created_at),
         facets: Vec::new(),
+        workspace_id: session.get("workspace_id"),
+        session_id: id.to_string(),
     }))
 }
 
@@ -456,7 +459,7 @@ async fn build_human_document(
     id: &str,
 ) -> WorkerResult<IndexAction> {
     let Some(human) = sqlx::query(
-        "SELECT name, email, job_title, linkedin_username, created_at, memo
+        "SELECT name, email, job_title, linkedin_username, created_at, memo, workspace_id
          FROM humans
          WHERE id = ? AND deleted_at IS NULL",
     )
@@ -486,6 +489,8 @@ async fn build_human_document(
         ),
         created_at: to_epoch_ms(&Value::String(created_at)),
         facets: Vec::new(),
+        workspace_id: human.get("workspace_id"),
+        session_id: String::new(),
     }))
 }
 
@@ -494,7 +499,7 @@ async fn build_organization_document(
     id: &str,
 ) -> WorkerResult<IndexAction> {
     let Some(organization) = sqlx::query(
-        "SELECT name, created_at
+        "SELECT name, created_at, workspace_id
          FROM organizations
          WHERE id = ? AND deleted_at IS NULL",
     )
@@ -516,6 +521,8 @@ async fn build_organization_document(
         content: String::new(),
         created_at: to_epoch_ms(&Value::String(created_at)),
         facets: Vec::new(),
+        workspace_id: organization.get("workspace_id"),
+        session_id: String::new(),
     }))
 }
 
@@ -540,17 +547,7 @@ async fn projection_consistency_snapshot(pool: &SqlitePool) -> Result<(i64, i64)
 }
 
 async fn index_document_count(app: &AppHandle) -> Result<usize, tauri_plugin_tantivy::Error> {
-    let result = app
-        .tantivy()
-        .search(SearchRequest {
-            query: String::new(),
-            collection: None,
-            filters: SearchFilters::default(),
-            limit: 1,
-            options: SearchOptions::default(),
-        })
-        .await?;
-    Ok(result.count)
+    app.tantivy().document_count(None).await
 }
 
 async fn wait_for_index_count(

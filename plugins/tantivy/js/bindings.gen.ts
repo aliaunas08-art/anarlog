@@ -68,8 +68,21 @@ async removeDocument(id: string, collection: string | null) : Promise<Result<nul
 
 export type CreatedAtFilter = { gte: number | null; lte: number | null; gt: number | null; lt: number | null; eq: number | null }
 export type HighlightRange = { start: number; end: number }
-export type SearchDocument = { id: string; doc_type: string; language: string | null; title: string; content: string; created_at: number; facets?: string[] }
-export type SearchFilters = { created_at: CreatedAtFilter | null; doc_type: string | null; facet: string | null }
+export type SearchDocument = { id: string; doc_type: string; language: string | null; title: string; content: string; created_at: number; facets?: string[]; 
+/**
+ * ASPC C1: the row's workspace (`''` = the local workspace, unassigned).
+ */
+workspace_id?: string; 
+/**
+ * The meeting a document belongs to (`''` for contacts), for "This
+ * meeting" scope (B4.1).
+ */
+session_id?: string }
+export type SearchFilters = { created_at: CreatedAtFilter | null; doc_type: string | null; facet: string | null; 
+/**
+ * Only documents of this meeting (B4.1, "This meeting" scope).
+ */
+session_id?: string | null }
 export type SearchHit = { score: number; document: SearchDocument; title_snippet: Snippet | null; content_snippet: Snippet | null }
 export type SearchOptions = { fuzzy: boolean | null; distance: number | null; snippets: boolean | null; snippet_max_chars: number | null; phrase_slop: number | null }
 export type SearchRequest = { query: string; collection?: string | null; filters?: SearchFilters; limit?: number; options?: SearchOptions }

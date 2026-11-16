@@ -14,6 +14,21 @@ pub struct SchemaFields {
     pub content: Field,
     pub created_at: Field,
     pub facets: Field,
+    pub workspace_id: Field,
+    pub session_id: Field,
+}
+
+/// Stored in `workspace_id` for documents whose row has no workspace yet
+/// (`''`); such rows belong to the local workspace (C1), so a local scope
+/// matches this value too. An empty raw term is avoided on purpose.
+pub const UNASSIGNED_WORKSPACE: &str = "_unassigned";
+
+pub fn workspace_term_value(workspace_id: &str) -> &str {
+    if workspace_id.is_empty() {
+        UNASSIGNED_WORKSPACE
+    } else {
+        workspace_id
+    }
 }
 
 pub fn build_schema() -> Schema {
@@ -36,6 +51,10 @@ pub fn build_schema() -> Schema {
         DateOptions::from(FAST | STORED).set_precision(DateTimePrecision::Milliseconds),
     );
     schema_builder.add_facet_field("facets", FacetOptions::default());
+    // ASPC C1.2 / B4.1: every search is filtered by workspace, and "This
+    // meeting" scope by session.
+    schema_builder.add_text_field("workspace_id", STRING | STORED);
+    schema_builder.add_text_field("session_id", STRING | STORED);
     schema_builder.build()
 }
 
@@ -48,6 +67,8 @@ pub fn get_fields(schema: &Schema) -> SchemaFields {
         content: schema.get_field("content").unwrap(),
         created_at: schema.get_field("created_at").unwrap(),
         facets: schema.get_field("facets").unwrap(),
+        workspace_id: schema.get_field("workspace_id").unwrap(),
+        session_id: schema.get_field("session_id").unwrap(),
     }
 }
 
@@ -74,6 +95,18 @@ pub fn extract_search_document(
         .filter_map(|v| v.as_facet().map(|f| f.to_string()))
         .collect();
 
+    let workspace_id = doc
+        .get_first(fields.workspace_id)
+        .and_then(|v| v.as_str())
+        .filter(|v| *v != UNASSIGNED_WORKSPACE)
+        .unwrap_or_default()
+        .to_string();
+    let session_id = doc
+        .get_first(fields.session_id)
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+
     Some(SearchDocument {
         id,
         doc_type,
@@ -82,7 +115,34 @@ pub fn extract_search_document(
         content,
         created_at,
         facets,
+        workspace_id,
+        session_id,
     })
+}
+
+/// The Tantivy document for a search document.
+pub fn to_tantivy_document(fields: &SchemaFields, document: &SearchDocument) -> TantivyDocument {
+    let mut doc = TantivyDocument::new();
+    doc.add_text(fields.id, &document.id);
+    doc.add_text(fields.doc_type, &document.doc_type);
+    doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
+    doc.add_text(fields.title, &document.title);
+    doc.add_text(fields.content, &document.content);
+    doc.add_date(
+        fields.created_at,
+        tantivy::DateTime::from_timestamp_millis(document.created_at),
+    );
+    for facet_path in &document.facets {
+        if let Ok(facet) = tantivy::schema::Facet::from_text(facet_path) {
+            doc.add_facet(fields.facets, facet);
+        }
+    }
+    doc.add_text(
+        fields.workspace_id,
+        workspace_term_value(&document.workspace_id),
+    );
+    doc.add_text(fields.session_id, &document.session_id);
+    doc
 }
 
 #[cfg(test)]
