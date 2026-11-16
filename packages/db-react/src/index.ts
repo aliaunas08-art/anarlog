@@ -20,7 +20,23 @@ type QuerySnapshot = {
 type SharedQuery = {
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => QuerySnapshot;
+  restart?: () => void;
 };
+
+const liveQueryRegistries = new Set<Map<string, SharedQuery>>();
+
+/**
+ * Re-subscribes every mounted live query, keeping the rows already shown
+ * until fresh ones arrive. Used after the app unlocks: refreshes that ran
+ * while the webview SQL was locked failed and are not retried on their own.
+ */
+export function restartLiveQueries(): void {
+  for (const registry of liveQueryRegistries) {
+    for (const query of registry.values()) {
+      query.restart?.();
+    }
+  }
+}
 
 const LOADING_SNAPSHOT: QuerySnapshot = {
   rows: undefined,
@@ -166,11 +182,19 @@ function createSharedQuery(
       };
     },
     getSnapshot: () => snapshot,
+    restart: () => {
+      if (listeners.size === 0) {
+        return;
+      }
+      stop();
+      start();
+    },
   };
 }
 
 export function createUseLiveQuery(client: LiveQueryClient) {
   const sharedQueries = new Map<string, SharedQuery>();
+  liveQueryRegistries.add(sharedQueries);
 
   const getSharedQuery = (key: string, sql: string, params: unknown[]) => {
     const existing = sharedQueries.get(key);

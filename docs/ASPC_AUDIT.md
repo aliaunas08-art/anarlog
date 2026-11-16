@@ -200,37 +200,37 @@ Most of the ASPC work is closing that boundary.
 
 - `workspaces`, `workspace_memberships.role` (no CHECK constraint), `owner_user_id`, and sharing capabilities (`viewer`/`commenter`/`editor`) are already in the local schema (`crates/db-app/migrations/20260716120000_personal_workspaces.sql`, `20260716173000_shared_session_cache.sql`).
 - The hosted side (`supabase/`) has `role IN ('owner','admin','member')` with RLS policies.
-- **There is no central permission check anywhere in the desktop app.** Roles are never evaluated locally.
+- ~~**There is no central permission check anywhere in the desktop app.**~~ Phase 2a added one: `crates/aspc` (`authorize`, `crates/aspc/src/lib.rs:250`). Locally the actor is the `Owner` of the personal workspace; `workspace_memberships.role` is not read yet (signed-in team mode is Phase 2b).
 
 ## Section audit, A–G
 
-| Item                                | Status before     | Evidence                                                                                                                                                                                  | Gap                                                                                                                                                                                              |
-| ----------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A1 RBAC                             | PARTIAL           | the role/workspace/share schema above                                                                                                                                                     | no local role model, no matrix, no central check                                                                                                                                                 |
-| A2 Auth on every endpoint           | PARTIAL (Phase 1) | §2; per-window capabilities and the SQL authorizer (Phase 1 → A2.4, A2.5)                                                                                                                 | no caller/session check or `authorize()`; overlays still need `db:execute` for settings                                                                                                          |
-| A3 Least privilege                  | PARTIAL (Phase 1) | calendar is read-only with tokens in the Keychain [V]; CSP, per-window capabilities, HTTP host allowlist, narrowed asset scope, path checks, `get_env` allowlist (Phase 1)                | Info.plist still requests contacts, calendars, reminders and local network; `shell:allow-open` stays in `main.json`; see each Phase 1 item's gaps                                                |
-| A4 Session/device, app lock         | PARTIAL           | Touch ID/password lock off by default (`schema.ts:259-262`, `plugins/local-auth/src/macos.rs:41-61`)                                                                                      | lock is UI-only; data stays readable via IPC, CLI and MCP; silently skipped when device auth is unavailable (`lock/gate.tsx:39`)                                                                 |
-| B1 Hardening checklist              | PARTIAL           | SQL values bound with `?`; identifier `format!` uses allowlists (`crates/db-app/src/session_deletion.rs:29-37`); no `Math.random` tokens; no `dangerouslySetInnerHTML`/`innerHTML` writes | raw-SQL command; no CSP; no `cargo audit`/`deny`/`pnpm audit` in CI; no constant-time compares                                                                                                   |
-| B2 Input validation                 | PARTIAL           | import formats are JSON/VTT only (`crates/meeting-import`)                                                                                                                                | unchecked import paths; `render_custom`; webhook URLs; no response schema checks on calendar/AI                                                                                                  |
-| B3 Prompt injection                 | PARTIAL           | Ask guardrails, no delete/export tools                                                                                                                                                    | unscoped automations path; unescaped enhance/title blocks; no injection tests                                                                                                                    |
-| B4 Cross-meeting isolation in Ask   | PARTIAL           | "This meeting" tool pinning (`chat/guardrails/tools.ts:62-100`)                                                                                                                           | no explicit test; Tantivy search has no session filter (`plugins/tantivy/src/lib.rs:70-74`)                                                                                                      |
-| B5 Update signatures                | EXISTS (gap)      | minisign pubkey `tauri.conf.json:115`; verified on download                                                                                                                               | cached installer isn't re-verified before install (`plugins/updater2/src/ext.rs:245-258`)                                                                                                        |
-| C1 Tenant isolation                 | PARTIAL           | columns exist and some ops filter by `workspace_id` (`crates/db-app/src/session_deletion.rs:37-75`)                                                                                       | default `''`; most frontend SQL doesn't filter; no 2-workspace test                                                                                                                              |
-| C2 Encryption at rest               | MISSING           | no SQLCipher; files are plaintext                                                                                                                                                         | relies on FileVault, unchecked. Network: the `http` scope allows `http://**` (not TLS-only)                                                                                                      |
-| C3 Key protection                   | PARTIAL           | §3                                                                                                                                                                                        | webview reads keys; `auth.json`; webhook secrets; keys in URL query strings                                                                                                                      |
-| C4 Log/telemetry hygiene            | PARTIAL           | redaction layer and Sentry scrubbing                                                                                                                                                      | no marker-string test; Session Replay; sidecar stdout                                                                                                                                            |
-| C5 Backup/restore                   | MISSING           | no full-library backup; `.bak` on reset is incidental (`apps/desktop/src-tauri/src/db.rs:53-76`)                                                                                          | everything                                                                                                                                                                                       |
-| C6 Recording protection             | PARTIAL           | tray animation, floating bar, Info.plist strings, onboarding text, consent-disclosure option                                                                                              | auto-start defaults **on** (`schema.ts:73-77`) [V] and both indicators can be turned off, so recording without an in-app indicator is possible; no "Private" flag (`sessions.locked` is closest) |
-| C7 Cost protection                  | MISSING           | optional Ask-only daily limit (`apps/desktop/src/ai/usage.ts:220`)                                                                                                                        | no Engine, model lock, quotas, spend caps or clean fallback state                                                                                                                                |
-| D1 Immutable audit log              | MISSING           | the sync "log" is unrelated (`settings/sync/log.tsx`)                                                                                                                                     | everything                                                                                                                                                                                       |
-| D2 Data rights                      | PARTIAL           | per-note export (PDF/TXT/MD/ORG); CLI hard delete with VACUUM (`apps/cli/src/commands/meeting_delete.rs:118-262`)                                                                         | app delete is a soft delete that keeps rows forever (`plugins/session/src/deletion.rs:53-94`); versions, live deltas, chats and the search index survive; no export-all; no delete-library       |
-| D3 Retention                        | PARTIAL           | audio-only retention sweep (`plugins/transcription/src/audio_retention.rs:117-313`)                                                                                                       | nothing for notes, transcripts or rows                                                                                                                                                           |
-| D4 Privacy surfaces                 | MISSING           | `docs/data-and-privacy.mdx` exists outside the app                                                                                                                                        | no in-app policy/terms links or "where your data lives" screen; no consent notice before the first recording                                                                                     |
-| D5 Licence                          | PARTIAL           | MIT `LICENSE` kept; no imports from `enterprise/`; CI boundary check (`.github/workflows/ci.yaml:12-14`)                                                                                  | no About/Licences screen                                                                                                                                                                         |
-| D6 No content in analytics/training | PARTIAL           | event properties carry no content                                                                                                                                                         | not stated as a rule; Session Replay records the UI                                                                                                                                              |
-| E Attack hardening                  | see below         |                                                                                                                                                                                           |                                                                                                                                                                                                  |
-| F Pen-test gate                     | MISSING           |                                                                                                                                                                                           | no process                                                                                                                                                                                       |
-| G Pre-ship ops                      | PARTIAL           | CI, signing and release audit exist (`RELEASE_AUDIT.md`)                                                                                                                                  | ASPC items not in it                                                                                                                                                                             |
+| Item                                | Status before      | Evidence                                                                                                                                                                                                                                                                 | Gap                                                                                                                                                                                              |
+| ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A1 RBAC                             | PARTIAL (Phase 2a) | `crates/aspc` roles, matrix, `authorize` (`crates/aspc/src/lib.rs:237-336`), table-driven tests incl. A1.4; role-comparison test with allowlist (`crates/aspc/tests/role_comparisons.rs`)                                                                                | no TS mirror generated; team roles from `workspace_memberships` not read (Phase 2b); `Member` owner checks only where a caller passes the owner (none yet)                                       |
+| A2 Auth on every endpoint           | PARTIAL (Phase 2a) | registry of all 460 commands (`crates/aspc/src/commands.rs:113`) with a sync test; guard `aspc::require` (`crates/aspc/src/tauri_guard.rs:46`) in 34 commands, lock-exempt guard in 8; per-table SQL authorizer (`crates/db-core/src/webview_sql.rs:65`, `:122`)         | 234 data commands `Pending` (listed under "Phase 2a changes"); SQL authorizer has no window and no row/workspace filter; CLI/MCP don't use it (A2.7); no rate limits (A2.8)                      |
+| A3 Least privilege                  | PARTIAL (Phase 1)  | calendar is read-only with tokens in the Keychain [V]; CSP, per-window capabilities, HTTP host allowlist, narrowed asset scope, path checks, `get_env` allowlist (Phase 1)                                                                                               | Info.plist still requests contacts, calendars, reminders and local network; `shell:allow-open` stays in `main.json`; see each Phase 1 item's gaps                                                |
+| A4 Session/device, app lock         | PARTIAL (Phase 2a) | Rust-held lock (`crates/aspc/src/lock.rs`, `plugins/local-auth/src/app_lock.rs`); unlock only via Rust-run LocalAuthentication (`plugins/local-auth/src/app_lock.rs:84`); webview SQL locked from it (`apps/desktop/src-tauri/src/lib.rs:788`); relock on hide and sleep | no idle timeout (no setting); `Pending` and lock-exempt commands still answer while locked; CLI/MCP ignore the lock; file modes (A4.1) unchecked; not run in the app                             |
+| B1 Hardening checklist              | PARTIAL            | SQL values bound with `?`; identifier `format!` uses allowlists (`crates/db-app/src/session_deletion.rs:29-37`); no `Math.random` tokens; no `dangerouslySetInnerHTML`/`innerHTML` writes                                                                                | raw-SQL command; no CSP; no `cargo audit`/`deny`/`pnpm audit` in CI; no constant-time compares                                                                                                   |
+| B2 Input validation                 | PARTIAL            | import formats are JSON/VTT only (`crates/meeting-import`)                                                                                                                                                                                                               | unchecked import paths; `render_custom`; webhook URLs; no response schema checks on calendar/AI                                                                                                  |
+| B3 Prompt injection                 | PARTIAL            | Ask guardrails, no delete/export tools                                                                                                                                                                                                                                   | unscoped automations path; unescaped enhance/title blocks; no injection tests                                                                                                                    |
+| B4 Cross-meeting isolation in Ask   | PARTIAL            | "This meeting" tool pinning (`chat/guardrails/tools.ts:62-100`)                                                                                                                                                                                                          | no explicit test; Tantivy search has no session filter (`plugins/tantivy/src/lib.rs:70-74`)                                                                                                      |
+| B5 Update signatures                | EXISTS (gap)       | minisign pubkey `tauri.conf.json:115`; verified on download                                                                                                                                                                                                              | cached installer isn't re-verified before install (`plugins/updater2/src/ext.rs:245-258`)                                                                                                        |
+| C1 Tenant isolation                 | PARTIAL            | columns exist and some ops filter by `workspace_id` (`crates/db-app/src/session_deletion.rs:37-75`)                                                                                                                                                                      | default `''`; most frontend SQL doesn't filter; no 2-workspace test                                                                                                                              |
+| C2 Encryption at rest               | MISSING            | no SQLCipher; files are plaintext                                                                                                                                                                                                                                        | relies on FileVault, unchecked. Network: the `http` scope allows `http://**` (not TLS-only)                                                                                                      |
+| C3 Key protection                   | PARTIAL            | §3                                                                                                                                                                                                                                                                       | webview reads keys; `auth.json`; webhook secrets; keys in URL query strings                                                                                                                      |
+| C4 Log/telemetry hygiene            | PARTIAL            | redaction layer and Sentry scrubbing                                                                                                                                                                                                                                     | no marker-string test; Session Replay; sidecar stdout                                                                                                                                            |
+| C5 Backup/restore                   | MISSING            | no full-library backup; `.bak` on reset is incidental (`apps/desktop/src-tauri/src/db.rs:53-76`)                                                                                                                                                                         | everything                                                                                                                                                                                       |
+| C6 Recording protection             | PARTIAL            | tray animation, floating bar, Info.plist strings, onboarding text, consent-disclosure option                                                                                                                                                                             | auto-start defaults **on** (`schema.ts:73-77`) [V] and both indicators can be turned off, so recording without an in-app indicator is possible; no "Private" flag (`sessions.locked` is closest) |
+| C7 Cost protection                  | MISSING            | optional Ask-only daily limit (`apps/desktop/src/ai/usage.ts:220`)                                                                                                                                                                                                       | no Engine, model lock, quotas, spend caps or clean fallback state                                                                                                                                |
+| D1 Immutable audit log              | MISSING            | the sync "log" is unrelated (`settings/sync/log.tsx`)                                                                                                                                                                                                                    | everything                                                                                                                                                                                       |
+| D2 Data rights                      | PARTIAL            | per-note export (PDF/TXT/MD/ORG); CLI hard delete with VACUUM (`apps/cli/src/commands/meeting_delete.rs:118-262`)                                                                                                                                                        | app delete is a soft delete that keeps rows forever (`plugins/session/src/deletion.rs:53-94`); versions, live deltas, chats and the search index survive; no export-all; no delete-library       |
+| D3 Retention                        | PARTIAL            | audio-only retention sweep (`plugins/transcription/src/audio_retention.rs:117-313`)                                                                                                                                                                                      | nothing for notes, transcripts or rows                                                                                                                                                           |
+| D4 Privacy surfaces                 | MISSING            | `docs/data-and-privacy.mdx` exists outside the app                                                                                                                                                                                                                       | no in-app policy/terms links or "where your data lives" screen; no consent notice before the first recording                                                                                     |
+| D5 Licence                          | PARTIAL            | MIT `LICENSE` kept; no imports from `enterprise/`; CI boundary check (`.github/workflows/ci.yaml:12-14`)                                                                                                                                                                 | no About/Licences screen                                                                                                                                                                         |
+| D6 No content in analytics/training | PARTIAL            | event properties carry no content                                                                                                                                                                                                                                        | not stated as a rule; Session Replay records the UI                                                                                                                                              |
+| E Attack hardening                  | see below          |                                                                                                                                                                                                                                                                          |                                                                                                                                                                                                  |
+| F Pen-test gate                     | MISSING            |                                                                                                                                                                                                                                                                          | no process                                                                                                                                                                                       |
+| G Pre-ship ops                      | PARTIAL            | CI, signing and release audit exist (`RELEASE_AUDIT.md`)                                                                                                                                                                                                                 | ASPC items not in it                                                                                                                                                                             |
 
 ### E. Attack hardening
 
@@ -268,7 +268,7 @@ Most of the ASPC work is closing that boundary.
 
 Status of each Phase 1 item after the change. File references are to the code as committed.
 
-### A2.4 SQL authorizer: PARTIAL
+### A2.4 SQL authorizer: PARTIAL (Phase 1; EXISTS after Phase 2a, see below)
 
 - **What exists now:**
   - `crates/db-core/src/webview_sql.rs`: an `sqlite3_set_authorizer` callback (`authorizer_callback`, :175) and a pure policy function (`decide`, :103).
@@ -279,7 +279,7 @@ Status of each Phase 1 item after the change. File references are to the code as
     - live queries (`db:subscribe`): initial load, refreshes and the `EXPLAIN QUERY PLAN {sql}` dependency analysis (`crates/db-reactive/src/runtime.rs:36`, `crates/db-reactive/src/schema.rs:255`). The EXPLAIN path mattered: a subscription ending in `; ATTACH ...` used to run the second statement (regression test `webview_runtime_never_runs_smuggled_statements`).
   - Internal Rust paths (migrations, CloudSync, importers, `agent-access`) keep using the pool without the authorizer.
 - **Policy:** denies `ATTACH`/`DETACH`; the `load_extension` and `fts3_tokenizer` functions; every `PRAGMA` except a read-only allowlist (`webview_sql.rs:24-45`; the frontend itself uses none, the allowlist covers what the CloudSync extension runs internally during writes); any write to `sqlite_*` tables; all DDL (CREATE/DROP/ALTER of tables, indexes, views, triggers, virtual tables), `REINDEX` and `ANALYZE`; any read or write of a table whose name starts with `audit`; every action code it doesn't know (fail closed).
-- **Lock flag:** `WebviewSqlAuthorizer::set_locked` (`webview_sql.rs:62`), exposed as `PluginDbRuntime::set_webview_sql_locked` (`plugins/db/src/runtime.rs:599`). Default unlocked. While locked every webview statement is denied; internal paths are not. **Not wired to the app lock yet** (Phase 2).
+- **Lock flag:** `WebviewSqlAuthorizer::set_locked` (`webview_sql.rs:62`), exposed as `PluginDbRuntime::set_webview_sql_locked` (`plugins/db/src/runtime.rs:599`). Default unlocked. While locked every webview statement is denied; internal paths are not. Wired to the Rust-held app lock in Phase 2a.
 - **Tests:** `crates/db-core/src/webview_sql.rs` (denials, normal SELECT/INSERT/UPDATE/DELETE, lock, internal queries unaffected after release, unknown action denied, CloudSync-enabled table accepts webview writes and records them), `crates/db-execute/src/query.rs` (`webview_executor_runs_under_authorizer`), `plugins/db/src/tests/transactions.rs` (`webview_sql_runs_under_the_authorizer_and_lock`, plus the existing cancellation test still passes).
 - **Still missing (why PARTIAL):** the per-table `DataType` / Read-vs-Edit mapping and the `Viewer` write denial from A2.4's first bullet (they need Phase 2's `authorize()`); the frontend can still read and write every app table, including `webhook_endpoints.secret`. The CLI/MCP path (A2.7) doesn't use the authorizer.
 
@@ -402,6 +402,168 @@ None of Phase 1 was run in the app; only unit tests, `tsc`, vitest and `cargo ch
 11. **Developers → Webhooks**: creating `http://` or LAN URLs is now refused; test delivery to a public `https://` receiver.
 12. **Dev mode** (`pnpm dev:desktop`): `devCsp` must allow Vite HMR and the relay shim.
 
+## Phase 2a changes (central check, command guard, Rust-held lock), 2026-11-16
+
+Nothing below was run in the app; see "Phase 2a runtime check".
+
+### A1 central check: PARTIAL
+
+- `crates/aspc` (no dependencies by default; `serde`, `specta` and `tauri` are features):
+  - `Role`, `DataType`, `Action` (`crates/aspc/src/lib.rs:24`, `:60`, `:92`). `Role::parse` accepts only the four lowercase names; anything else is unknown (`:36`).
+  - `AccessContext {actor_id, role, workspace_id, device_id, window, unlocked}` (`:119`).
+  - `authorize` / `authorize_resource` (`:237`, `:250`) check, in order: lock, workspace, role, matrix (`:288`), window policy (`window_allows`, `:367`). Admin on Keys gets a `PresenceOnly` grant; `Grant::require_full` turns it into a denial for commands that return a value (`:164`).
+  - Member ownership: `Ownership::{Unknown, OwnedBy, SharedToActor}` (`:140`). Command-level checks pass `Unknown`, so there a Member may only `Create`. This is documented in ASPC_BASE §0.
+  - Stable codes (`DenyCode`, `:176`).
+  - Tests: `owner_may_do_everything`, `admin_matrix`, `member_matrix`, `viewer_reads_content_only` (A1.4), `lock_workspace_and_unknown_role_deny`, `windows_limit_owner`, `denial_codes_are_stable`.
+- A1.2 test: `crates/aspc/tests/role_comparisons.rs`. A bare `role ===` is not matched, because chat messages use `role === "user"`; the patterns are listed in the file.
+  - **Allowlisted (existing code, each with its reason in the file):**
+    - `apps/desktop/src/settings/team/index.tsx` and `settings/team/client.ts`;
+    - `contacts/organization-details.tsx`;
+    - `session-sharing/source.ts`;
+    - `shared-notes/index.tsx` and `shared-notes/cache.ts`;
+    - `resource-sharing/{share-dialog.tsx,library.tsx,client.ts}`;
+    - `folders/folder-editor.tsx`;
+    - `auth/cloudsync-credentials.ts` and `auth/cloudsync-workspace-keys.ts`;
+    - `crates/db-app/src/cloudsync/projection.rs`;
+    - `crates/api-sync/src/routes/cloudsync_credentials/{grants.rs,projection.rs}`.
+  - All of these mirror hosted roles for display or validate server responses. `session-sharing/source.ts` is the one that decides something locally, and should move behind `aspc` with Phase 2b.
+- **Gaps:** no generated TS mirror; signed-in team roles are not read.
+
+### A1.3 local access context: EXISTS
+
+- Built in Rust before any window exists (`apps/desktop/src-tauri/src/lib.rs:187`, managed at `:258`) by `plugins/local-auth/src/access.rs:138`:
+  - **actor id:** created once and kept in the Keychain through `local_accounts::KeychainStore`, service `<bundle id>.access`, item `local-actor-id` (`access.rs:23`). If the Keychain doesn't answer within 3 s (for example a dev build waiting on an access prompt), that launch uses an `ephemeral-…` id and logs `aspc_actor_id_ephemeral`.
+  - **role:** `Owner`.
+  - **workspace:** the first `workspaces` row with `kind='personal'` (preferring one owned by the actor), else a new row `local-workspace-<uuid>` owned by the actor (`access.rs:64`). No schema change. If the insert fails the workspace id is empty and every check denies (fail closed).
+  - **device id:** `anlg_host::fingerprint()`, the hashed machine id the app already uses for analytics.
+- Read-only command `local-auth:access_context` returns the non-secret fields (`plugins/local-auth/src/commands.rs:49`).
+- Tests in `plugins/local-auth/src/access.rs`: `actor_id_is_created_once`, `personal_workspace_is_reused_or_created`, `lock_setting_round_trip_and_legacy`, `bootstrap_starts_locked_when_the_setting_is_on`.
+- GUESS: after sign-in, the CloudSync workspace projection (`crates/db-app/src/cloudsync/projection.rs:436`) replaces the `workspaces` table, so the next launch reuses the account's personal workspace instead of the local row. Not tested.
+
+### A2.1–A2.3 command registry and guard: PARTIAL
+
+- Registry `crates/aspc/src/commands.rs:113`: 460 commands (455 before Phase 2a, plus 5 new `local-auth` ones):
+  - 184 `Public`, each with a reason;
+  - 34 guarded;
+  - 8 guarded without the lock check;
+  - 234 `Pending`.
+- `tests/command_registry.rs`:
+  - `registry_matches_real_commands` parses every `collect_commands!` / `generate_handler!` list in `plugins/*/src/lib.rs` and the app's `lib.rs`. The autogenerated permission `.toml` files are stale in several plugins, so they are not used.
+  - `guarded_commands_call_the_guard` checks that each guarded command's body calls `aspc::require` (or `require_ignoring_lock`).
+- Guard (`crates/aspc/src/tauri_guard.rs:46`, `:65`): reads `Arc<AspcState>` from Tauri state and the caller's window label. Without the state it fails closed (`aspc.no_context`).
+- **Guarded, lock enforced:**
+  - `db:list_meetings`, `get_meeting`, `get_meeting_transcript`, `get_recurring_meeting_history`;
+  - `export:export`;
+  - `fs-sync:audio_import`, `audio_import_data`;
+  - `fs2:read_text_file`, `remove`, `write_text_file`;
+  - `importer:begin_connected_import`, `complete_connected_import`, `read_text_files`, `sync_connected_import`;
+  - `local-api:create_webhook`, `delete_webhook`, `export_meeting_markdown`, `get_cloud_snapshot`, `list_cloud_snapshot_ids`, `list_webhooks`, `prepare_drive_markdown`, `set_webhook_active`, `test_webhook`;
+  - `local-auth:set_app_lock_enabled`;
+  - `session:soft_delete_session`, `restore_deleted_session`;
+  - `settings:save`;
+  - `store2:get_secret` (full grant required), `set_secret`, `delete_secret`, `repair_keychain_access`;
+  - `tantivy:search`;
+  - `transcription:export_to_vtt`, `render_session_transcript`.
+- **Guarded without the lock check (role and window only):**
+  - `db:execute`, `execute_proxy`, `execute_transaction`, `subscribe`: the SQL authorizer enforces the lock per statement.
+  - `auth:get_item`, `set_item`, `remove_item`, `clear`: background token refresh runs while relocked, and a denial reads as "no session" (`apps/desktop/src/auth/client.ts:21-27`), which would sign the user out.
+- `auth:begin_refresh` / `finish_refresh` were reclassified `Public`: they only coordinate refresh timing between windows.
+- **Not guarded yet (`Pending`):**
+- `accounts` (3): `connect_account`, `disconnect_account`, `list_accounts`
+- `agent` (2): `install_cli`, `uninstall_cli`
+- `analytics` (1): `set_disabled`
+- `app` (13): `get_account_full_name`, `get_dismissed_toasts`, `get_pinned_tabs`, `get_recently_opened_sessions`, `get_tinybase_values`, `install_agent_skill`, `install_embedded_cli`, `is_crash_reporting_enabled`, `set_crash_reporting_enabled`, `set_dismissed_toasts`, `set_onboarding_needed`, `set_pinned_tabs`, `set_recently_opened_sessions`
+- `attachment-sync` (19): `begin_attachment_download`, `begin_shared_upload_operation`, `cleanup_shared_upload`, `cleanup_transfer_cache`, `clear_shared_attachment_preview_scopes`, `clear_shared_attachment_scope`, `commit_delete_guard`, `describe_upload`, `download_and_restore`, `download_shared_attachment`, `prepare_delete_guard`, `prepare_shared_upload`, `prepare_upload`, `read_shared_upload_range`, `read_upload_range`, `reconcile_delete_guards`, `remove_shared_attachment`, `shared_attachment_path`, `validate_shared_upload`
+- `audio-priority` (4): `get_input_priorities`, `get_output_priorities`, `save_input_priorities`, `save_output_priorities`
+- `auth` (1): `get_account_info`
+- `calendar` (21): `apply_calendar_inventory`, `apply_contact_enhancement`, `create_event`, `create_human`, `create_organization`, `list_calendars`, `list_connection_ids`, `list_events`, `merge_humans`, `reorder_pinned_contacts`, `save_personal_contact`, `set_calendar_enabled`, `soft_delete_contact`, `sync_calendar_connection_events`, `toggle_contact_pin`, `tombstone_calendar_connection`, `update_contact_avatar`, `update_human`, `update_human_contact_summary`, `update_ignored_calendar_item`, `update_organization`
+- `db` (28): `apply_session_ingest`, `begin_cloudsync_activity`, `bind_cloudsync_account`, `cleanup_legacy_files`, `cleanup_recording_imports`, `configure_cloudsync`, `configure_cloudsync_token`, `configure_e2ee_replica`, `connect_local_library`, `create_e2ee_identity`, `end_cloudsync_activity`, `get_cloudsync_status`, `get_e2ee_identity_status`, `get_legacy_cleanup_status`, `get_legacy_import_report`, `get_or_create_e2ee_device_identity`, `import_e2ee_device_enrollment`, `import_e2ee_identity`, `inspect_e2ee_recovery_key`, `run_legacy_import`, `seal_e2ee_recovery_key_for_device`, `seal_workspace_e2ee_key_for_recipients`, `start_cloudsync`, `stop_cloudsync`, `suspend_cloudsync`, `suspend_cloudsync_after_auth_loss`, `suspend_cloudsync_for_sign_out`, `sync_cloudsync_now`
+- `detect` (10): `capture_meeting_chat_messages`, `capture_meeting_screen_share`, `inspect_meeting_accessibility`, `send_meeting_chat_message`, `set_ignored_bundle_ids`, `set_included_bundle_ids`, `set_mic_active_threshold`, `set_respect_do_not_disturb`, `start_active_speaker_tracking`, `stop_active_speaker_tracking`
+- `dictation` (3): `start_recording`, `start_system_recording`, `stop_recording`
+- `fs-sync` (31): `attachment_list`, `attachment_read`, `attachment_remove`, `attachment_save`, `audio_copy`, `audio_delete`, `audio_delete_orphaned_expired`, `audio_exist`, `audio_has_speech`, `audio_metadata`, `audio_path`, `audio_peaks`, `audio_source_metadata`, `chat_dir`, `create_folder`, `delete_folder`, `delete_session_folder`, `entity_dir`, `folder_attachment_list`, `folder_attachment_read`, `folder_attachment_remove`, `folder_attachment_save`, `list_folders`, `load_session_content`, `move_session`, `read_document_batch`, `rename_folder`, `scan_and_read`, `session_dir`, `write_document_batch`, `write_json_batch`
+- `local-api` (1): `dispatch_event`
+- `misc` (1): `allow_http_origin`
+- `session` (23): `add_session_participant`, `catalog_folder_material`, `catalog_note_attachment`, `catalog_session_audio`, `create_session`, `create_session_for_event`, `delete_folder_catalog`, `ensure_folder_catalog`, `mark_session_audio_absent`, `mark_session_audio_transcription_complete`, `move_session_contents`, `persist_chat_session_proposal`, `remove_session_participant`, `rename_folder_catalog`, `resolve_session_conflict`, `resolve_session_conflicts`, `set_attachment_cloud_sync_enabled`, `set_session_proposal_status`, `tombstone_folder_material`, `tombstone_session_audio`, `update_folder_icon`, `update_folder_instructions`, `update_folder_workspace`
+- `settings` (1): `load`
+- `store2` (7): `get_bool`, `get_number`, `get_str`, `save`, `set_bool`, `set_number`, `set_str`
+- `tantivy` (5): `add_document`, `reindex`, `remove_document`, `update_document`, `update_documents`
+- `template` (4): `apply_session_content_corrections`, `get_template_source`, `save_generated_summary`, `save_generated_title`
+- `todo` (11): `complete_todo`, `create_todo`, `delete_todo`, `fetch_todos`, `github_issue_comments`, `github_issue_detail`, `github_issue_state`, `linear_list_teams`, `linear_list_tickets`, `list_todo_lists`, `read_path`
+- `tracing` (1): `log_content`
+- `transcription` (43): `acknowledge_capture_audio_chunk`, `acknowledge_capture_audio_cleanup_status`, `acknowledge_completed_transcription`, `acknowledge_stopped_capture`, `attribute_session_speakers`, `clear_capture_audio_saved`, `clear_capture_lifecycle_marker`, `delete_processed_session_audio`, `delete_transcribed_capture_audio`, `delete_voice_enrollment`, `extract_voiceprint_candidates`, `finish_voice_enrollment`, `flush_live_transcript`, `get_capture_audio_cleanup_status`, `get_capture_audio_gaps`, `get_capture_lifecycle_marker`, `get_capture_snapshot`, `get_completed_transcription`, `get_stopped_capture`, `improve_voice_enrollment_from_segment`, `list_capture_audio_chunks`, `list_capture_lifecycle_markers`, `list_capture_recoveries`, `list_stopped_captures`, `list_transcription_sessions`, `mark_capture_audio_saved`, `promote_voiceprint_candidates`, `reconcile_refined_speaker_clusters`, `refine_batch_transcript`, `release_live_transcript`, `retry_audio_capture`, `save_batch_transcript`, `save_capture_lifecycle_marker`, `set_capture_paused`, `start_capture`, `start_transcription`, `start_voice_enrollment`, `stop_capture`, `stop_capture_for_session`, `stop_transcription`, `update_capture_config`, `update_capture_credentials`, `voice_enrollment_status`
+- `updater2` (1): `set_automatic_updates_enabled`
+- Why these are pending: most run in the background while the window is hidden (capture pipeline, calendar sync, vault mirror, search indexing, CloudSync, attachment sync, webhook dispatch, scheduled auto-start creating sessions). Guarding them with the lock would break recordings and sync after a relock. They need a background-job context (a Rust-side caller that is not the webview) before the guard can go in.
+- Test for A2.3: `guard_denies_locked_viewer_and_wrong_window` in `crates/aspc/src/state.rs` runs every registry `(data, action)` through the guard's logic with a locked context, a Viewer and the dictation-overlay window. It tests the guard function, not each command end to end.
+
+### A2.4 SQL authorizer: EXISTS (was PARTIAL)
+
+- Per-table mapping, `table_data_type` (`crates/db-core/src/webview_sql.rs:65`):
+  - transcripts → Transcript;
+  - recording-import jobs and voiceprints → Recording;
+  - `action_items` → Actions;
+  - settings, templates, calendars, workspaces → Settings;
+  - `api_keys`, `webhook_endpoints`, `e2ee_*` → Keys;
+  - everything else → Notes.
+- Each column read is `Read` and each insert, update or delete is `Edit`, checked with `aspc::authorize` against the context the app sets at startup (`set_context`, `:118`; wired in `apps/desktop/src-tauri/src/lib.rs:788`). Viewer writes are denied, and a Viewer can't read settings or keys.
+- Lock: driven by the Rust lock (`AspcState::on_lock_change` → `set_webview_sql_locked`). While locked, only `SELECT` of `app_settings`, `synced_preferences` and the schema table is allowed (`decide_locked`, `:157`). The early refusal in `AuthorizedConnection::acquire` was removed so that this path works.
+- Tests: `denies_everything_but_lock_screen_settings_when_locked`, `applies_the_role_per_table`, `maps_tables_to_data_types`, plus the Phase 1 tests.
+- **Gaps:**
+  - no window per statement (the `db:*` guard checks it instead);
+  - no row filter;
+  - `webhook_endpoints.secret` is still readable by an unlocked Owner's webview;
+  - CLI/MCP don't use the authorizer.
+
+### A2.5 window policy in Rust: added
+
+- `aspc::window_allows` (`crates/aspc/src/lib.rs:367`) repeats the capability split in Rust for guarded commands.
+- **The composer gets no Keys**, as specified, so `store2:get_secret` and `auth:get_item` are denied there.
+  - GUESS: the composer reads provider keys through `getProviderApiKey` (`apps/desktop/src/settings/providers.ts:439`) and the sign-in session through `auth:get_item`. If so, composer Ask with a BYOK key fails, and the composer behaves as signed out for hosted AI. Check by hand (Phase 2a runtime check, item 6).
+- Capabilities: `floating-bar.json` and `live-caption.json` gained `local-auth:allow-app-lock-state` and `allow-unlock-app`, so their lock gate can read the Rust state.
+
+### A4.2–A4.4 Rust-held lock: PARTIAL
+
+- State machine `LockMachine` (`crates/aspc/src/lock.rs`), held in `AspcState` (`crates/aspc/src/state.rs:10`). The app starts locked when the `lock_app` setting is on. Rust reads it from `app_settings`, falling back to the legacy settings document (`plugins/local-auth/src/access.rs:98`).
+- Unlock: `local-auth:unlock_app` (`plugins/local-auth/src/commands.rs:92`) runs `LAContext.evaluatePolicy` itself (`plugins/local-auth/src/app_lock.rs:84`), with a fixed prompt reason.
+  - A lock during the prompt wins (epoch check).
+  - If authentication is unavailable it returns `aspc.auth_unavailable` and stays locked (A4.3). `plugins/local-auth/src/macos.rs` now reports "unavailable" instead of "failed" for that case.
+- Settings toggle: `local-auth:set_app_lock_enabled` runs device authentication in Rust and writes `lock_app` (`app_lock.rs:98`). The privacy screen calls it instead of writing the setting through SQL (`apps/desktop/src/settings/privacy/index.tsx`).
+- Relock (`apps/desktop/src-tauri/src/lib.rs:788`, `AppLockExt::request_relock` at `app_lock.rs:160`):
+  - **main window hidden:** the webview flushes pending writes and asks Rust to lock; Rust locks anyway after 5 s if the window is still hidden;
+  - **Mac sleep:** through a new Rust hook, `tauri_plugin_detect::on_sleep_state_changed` (`plugins/detect/src/handler.rs:39`);
+  - both wait while the capture state is not `Inactive`, retrying every 15 s;
+  - **idle timeout:** not built (no setting exists).
+- Frontend:
+  - `apps/desktop/src/lock/store.ts` mirrors Rust (the `appLockChanged` event and `app_lock_state`).
+  - `lock/gate.tsx` shows the lock screen from that state and asks Rust to unlock. After a relock it restarts every live query (`restartLiveQueries`, `packages/db-react/src/index.ts:33`) and invalidates TanStack queries.
+  - Main-window startup writes wait for the unlock (`apps/desktop/src/main.tsx`).
+- Tests:
+  - `crates/aspc/src/lock.rs` (7) and `state.rs`;
+  - `plugins/local-auth/src/app_lock.rs`;
+  - `apps/desktop/src/lock/{store,gate}.test.*` and `settings/privacy/index.test.tsx`;
+  - `packages/db-react/src/index.test.ts`.
+- **Gaps:**
+  - `Pending` and lock-exempt commands answer while locked;
+  - post-meeting work that finishes after the relock (enhance reading a provider key, webhook dispatch, calendar sync writes) fails until the next unlock;
+  - batch transcription of imported audio does not hold off the relock;
+  - CLI/MCP ignore the lock.
+
+### Phase 2a runtime check
+
+To check by hand in the running app (look in `app.log` for `aspc.` errors, and in Web Inspector for failed `db:` calls):
+
+1. **Lock off (the default):** the app opens with no prompt; notes, search, export, settings and AI keys work.
+2. **Turn the lock on** in Settings → Privacy: a Touch ID prompt ("change lock settings"); the app stays open. Quit and reopen: the lock screen comes first, then Touch ID ("open"), then all data loads.
+3. **Cancel the prompt** on the lock screen: the app stays locked; "View" prompts again.
+4. **Close the main window** (it hides) and reopen it from the Dock: lock screen, prompt, and the data reloads (open a note, check the sidebar list and search).
+5. **Sleep the Mac** with the app open, then wake it: lock screen.
+6. **Composer (quick Ask):** with the lock off, ask with a BYOK provider and with the hosted model. Expected to fail with `aspc.window_denied` on `store2:get_secret` / `auth:get_item` (see A2.5). Decide whether to keep that.
+7. **Recording while hidden:** start a meeting, close the main window, talk for a minute, then stop from the tray. The transcript and note must be saved, and the app should lock only after the capture ends.
+8. **Enhance after a hidden recording** (lock on): check whether the summary is written or fails while locked.
+9. **Turn the lock off** again: it needs Touch ID; after a relaunch there is no lock screen.
+10. **Lock-out risk:** with the lock on, if Touch ID and the password prompt are both unavailable, the app stays locked with a message. Recovery outside the app: quit it and run `sqlite3 "<app data>/app.db" "UPDATE app_settings SET value_json='false' WHERE id='lock_app'"`.
+11. **Note windows** and **overlays** (the Windows/Linux floating bar and live caption) follow the same lock state.
+12. **Sign-in refresh while locked:** leave the app hidden and locked for over an hour while signed in. After unlocking you must still be signed in.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.
@@ -409,7 +571,7 @@ None of Phase 1 was run in the app; only unit tests, `tsc`, vitest and `cargo ch
 
 ## Proposed design for A1, A2 and C1
 
-Awaiting approval. Nothing below has been built.
+A1 and A2 were built in Phase 2a (see "Phase 2a changes"), with these differences: the guard sits in 42 commands, not ~120; the per-window limits are also enforced in Rust; the lock has a narrow lock-screen exception. C1 below is still only proposed (Phase 2b).
 
 ### A1: central permission check
 

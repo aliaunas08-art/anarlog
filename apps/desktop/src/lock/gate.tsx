@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { useQueryClient } from "@tanstack/react-query";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -7,57 +8,77 @@ import {
   getCurrentWebviewWindowLabel,
 } from "@anlg/plugin-windows";
 
-import { DEVICE_AUTH_REASON } from "./auth";
 import { LockScreen, useDeviceAuthHint } from "./screen";
-import { useAppLock } from "./store";
+import { startRustLockSync, useAppLock } from "./store";
 
+import { restartLiveQueries } from "~/db";
 import { useSettingsReady } from "~/settings/queries";
 import { APP_NAME } from "~/shared/app-name";
 import { BrandLoadingView } from "~/shared/brand-loading-view";
-import { useConfigValue } from "~/shared/config";
 
+// The lock state lives in Rust (ASPC A4.2). This gate only mirrors it: it
+// shows the lock screen while Rust says locked, asks Rust to unlock (Rust
+// runs Touch ID / the password prompt itself), and asks Rust to lock when
+// the main window is hidden. Rust also relocks on its own (hide, sleep).
 export function AppLockGate({ children }: { children: ReactNode }) {
   const { t } = useLingui();
+  const queryClient = useQueryClient();
   const settingsReady = useSettingsReady();
-  const lockAppEnabled = useConfigValue("lock_app");
-  const available = useAppLock((state) => state.available);
+  const lockEnabled = useAppLock((state) => state.lockEnabled);
   const appUnlocked = useAppLock((state) => state.appUnlocked);
   const authenticating = useAppLock((state) => state.authenticating);
-  const refreshAvailability = useAppLock((state) => state.refreshAvailability);
+  const unlockError = useAppLock((state) => state.unlockError);
   const unlockApp = useAppLock((state) => state.unlockApp);
   const lockApp = useAppLock((state) => state.lockApp);
   const hint = useDeviceAuthHint();
   const promptedRef = useRef(false);
   const visibilityEpochRef = useRef(0);
   const hiddenAtMountRef = useRef(false);
+  const relockedRef = useRef(false);
   const [sessionStarted, setSessionStarted] = useState(false);
 
   useEffect(() => {
-    void refreshAvailability();
-  }, [refreshAvailability]);
+    void startRustLockSync();
+  }, []);
 
-  const shouldLock = settingsReady && lockAppEnabled && available === true;
+  const shouldLock = lockEnabled === true;
   const locked = shouldLock && !appUnlocked;
 
   useEffect(() => {
-    if (!shouldLock || appUnlocked) {
-      setSessionStarted(true);
+    if (lockEnabled === null) return;
+    if (locked) {
+      if (sessionStarted) relockedRef.current = true;
+      return;
     }
-  }, [appUnlocked, shouldLock]);
+    setSessionStarted(true);
+    if (relockedRef.current) {
+      // Queries that refreshed while the webview SQL was locked failed;
+      // load everything again now that Rust allows it.
+      relockedRef.current = false;
+      restartLiveQueries();
+      void queryClient.invalidateQueries();
+    }
+  }, [lockEnabled, locked, sessionStarted, queryClient]);
 
   useEffect(() => {
-    if (!shouldLock || appUnlocked || authenticating || promptedRef.current) {
+    if (!locked || authenticating || promptedRef.current) {
       return;
     }
     promptedRef.current = true;
     if (getCurrentWebviewWindowLabel() !== "main") {
-      void unlockApp(DEVICE_AUTH_REASON.openApp);
+      void unlockApp();
       return;
     }
     // A main window rebuilt in the background must not prompt until the
     // user opens it; the visibility listener prompts then.
     promptIfMainVisible(visibilityEpochRef, hiddenAtMountRef);
-  }, [unlockApp, appUnlocked, authenticating, shouldLock]);
+  }, [unlockApp, locked, authenticating]);
+
+  useEffect(() => {
+    if (!locked) {
+      promptedRef.current = false;
+    }
+  }, [locked]);
 
   useEffect(() => {
     if (!shouldLock) return;
@@ -79,7 +100,7 @@ export function AppLockGate({ children }: { children: ReactNode }) {
           // Closing hides the main window. Lock now, but do not prompt until
           // the user opens it again.
           promptedRef.current = true;
-          lockApp();
+          void lockApp();
           return;
         }
 
@@ -91,7 +112,7 @@ export function AppLockGate({ children }: { children: ReactNode }) {
           return;
         }
         promptedRef.current = true;
-        void useAppLock.getState().unlockApp(DEVICE_AUTH_REASON.openApp);
+        void useAppLock.getState().unlockApp();
       })
       .then((fn) => {
         if (cancelled) {
@@ -111,11 +132,7 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     };
   }, [lockApp, shouldLock]);
 
-  if (!settingsReady) {
-    return <BrandLoadingView />;
-  }
-
-  if (lockAppEnabled && available === null) {
+  if (!settingsReady || lockEnabled === null) {
     return <BrandLoadingView />;
   }
 
@@ -133,12 +150,16 @@ export function AppLockGate({ children }: { children: ReactNode }) {
         <div className="absolute inset-0">
           <LockScreen
             title={t`${APP_NAME} is Locked`}
-            description={hint}
+            description={
+              unlockError?.includes("aspc.auth_unavailable")
+                ? t`Device authentication is not available on this computer, so ${APP_NAME} stays locked. Set a login password or Touch ID in System Settings, then try again.`
+                : hint
+            }
             action={t`View ${APP_NAME}`}
             authenticating={authenticating}
             onUnlock={() => {
               promptedRef.current = true;
-              void unlockApp(DEVICE_AUTH_REASON.openApp);
+              void unlockApp();
             }}
           />
         </div>
@@ -164,6 +185,6 @@ function promptIfMainVisible(
       hiddenAtMountRef.current = false;
       const state = useAppLock.getState();
       if (state.appUnlocked || state.authenticating) return;
-      void state.unlockApp(DEVICE_AUTH_REASON.openApp);
+      void state.unlockApp();
     });
 }

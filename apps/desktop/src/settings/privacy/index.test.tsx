@@ -9,9 +9,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   setSettingValues: vi.fn(),
-  authenticate: vi.fn(),
+  setLockEnabled: vi.fn(),
   refreshAvailability: vi.fn(),
-  lockApp: vi.fn(),
+  lockEnabled: false,
   available: true as boolean | null,
   authenticating: false,
   platform: "macos" as string,
@@ -43,13 +43,14 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 vi.mock("~/lock/store", () => ({
+  startRustLockSync: vi.fn(() => Promise.resolve()),
   useAppLock: (selector: (state: typeof mocks) => unknown) =>
     selector({
       available: mocks.available,
       authenticating: mocks.authenticating,
-      authenticate: mocks.authenticate,
+      lockEnabled: mocks.lockEnabled,
+      setLockEnabled: mocks.setLockEnabled,
       refreshAvailability: mocks.refreshAvailability,
-      lockApp: mocks.lockApp,
     } as never),
 }));
 
@@ -64,7 +65,8 @@ describe("SettingsPrivacy", () => {
     mocks.available = true;
     mocks.authenticating = false;
     mocks.platform = "macos";
-    mocks.authenticate.mockResolvedValue(true);
+    mocks.lockEnabled = false;
+    mocks.setLockEnabled.mockResolvedValue(true);
     mocks.refreshAvailability.mockResolvedValue(true);
   });
 
@@ -92,15 +94,25 @@ describe("SettingsPrivacy", () => {
     });
   });
 
-  it("requires device authentication before locking the app", async () => {
+  it("asks Rust to turn the lock on and never writes the setting itself", async () => {
     render(<SettingsPrivacy />);
 
     fireEvent.click(screen.getByRole("switch", { name: "Lock app" }));
 
     await waitFor(() => {
-      expect(mocks.authenticate).toHaveBeenCalled();
-      expect(mocks.setSettingValues).toHaveBeenCalledWith({ lock_app: true });
-      expect(mocks.lockApp).toHaveBeenCalled();
+      expect(mocks.setLockEnabled).toHaveBeenCalledWith(true);
     });
+    expect(mocks.setSettingValues).not.toHaveBeenCalled();
+  });
+
+  it("shows the lock state reported by Rust", () => {
+    mocks.lockEnabled = true;
+    render(<SettingsPrivacy />);
+
+    expect(
+      screen
+        .getByRole("switch", { name: "Lock app" })
+        .getAttribute("data-state"),
+    ).toBe("checked");
   });
 });

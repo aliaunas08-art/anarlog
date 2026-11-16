@@ -28,6 +28,7 @@ import {
 } from "./error-reporting";
 import { AppI18nProvider } from "./i18n/provider";
 import { AppLockGate } from "./lock/gate";
+import { waitForAppUnlock } from "./lock/store";
 import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
@@ -190,6 +191,12 @@ function runMainWindowStartupTasks() {
     return;
   }
 
+  // These write to SQLite, which Rust denies to the webview while the app
+  // lock is closed (ASPC A4.2): run them once it opens.
+  void waitForAppUnlock().then(runUnlockedStartupTasks);
+}
+
+function runUnlockedStartupTasks() {
   void runStartupTask(
     "legacy_settings_refresh",
     refreshLegacySettingsSnapshots,

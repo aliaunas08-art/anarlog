@@ -163,8 +163,8 @@ pub fn main() {
         }
     };
 
-    let (root_supervisor_ctx, root_supervisor_handle, db, crash_reporting_enabled) = runtime
-        .block_on(async {
+    let (root_supervisor_ctx, root_supervisor_handle, db, crash_reporting_enabled, access_state) =
+        runtime.block_on(async {
             let (root_supervisor_ctx, root_supervisor_handle) =
                 match supervisor::spawn_root_supervisor().await {
                     Some((ctx, handle)) => (Some(ctx), Some(handle)),
@@ -182,11 +182,15 @@ pub fn main() {
             };
             startup_indicator.dismiss();
             let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
+            // ASPC A1.3/A4.2: the local Owner's access context and the
+            // Rust-held app lock, built before any window exists.
+            let access_state = tauri_plugin_local_auth::access::bootstrap(&db, &identifier).await;
             (
                 root_supervisor_ctx,
                 root_supervisor_handle,
                 db,
                 crash_reporting_enabled,
+                access_state,
             )
         });
 
@@ -251,6 +255,7 @@ pub fn main() {
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
         .manage(db.clone())
+        .manage(access_state.clone())
         .manage(crash_reporting_state);
 
     #[cfg(target_os = "macos")]
@@ -416,6 +421,8 @@ pub fn main() {
             specta_builder.mount_events(&app_handle);
 
             allow_vault_sessions_in_asset_scope(&app_handle);
+
+            wire_app_lock(&app_handle, &access_state);
 
             {
                 use tauri_specta::Event;
@@ -772,6 +779,58 @@ fn allow_vault_sessions_in_asset_scope<R: tauri::Runtime>(app: &tauri::AppHandle
             tracing::warn!(%error, "asset_scope_allow_vault_failed");
         }
     }
+}
+
+/// Connects the Rust-held app lock (ASPC A4.2–A4.4) to the webview SQL
+/// authorizer and to the relock triggers: the main window hidden and the Mac
+/// going to sleep. Relocking waits while a recording runs, so capture and its
+/// completion writes are never cut off.
+fn wire_app_lock(app: &tauri::AppHandle<tauri::Wry>, access_state: &Arc<anlg_aspc::AspcState>) {
+    use tauri_plugin_local_auth::AppLockExt;
+    use tauri_specta::Event;
+
+    if let Some(runtime) = app.try_state::<tauri_plugin_db::ManagedState>() {
+        let runtime = runtime.inner().clone();
+        runtime.set_webview_sql_context(access_state.context(None));
+        access_state.on_lock_change(move |snapshot| {
+            runtime.set_webview_sql_locked(!snapshot.unlocked);
+        });
+    } else {
+        tracing::error!("aspc_db_runtime_missing");
+    }
+
+    let busy_handle = app.clone();
+    app.set_relock_busy_check(move || {
+        let app = busy_handle.clone();
+        async move {
+            use tauri_plugin_transcription::{CaptureState, ListenerPluginExt};
+            !matches!(
+                app.listener().get_capture_state().await,
+                CaptureState::Inactive
+            )
+        }
+    });
+
+    let hide_handle = app.clone();
+    tauri_plugin_windows::VisibilityEvent::listen(app, move |event| {
+        if event.payload.window != AppWindow::Main || event.payload.visible {
+            return;
+        }
+        let app = hide_handle.clone();
+        let still_hidden = app.clone();
+        app.request_relock(tauri_plugin_local_auth::RELOCK_GRACE, move || {
+            still_hidden
+                .get_webview_window("main")
+                .is_none_or(|window| !window.is_visible().unwrap_or(false))
+        });
+    });
+
+    let sleep_handle = app.clone();
+    tauri_plugin_detect::on_sleep_state_changed(move |asleep| {
+        if asleep {
+            sleep_handle.request_relock(std::time::Duration::ZERO, || true);
+        }
+    });
 }
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {

@@ -33,6 +33,7 @@ pub use dnd::*;
 pub use error::*;
 pub use events::*;
 pub use ext::*;
+pub use handler::on_sleep_state_changed;
 pub use mic_usage_tracker::MicUsageTracker;
 pub use policy::*;
 

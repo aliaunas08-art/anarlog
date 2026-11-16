@@ -3,8 +3,7 @@ import { platform } from "@tauri-apps/plugin-os";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
-import { DEVICE_AUTH_REASON } from "~/lock/auth";
-import { useAppLock } from "~/lock/store";
+import { startRustLockSync, useAppLock } from "~/lock/store";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
@@ -21,12 +20,13 @@ export function SettingsPrivacy() {
   const setSettingValues = useSetSettingValues();
   const available = useAppLock((state) => state.available);
   const authenticating = useAppLock((state) => state.authenticating);
-  const authenticate = useAppLock((state) => state.authenticate);
-  const lockApp = useAppLock((state) => state.lockApp);
+  const lockAppEnabled = useAppLock((state) => state.lockEnabled === true);
+  const setLockEnabled = useAppLock((state) => state.setLockEnabled);
   const refreshAvailability = useAppLock((state) => state.refreshAvailability);
 
   useMountEffect(() => {
     void refreshAvailability();
+    void startRustLockSync();
   });
 
   if (settingsQuery.error) {
@@ -44,7 +44,6 @@ export function SettingsPrivacy() {
     "crash_reporting_consent",
     settingsQuery.data,
   );
-  const lockAppEnabled = resolveConfigValue("lock_app", settingsQuery.data);
   const authAvailable = available === true;
   const lockAppDescription = !authAvailable
     ? t`Device authentication is not available on this computer.`
@@ -66,12 +65,9 @@ export function SettingsPrivacy() {
             void (async () => {
               const canAuth = await refreshAvailability();
               if (!canAuth) return;
-              const ok = await authenticate(
-                DEVICE_AUTH_REASON.changeLockSettings,
-              );
-              if (!ok) return;
-              setSettingValues({ lock_app: next });
-              if (next) lockApp();
+              // Rust runs the device authentication and stores the setting
+              // (ASPC A4.2); the webview never writes `lock_app` itself.
+              await setLockEnabled(next);
             })();
           }}
         />

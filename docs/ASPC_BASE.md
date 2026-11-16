@@ -24,7 +24,10 @@ Controls that only make sense on a server are marked **[hosted]**. They don't ap
 
 ## 0. Enforcement architecture
 
-**Status: PROPOSED. Not yet approved, not yet built.**
+**Status: BUILT for the local app (Phase 2a, 2026-11-16)**, except where marked:
+
+- BUILT: `crates/aspc` (roles, data types, actions, the A1 matrix, `AccessContext`, `authorize`), the local context in Tauri state, the Rust-held app lock, the command registry and guard (A2.1–A2.3, with the coverage listed in ASPC_AUDIT.md), and the per-table SQL authorizer (A2.4).
+- NOT BUILT: workspace filtering of rows (C1, Phase 2b) and the `permission.denied` audit entry (D1).
 
 ### Trust boundary
 
@@ -44,14 +47,16 @@ authorize(ctx: &AccessContext, workspace_id, data: DataType, action: Action) -> 
   - `unlocked`: whether the app lock has been passed.
 - `DataType` is one of: `Recording`, `Transcript`, `Notes`, `Actions`, `Settings`, `Keys`, where `Keys` covers billing and API keys.
 - `Action` is one of: `Create`, `Read`, `Edit`, `Export`, `Share`, `Delete`, `Administer`.
-- A denial returns an error with a stable code. Every denial writes a `permission.denied` entry to the audit log (§D1).
+- `authorize` checks, in order: the lock, the workspace (empty or different → denied), the role (unknown → denied), the matrix, then the window policy (A2.5).
+- `Member` rules need the row's owner. Callers that know it use `authorize_resource(…, Ownership::OwnedBy(owner))`; command-level checks don't know which row they will touch and pass `Ownership::Unknown`, which allows a `Member` only `Create`.
+- A denial returns an error with a stable code (`aspc.locked`, `aspc.wrong_workspace`, `aspc.unknown_role`, `aspc.role_denied`, `aspc.not_owner`, `aspc.window_denied`, `aspc.presence_only`, `aspc.no_context`). Every denial writes a `permission.denied` entry to the audit log (§D1; not built yet).
 
 ## A. Access
 
 ### A1. Roles and permission matrix
 
-- **A1.1** The roles are `Owner`, `Admin`, `Member` and `Viewer`. They are defined once, in Rust (`crates/aspc`, proposed), with a TypeScript mirror generated from Rust.
-- **A1.2** The matrix below is the only source of truth. No feature compares roles itself. A grep for role comparisons outside `crates/aspc` must find none (enforced by a lint/test).
+- **A1.1** The roles are `Owner`, `Admin`, `Member` and `Viewer`. They are defined once, in Rust (`crates/aspc`), with a TypeScript mirror generated from Rust (types derive `specta::Type` behind the `specta` feature; no TS file is generated yet, and `local-auth:access_context` returns the role name as a string). A stored role name that isn't one of the four is unknown and every check denies it.
+- **A1.2** The matrix below is the only source of truth. No feature compares roles itself. A grep for role comparisons outside `crates/aspc` must find none: `crates/aspc/tests/role_comparisons.rs` scans `apps/desktop/src`, `plugins` and `crates`. Its allowlist holds only comparisons that mirror hosted roles for display or validate server responses, each with its reason; an allowlist entry that stops matching fails the test.
 - **A1.3** In local mode, the actor is the macOS user, who is `Owner` of the device's personal workspace. Every data path still calls `authorize`.
 - **A1.4** Test: a `Viewer` is denied `Edit`, `Delete`, `Export`, `Share` and `Administer` on every data type, and is allowed `Read` on `Recording`, `Transcript`, `Notes` and `Actions` only.
 
@@ -68,17 +73,17 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### A2. Every entry point is checked
 
-- **A2.1** Every Tauri command is listed in one registry, `crates/aspc/src/commands.rs`, which gives one of:
+- **A2.1** Every Tauri command is listed in one registry, `crates/aspc/src/commands.rs` (keyed by `plugins/<dir>` name, `app` for the desktop app's own commands), which gives one of:
   - the `(DataType, Action)` it needs;
   - `Public`, meaning it touches no user data, with the reason written next to it.
 - **A2.2** Test: the registry exactly matches the set of commands every plugin and the app expose. An unlisted command fails the build test.
-- **A2.3** Each data command calls `authorize` before touching data. Test: each command is called with a locked context, a `Viewer` context and a wrong-window context, and each must return `Denied`.
+- **A2.3** Each data command calls `authorize` before touching data, through `aspc::require(&app, &window, data, action)?` as its first line. The registry records, per data command, whether it is guarded (`Enforced`), guarded without the lock check (`LockExempt`, with the reason: the SQL commands, whose lock is enforced per statement, and the sign-in session storage, which background token refresh needs) or not yet guarded (`Pending`). Tests: every registry `(data, action)` is denied for a locked context (except `LockExempt`), a `Viewer` (except content reads) and a wrong window (`state::tests::guard_denies_locked_viewer_and_wrong_window`); every command marked guarded calls the guard (`tests/command_registry.rs`). Target: no `Pending` entries.
 - **A2.4** Raw SQL from the webview (`db:execute*`) runs under an SQLite authorizer callback that:
-  - maps each table to a `DataType` and each statement to Read or Edit;
+  - maps each table to a `DataType` (`table_data_type`; unknown tables, including CloudSync's `*_cloudsync` shadow tables, count as `Notes`) and each column read to `Read` and each insert, update or delete to `Edit`, and checks them with `authorize` against the app's context, so a `Viewer` cannot write. The window is checked by the `db:*` command guard, not per statement;
   - denies `ATTACH`, `DETACH`, `load_extension` and `PRAGMA`s outside an allowlist;
   - denies any write to audit tables;
-  - denies everything while the app is locked.
-- **A2.5** Windows get only the capabilities they need, from one capability file per window kind in `apps/desktop/src-tauri/capabilities/`. Only the main and note windows (`main`, `note-*`) have file, export, import, webhook and shell access; the composer gets what its chat uses. The floating bar and caption overlays get their own commands plus the shared boot path's settings read; until Phase 2 replaces it with a settings command, that read is `db:execute`/`db:subscribe` under the A2.4 authorizer. The dictation overlay gets no capability. `"windows": ["*"]` is not allowed.
+  - denies everything while the app is locked, except reads of `app_settings` and `synced_preferences` (and the schema table), which the shared boot path needs to render the lock screen.
+- **A2.5** Windows get only the capabilities they need, from one capability file per window kind in `apps/desktop/src-tauri/capabilities/`. Only the main and note windows (`main`, `note-*`) have file, export, import, webhook and shell access; the composer gets what its chat uses. The floating bar and caption overlays get their own commands plus the shared boot path's settings read; until Phase 2 replaces it with a settings command, that read is `db:execute`/`db:subscribe` under the A2.4 authorizer. The dictation overlay gets no capability. `"windows": ["*"]` is not allowed. The same limits are applied again in Rust by `aspc::window_allows`: `main` and `note-*` may do everything; the composer gets content Create/Read/Edit and Settings Read/Edit, and no Keys, Export, Share, Delete or Administer; the floating bar and live caption get Read on Recording, Transcript, Notes and Settings; the dictation overlay and any unknown label get nothing.
 - **A2.6** Non-IPC entry points:
   - local servers bind loopback only;
   - they check Origin and a per-launch token;
@@ -100,9 +105,9 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 ### A4. Session and device
 
 - **A4.1** Data lives under the macOS user's own `~/Library`, with directory mode `0700` and file mode `0600`. Test: permissions are checked on startup and corrected.
-- **A4.2** The app lock is optional and off by default. When it's on, Rust holds the lock state: `AccessContext.unlocked` is false until `LocalAuthentication` succeeds, and every data command and the SQL authorizer deny while locked. The lock is not enforced only in the UI.
+- **A4.2** The app lock is optional and off by default. When it's on, Rust holds the lock state (`aspc::LockMachine` in `AspcState`): the app starts locked, `AccessContext.unlocked` is false until a `LocalAuthentication` evaluation that Rust runs itself succeeds (`local-auth:unlock_app`; no command unlocks from a value the webview sends), and every guarded data command and the SQL authorizer deny while locked. Turning the lock on or off also needs a device authentication run by Rust (`local-auth:set_app_lock_enabled`), which writes the setting. The webview may always lock. Exceptions, each in the registry with its reason: the lock-screen settings reads (A2.4) and the `LockExempt` commands (A2.3). The lock is not enforced only in the UI.
 - **A4.3** If device authentication is unavailable while the lock is on, the app stays locked and says why. It never opens silently.
-- **A4.4** It relocks after an idle time the user sets, and when the main window is hidden or the Mac sleeps.
+- **A4.4** It relocks after an idle time the user sets, and when the main window is hidden or the Mac sleeps. Relocking waits while a recording is active (capture state not `Inactive`), so capture and its completion writes are never cut off, and gives the webview 5 seconds after a hide to flush pending writes. The idle timeout is not built: there is no idle setting yet.
 
 ## B. Security
 

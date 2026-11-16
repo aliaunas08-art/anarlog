@@ -21,6 +21,8 @@
     "db:allow-execute",
     "local-auth:allow-available",
     "local-auth:allow-authenticate",
+    "local-auth:allow-app-lock-state",
+    "local-auth:allow-unlock-app",
     "icon:allow-set-dock-icon",
     "tracing:allow-do-log"
   ]
