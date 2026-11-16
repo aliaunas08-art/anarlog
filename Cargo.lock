@@ -4740,7 +4740,6 @@ dependencies = [
  "tauri-plugin-export",
  "tauri-plugin-fs-sync",
  "tauri-plugin-fs2",
- "tauri-plugin-hooks",
  "tauri-plugin-http",
  "tauri-plugin-icon",
  "tauri-plugin-importer",
@@ -7767,19 +7766,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc627f471c528ff0c4a49e1d5e60450c8f6461dd6d10ba9dcd3a61d3dff7728d"
 dependencies = [
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "hooks"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "serde",
- "serde_json",
- "shellexpand",
- "specta",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
@@ -17014,23 +17000,6 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-plugin",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "tauri-plugin-hooks"
-version = "0.1.0"
-dependencies = [
- "docs",
- "hooks",
- "serde",
- "serde_yaml",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-settings",
- "tauri-specta",
  "thiserror 2.0.18",
 ]
 

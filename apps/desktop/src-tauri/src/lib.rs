@@ -306,11 +306,6 @@ pub fn main() {
         .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init());
 
-    #[cfg(not(feature = "app-store"))]
-    {
-        builder = builder.plugin(tauri_plugin_hooks::init());
-    }
-
     builder = builder
         .plugin(tauri_plugin_icon::init())
         .plugin(tauri_plugin_shell::init())

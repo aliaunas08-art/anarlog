@@ -43,7 +43,6 @@
     "@anlg/plugin-export": "workspace:*",
     "@anlg/plugin-fs-sync": "workspace:*",
     "@anlg/plugin-fs2": "workspace:*",
-    "@anlg/plugin-hooks": "workspace:*",
     "@anlg/plugin-icon": "workspace:*",
     "@anlg/plugin-importer": "workspace:*",
     "@anlg/plugin-local-api": "workspace:*",

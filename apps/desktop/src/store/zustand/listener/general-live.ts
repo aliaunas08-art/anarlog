@@ -3,10 +3,8 @@ import { Cause, Effect, Exit } from "effect";
 import type { StoreApi } from "zustand";
 
 import { commands as detectCommands } from "@anlg/plugin-detect";
-import { commands as hooksCommands } from "@anlg/plugin-hooks";
 import { commands as iconCommands } from "@anlg/plugin-icon";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
-import { commands as settingsCommands } from "@anlg/plugin-settings";
 import {
   commands as listenerCommands,
   events as listenerEvents,
@@ -51,9 +49,7 @@ import {
 import { prepareSessionPeaks } from "~/audio-player/waveform";
 import { runMeetingCompletedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
-import { getSessionResourcePath } from "~/session/resource-path";
 import { APP_NAME } from "~/shared/app-name";
-import { isAppStoreBuild } from "~/shared/app-store";
 import { fromResult } from "~/stt/fromResult";
 import { recordDetectedMeetingApps } from "~/stt/meeting-source-apps";
 import {
@@ -686,13 +682,9 @@ export const startLiveSession = <T extends LiveStore>(
       live.eventUnlistenersBySession[targetSessionId] = unlisteners;
     });
 
-    const [dataDirPath, micUsingApps, bundleId] = yield* Effect.tryPromise({
+    const [micUsingApps, bundleId] = yield* Effect.tryPromise({
       try: () =>
         Promise.all([
-          settingsCommands.vaultBase().then((r) => {
-            if (r.status === "error") throw new Error(r.error);
-            return r.data;
-          }),
           detectCommands
             .listMicUsingApplications()
             .then((r) => (r.status === "ok" ? r.data : null)),
@@ -701,9 +693,7 @@ export const startLiveSession = <T extends LiveStore>(
       catch: (error) => error,
     });
 
-    const sessionPath = getSessionResourcePath(dataDirPath, targetSessionId);
     const micUsingAppIds = micUsingApps?.map((app) => app.id) ?? null;
-    const app_meeting = micUsingAppIds?.[0] ?? null;
     const triggerAppIds = getAutoStopTriggerAppIds(micUsingAppIds, bundleId);
 
     if (triggerAppIds.length > 0) {
@@ -711,25 +701,6 @@ export const startLiveSession = <T extends LiveStore>(
         if (live.sessionId === targetSessionId) {
           live.triggerAppIds = triggerAppIds;
         }
-      });
-    }
-
-    if (!isAppStoreBuild()) {
-      yield* Effect.tryPromise({
-        try: () =>
-          hooksCommands.runEventHooks({
-            beforeListeningStarted: {
-              args: {
-                resource_dir: sessionPath,
-                app_hyprnote: bundleId,
-                app_meeting,
-              },
-            },
-          }),
-        catch: (error) => {
-          console.error("[hooks] BeforeListeningStarted failed:", error);
-          return error;
-        },
       });
     }
 
@@ -1128,33 +1099,6 @@ export const stopLiveSession = <T extends GeneralState>(
         }
 
         syncCloudApiSnapshotBestEffort(sessionId);
-
-        if (isAppStoreBuild()) {
-          return;
-        }
-
-        void Promise.all([
-          settingsCommands.vaultBase().then((r) => {
-            if (r.status === "error") throw new Error(r.error);
-            return r.data;
-          }),
-          getIdentifier().catch(() => "com.anarlog.stable"),
-        ])
-          .then(([dataDirPath, bundleId]) => {
-            const sessionPath = getSessionResourcePath(dataDirPath, sessionId);
-            return hooksCommands.runEventHooks({
-              afterListeningStopped: {
-                args: {
-                  resource_dir: sessionPath,
-                  app_hyprnote: bundleId,
-                  app_meeting: null,
-                },
-              },
-            });
-          })
-          .catch((error) => {
-            console.error("[hooks] AfterListeningStopped failed:", error);
-          });
       },
     });
   });

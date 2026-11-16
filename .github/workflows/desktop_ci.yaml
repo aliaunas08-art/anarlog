@@ -160,7 +160,6 @@ jobs:
             --exclude tauri-plugin-fs-db \
             --exclude tauri-plugin-fs-sync \
             --exclude tauri-plugin-fs2 \
-            --exclude tauri-plugin-hooks \
             --exclude tauri-plugin-icon \
             --exclude tauri-plugin-importer \
             --exclude tauri-plugin-js \

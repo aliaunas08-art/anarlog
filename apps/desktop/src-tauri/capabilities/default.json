@@ -59,7 +59,6 @@
     "local-llm:default",
     "local-stt:default",
     "dialog:default",
-    "hooks:default",
     "icon:default",
     "importer:default",
     "transcription:default",

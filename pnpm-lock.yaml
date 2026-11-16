@@ -203,9 +203,6 @@ importers:
       '@anlg/plugin-fs2':
         specifier: workspace:*
         version: link:../../plugins/fs2
-      '@anlg/plugin-hooks':
-        specifier: workspace:*
-        version: link:../../plugins/hooks
       '@anlg/plugin-icon':
         specifier: workspace:*
         version: link:../../plugins/icon
@@ -1487,12 +1484,6 @@ importers:
         version: 2.10.1
 
   plugins/fs2:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-
-  plugins/hooks:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1

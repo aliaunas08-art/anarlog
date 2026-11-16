@@ -13,7 +13,6 @@ const {
   listenCaptureStatusMock,
   listMicUsingApplicationsMock,
   prepareSessionPeaksMock,
-  runEventHooksMock,
   setCapturePausedMock,
   setRecordingIndicatorMock,
   startCaptureMock,
@@ -30,7 +29,6 @@ const {
   listenCaptureStatusMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   prepareSessionPeaksMock: vi.fn(),
-  runEventHooksMock: vi.fn(),
   setCapturePausedMock: vi.fn(),
   setRecordingIndicatorMock: vi.fn(),
   startCaptureMock: vi.fn(),
@@ -56,12 +54,6 @@ vi.mock("@tauri-apps/api/app", () => ({
 vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     listMicUsingApplications: listMicUsingApplicationsMock,
-  },
-}));
-
-vi.mock("@anlg/plugin-hooks", () => ({
-  commands: {
-    runEventHooks: runEventHooksMock,
   },
 }));
 
@@ -149,7 +141,6 @@ describe("General Listener Slice", () => {
     listenCaptureLifecycleMock.mockResolvedValue(() => {});
     listenCaptureStatusMock.mockResolvedValue(() => {});
     listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
-    runEventHooksMock.mockResolvedValue({ status: "ok", data: null });
     setRecordingIndicatorMock.mockResolvedValue({ status: "ok", data: null });
     startCaptureMock.mockResolvedValue({ status: "ok", data: null });
     stopCaptureMock.mockResolvedValue({ status: "ok", data: null });
@@ -2644,10 +2635,9 @@ describe("General Listener Slice", () => {
       const consoleError = vi
         .spyOn(console, "error")
         .mockImplementation(() => {});
-      vaultBaseMock.mockResolvedValueOnce({
-        status: "error",
-        error: "storage unavailable",
-      });
+      listMicUsingApplicationsMock.mockRejectedValueOnce(
+        new Error("detector unavailable"),
+      );
 
       await expect(
         store.getState().start({
@@ -2662,7 +2652,7 @@ describe("General Listener Slice", () => {
       ).resolves.toBe(false);
 
       expect(startCaptureMock).not.toHaveBeenCalled();
-      expect(store.getState().live.lastError).toBe("storage unavailable");
+      expect(store.getState().live.lastError).toBe("detector unavailable");
       expect(store.getState().live.lastErrorSessionId).toBe("session-a");
       expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
       consoleError.mockRestore();

@@ -96,7 +96,6 @@ anlg-gguf = { path = "crates/gguf", package = "gguf" }
 anlg-github-issues = { path = "crates/github-issues", package = "github-issues" }
 anlg-google-calendar = { path = "crates/google-calendar", package = "google-calendar" }
 anlg-google-mail = { path = "crates/google-mail", package = "google-mail" }
-anlg-hooks = { path = "crates/hooks", package = "hooks" }
 anlg-host = { path = "crates/host", package = "host" }
 anlg-http = { path = "crates/http", package = "anlg-http-utils" }
 anlg-intercept = { path = "crates/intercept", package = "intercept" }
@@ -207,7 +206,6 @@ tauri-plugin-dock = { path = "plugins/dock" }
 tauri-plugin-export = { path = "plugins/export" }
 tauri-plugin-fs-sync = { path = "plugins/fs-sync" }
 tauri-plugin-fs2 = { path = "plugins/fs2" }
-tauri-plugin-hooks = { path = "plugins/hooks" }
 tauri-plugin-icon = { path = "plugins/icon" }
 tauri-plugin-importer = { path = "plugins/importer" }
 tauri-plugin-js = { path = "plugins/js" }

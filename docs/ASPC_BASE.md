@@ -8,12 +8,14 @@ The standing rulebook for this app. Every feature, review and release is checked
 - Current status of each rule: [ASPC_AUDIT.md](ASPC_AUDIT.md).
 
 **Scope:** a local-first Mac app.
+
 - Data lives in local SQLite and files.
 - Transcription runs on the device.
 - Calendars connect directly from the Mac.
 - There is no hosted multi-user backend.
 
 Every control is written so that it still holds when a hosted or team version is added:
+
 - `workspace_id` becomes the tenant id;
 - the local Owner becomes one of several roles;
 - the same central check runs on the server.
@@ -55,12 +57,12 @@ authorize(ctx: &AccessContext, workspace_id, data: DataType, action: Action) -> 
 
 The matrix, per workspace (✓ allowed, ✗ denied):
 
-| Role | Recording / Transcript / Notes / Actions | Settings | Keys and billing |
-| --- | --- | --- | --- |
-| Owner | all actions ✓ | all ✓ | all ✓ |
-| Admin | all ✓ | Read, Edit, Administer ✓ | Read (presence only, never the key value) ✓; everything else ✗ |
-| Member | Create, Read, Edit, Export, Share ✓ on content they own; Read ✓ on content shared to them; Delete ✓ on their own | Read ✓ | ✗ |
-| Viewer | Read ✓ | ✗ | ✗ |
+| Role   | Recording / Transcript / Notes / Actions                                                                         | Settings                 | Keys and billing                                               |
+| ------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------- |
+| Owner  | all actions ✓                                                                                                    | all ✓                    | all ✓                                                          |
+| Admin  | all ✓                                                                                                            | Read, Edit, Administer ✓ | Read (presence only, never the key value) ✓; everything else ✗ |
+| Member | Create, Read, Edit, Export, Share ✓ on content they own; Read ✓ on content shared to them; Delete ✓ on their own | Read ✓                   | ✗                                                              |
+| Viewer | Read ✓                                                                                                           | ✗                        | ✗                                                              |
 
 **Meetings marked Private** (§C6.4) are excluded from all-meetings reads, Export and Share for everyone except the owner, and for the owner unless the owner asks explicitly.
 
@@ -216,7 +218,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - `action`, `object_type`, `object_id`;
   - `source` (`app`, `cli` or `job`) and `device_id`;
   - `prev_hash` and `hash`, where `hash = SHA-256(prev_hash ‖ canonical entry)`.
-  The chain's latest hash is also kept in the Keychain, so truncating the log is detected too.
+    The chain's latest hash is also kept in the Keychain, so truncating the log is detected too.
 - **D1.4** The log records:
   - app unlock;
   - meeting viewed, exported, shared or deleted;
@@ -237,7 +239,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - its DB rows in every table that refers to it (including versions, live deltas and consent rows);
   - its audio, recovery chunks and attachments;
   - its search-index documents and caches.
-  It then runs `secure_delete` and a WAL checkpoint. The 5-second undo window still applies, before anything is removed. Test: after deleting, a marker from the meeting is found nowhere in `app.db` (including the WAL), `search_index/`, the vault or caches.
+    It then runs `secure_delete` and a WAL checkpoint. The 5-second undo window still applies, before anything is removed. Test: after deleting, a marker from the meeting is found nowhere in `app.db` (including the WAL), `search_index/`, the vault or caches.
 - **D2.3** Deleting the whole library needs confirmation and re-authentication. It removes all of the above and the app's Keychain items, but keeps the audit log, which records the deletion.
 
 ### D3. Retention
@@ -252,7 +254,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 - **D4.2** A "Where your data lives" screen lists, in plain words:
   - what stays on this Mac;
   - what leaves it, to whom, and when: the AI provider gets meeting text when you enhance or Ask; the calendar provider is read-only; updates are a version check.
-  It is generated from the same settings the app uses, so it can't drift from them.
+    It is generated from the same settings the app uses, so it can't drift from them.
 - **D4.3** Consent wording about recording others appears in onboarding and in the first-recording notice (§C6.3).
 
 ### D5. Licences
@@ -271,22 +273,23 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 Each attack is checked in the audit as APPLIES or N/A, with evidence. Every APPLIES needs a fix and a regression test.
 
-| Attack | Rule here |
-| --- | --- |
-| SQL injection | B1.1, A2.4 |
-| Reading past workspace security | C1 |
-| Insecure randomness | B1.3 |
-| Timing attacks | B1.4 |
-| XSS / missing security headers | B1.2, A3.1 |
-| Template injection | B2.4 |
-| CORS / CSWSH / CSRF on local servers | A2.6 |
-| ReDoS | every regex run on external content has a linear-time pattern or a length cap, with a fuzz test |
-| JWT algorithm confusion | never decide access from an unverified JWT; UI gating only, the server decides **[hosted]** |
-| Unicode impersonation | participant names and emails are shown with mixed-script warnings |
-| Rate limiting | A2.8 |
-| Leaked keys | any key ever committed or logged is rotated, and the rotation is noted here |
+| Attack                               | Rule here                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| SQL injection                        | B1.1, A2.4                                                                                      |
+| Reading past workspace security      | C1                                                                                              |
+| Insecure randomness                  | B1.3                                                                                            |
+| Timing attacks                       | B1.4                                                                                            |
+| XSS / missing security headers       | B1.2, A3.1                                                                                      |
+| Template injection                   | B2.4                                                                                            |
+| CORS / CSWSH / CSRF on local servers | A2.6                                                                                            |
+| ReDoS                                | every regex run on external content has a linear-time pattern or a length cap, with a fuzz test |
+| JWT algorithm confusion              | never decide access from an unverified JWT; UI gating only, the server decides **[hosted]**     |
+| Unicode impersonation                | participant names and emails are shown with mixed-script warnings                               |
+| Rate limiting                        | A2.8                                                                                            |
+| Leaked keys                          | any key ever committed or logged is rotated, and the rotation is noted here                     |
 
 **[hosted]**, N/A while there is no server, re-checked when one is added:
+
 - HTTP/2 Rapid Reset
 - request smuggling
 - cache poisoning
@@ -341,3 +344,5 @@ These tests must exist and pass; each item is true or false:
 ## Decisions
 
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
+
+- **2026-11-16: hooks feature removed.** The settings `hooks` feature ran shell commands from `settings.json` on recording start and stop. It has been deleted (`plugins/hooks`, `crates/hooks`, its registration, capability entry and callers). It may only come back as a separate, reviewed task, behind authentication and an explicit opt-in that shows the user the exact command. A leftover `hooks` key in an existing `settings.json` is now ignored.
