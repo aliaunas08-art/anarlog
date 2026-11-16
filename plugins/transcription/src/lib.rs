@@ -17,7 +17,9 @@ mod listener;
 mod listener2;
 mod live_journal;
 mod session_transcript;
+mod speaker_attribution;
 mod stopped_captures;
+mod voice_enrollment;
 mod voiceprint;
 
 pub use anlg_transcription_core::listener::{
@@ -36,7 +38,9 @@ pub use capture_markers::{CaptureLifecycleMarker, CapturePhase, InheritedCapture
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
 pub use listener2::{Listener2, Listener2PluginExt};
+pub use speaker_attribution::AttributionSummary;
 pub use stopped_captures::StoppedCaptureRegistry;
+pub use voice_enrollment::{VoiceEnrollmentLevelEvent, VoiceEnrollmentStatus};
 
 use anlg_audio::AudioProvider;
 use anlg_transcription_core::listener::actors::{RootActor, RootArgs};
@@ -233,6 +237,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             voiceprint::extract_voiceprint_candidates::<tauri::Wry>,
             voiceprint::promote_voiceprint_candidates::<tauri::Wry>,
             audio_retention::delete_processed_session_audio::<tauri::Wry>,
+            speaker_attribution::attribute_session_speakers::<tauri::Wry>,
+            voice_enrollment::voice_enrollment_status::<tauri::Wry>,
+            voice_enrollment::start_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::finish_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::cancel_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::delete_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::improve_voice_enrollment_from_segment::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             CaptureLifecycleEvent,
@@ -240,7 +251,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             CaptureDataEvent,
             LiveTranscriptPersistenceEvent,
             SessionAudioRetentionEvent,
-            TranscriptionEvent
+            TranscriptionEvent,
+            VoiceEnrollmentLevelEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -259,6 +271,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             }));
             app.manage(state);
             app.manage(live_journal::LiveJournalRegistry::default());
+            app.manage(Arc::new(voice_enrollment::VoiceEnrollmentState::default()));
             let stopped_capture_registry = StoppedCaptureRegistry::default();
             app.manage(stopped_capture_registry.clone());
             let capture_gap_registry = CaptureGapRegistry::default();

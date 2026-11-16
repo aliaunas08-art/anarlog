@@ -4,6 +4,7 @@ mod events;
 mod runtime;
 mod subtitle;
 
+pub use batch::speaker_pass;
 pub use batch::{
     BatchParams, BatchProvider, BatchRunMode, BatchRunOutput, KnownSpeaker,
     expects_progressive_batch, run_batch, uses_local_diarization,

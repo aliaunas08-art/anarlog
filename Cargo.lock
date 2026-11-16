@@ -9459,6 +9459,7 @@ dependencies = [
  "transcribe-core",
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
+ "transcript",
  "user-error",
  "voiceprint",
 ]

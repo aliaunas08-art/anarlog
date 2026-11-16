@@ -97,7 +97,7 @@ pub fn render_speaker_label(
             if let Some(name) = ctx.human_name_by_id.get(self_human_id) {
                 return name.clone();
             }
-            return "You".to_string();
+            return "Me".to_string();
         }
     } else if let Some(human_id) = key.speaker_human_id.as_ref() {
         return human_id.clone();
@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn renders_direct_mic_as_you_when_self_exists_without_name() {
+    fn renders_direct_mic_as_me_when_self_exists_without_name() {
         let ctx = SpeakerLabelContext {
             self_human_id: Some("self".to_string()),
             human_name_by_id: HashMap::new(),
@@ -141,7 +141,7 @@ mod tests {
 
         assert_eq!(
             render_speaker_label(&direct_mic_key(), Some(&ctx), None),
-            "You"
+            "Me"
         );
     }
 
@@ -201,6 +201,6 @@ mod tests {
         };
 
         assert!(key.is_known_speaker(Some(&ctx)));
-        assert_eq!(render_speaker_label(&key, Some(&ctx), None), "You");
+        assert_eq!(render_speaker_label(&key, Some(&ctx), None), "Me");
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{ChannelProfile, RenderTranscriptHuman, RenderedTranscriptSegment};
 
@@ -153,6 +153,8 @@ impl SpeakerContext {
                     id: segment.id.clone(),
                     key: segment.key.clone(),
                     speaker_label: segment.speaker_label.clone(),
+                    speaker_id: segment.speaker_id.clone(),
+                    attribution: segment.attribution.clone(),
                     provisional_speaker: None,
                     start_ms: words[0].start_ms,
                     end_ms: words.last().unwrap().end_ms,
@@ -243,7 +245,7 @@ fn resolve_speaker(
                 .find(|human| human.human_id == self_id)
                 .map(|human| human.name.trim())
                 .filter(|name| !name.is_empty())
-                .unwrap_or("You");
+                .unwrap_or("Me");
             Some(ProvisionalSpeakerLabel {
                 name: name.to_owned(),
                 human_id: Some(self_id.to_owned()),
@@ -254,43 +256,17 @@ fn resolve_speaker(
                 },
             })
         }
-        // The far end of a call is whoever else was invited, regardless of how many voices
-        // diarization reports for it.
-        ChannelProfile::RemoteParty if virtual_call => {
-            let remotes = context
-                .participants
-                .iter()
-                .filter(|person| !person.human_id.is_empty() && person.human_id != self_id)
-                .map(|person| person.human_id.as_str())
-                .collect::<HashSet<_>>();
-            if remotes.len() == 1 {
-                let person = context
-                    .participants
-                    .iter()
-                    .find(|person| remotes.contains(person.human_id.as_str()))?;
-                if !person.name.trim().is_empty() {
-                    return Some(ProvisionalSpeakerLabel {
-                        name: person.name.trim().to_owned(),
-                        human_id: Some(person.human_id.clone()),
-                        reason: SpeakerResolutionReason::SoleRemoteParticipant,
-                    });
-                }
-            }
-            if !remotes.is_empty() {
-                return None;
-            }
-            remote_name_from_title(&context.title, &context.self_names).map(|name| {
-                ProvisionalSpeakerLabel {
-                    name,
-                    human_id: None,
-                    reason: SpeakerResolutionReason::OneOnOneTitle,
-                }
-            })
-        }
+        // The far end of a call is never named from calendar invitees or the
+        // meeting title: names come only from real signals (channel,
+        // platform tag, diarization, voiceprint, manual). Undiarized system
+        // audio renders as "Them".
         _ => None,
     }
 }
 
+// No longer used to name speakers (titles are text, not a speaker signal);
+// kept so its parsing stays covered should a UI want to suggest names.
+#[allow(dead_code)]
 pub fn remote_name_from_title(title: &str, self_names: &[String]) -> Option<String> {
     let title = title
         .trim()

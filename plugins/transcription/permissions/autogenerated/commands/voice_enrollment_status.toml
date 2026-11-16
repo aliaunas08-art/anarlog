@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-voice-enrollment-status"
+description = "Enables the voice_enrollment_status command without any pre-configured scope."
+commands.allow = ["voice_enrollment_status"]
+
+[[permission]]
+identifier = "deny-voice-enrollment-status"
+description = "Denies the voice_enrollment_status command without any pre-configured scope."
+commands.deny = ["voice_enrollment_status"]

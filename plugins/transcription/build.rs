@@ -52,6 +52,13 @@ const COMMANDS: &[&str] = &[
     "reconcile_refined_speaker_clusters",
     "extract_voiceprint_candidates",
     "promote_voiceprint_candidates",
+    "attribute_session_speakers",
+    "voice_enrollment_status",
+    "start_voice_enrollment",
+    "finish_voice_enrollment",
+    "cancel_voice_enrollment",
+    "delete_voice_enrollment",
+    "improve_voice_enrollment_from_segment",
 ];
 
 fn main() {

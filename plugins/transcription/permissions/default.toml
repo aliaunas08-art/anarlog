@@ -54,4 +54,11 @@ permissions = [
     "allow-reconcile-refined-speaker-clusters",
     "allow-extract-voiceprint-candidates",
     "allow-promote-voiceprint-candidates",
+    "allow-attribute-session-speakers",
+    "allow-voice-enrollment-status",
+    "allow-start-voice-enrollment",
+    "allow-finish-voice-enrollment",
+    "allow-cancel-voice-enrollment",
+    "allow-delete-voice-enrollment",
+    "allow-improve-voice-enrollment-from-segment",
 ]

@@ -1161,6 +1161,7 @@ pub fn render_input_from_stored(
                 },
             })
             .collect(),
+        speaker_hints: Some(hints.iter().map(crate::RenderSpeakerHint::from).collect()),
     })
 }
 
@@ -2029,7 +2030,8 @@ mod tests {
     #[test]
     fn whole_session_retranscription_restores_channels_without_inventing_owner_identity() {
         for (second_channel, second_start, restored_channel, label) in [
-            (0.0, 100.0, 0.0, "Speaker 1"),
+            // Words restored onto the mic channel are the user's (channel signal).
+            (0.0, 100.0, 0.0, "John"),
             (1.0, 100.0, 2.0, "Speaker 1"),
             (2.0, 100.0, 2.0, "Speaker 1"),
             (0.0, 300.0, 2.0, "Speaker 1"),

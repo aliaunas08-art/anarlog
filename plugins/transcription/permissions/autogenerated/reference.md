@@ -57,6 +57,13 @@ Default permissions for the plugin
 - `allow-reconcile-refined-speaker-clusters`
 - `allow-extract-voiceprint-candidates`
 - `allow-promote-voiceprint-candidates`
+- `allow-attribute-session-speakers`
+- `allow-voice-enrollment-status`
+- `allow-start-voice-enrollment`
+- `allow-finish-voice-enrollment`
+- `allow-cancel-voice-enrollment`
+- `allow-delete-voice-enrollment`
+- `allow-improve-voice-enrollment-from-segment`
 
 ## Permission Table
 
@@ -174,6 +181,58 @@ Denies the acknowledge_stopped_capture command without any pre-configured scope.
 <tr>
 <td>
 
+`transcription:allow-attribute-session-speakers`
+
+</td>
+<td>
+
+Enables the attribute_session_speakers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-attribute-session-speakers`
+
+</td>
+<td>
+
+Denies the attribute_session_speakers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-cancel-voice-enrollment`
+
+</td>
+<td>
+
+Enables the cancel_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-cancel-voice-enrollment`
+
+</td>
+<td>
+
+Denies the cancel_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-clear-capture-audio-saved`
 
 </td>
@@ -278,6 +337,32 @@ Denies the delete_transcribed_capture_audio command without any pre-configured s
 <tr>
 <td>
 
+`transcription:allow-delete-voice-enrollment`
+
+</td>
+<td>
+
+Enables the delete_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-delete-voice-enrollment`
+
+</td>
+<td>
+
+Denies the delete_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-export-to-vtt`
 
 </td>
@@ -323,6 +408,32 @@ Enables the extract_voiceprint_candidates command without any pre-configured sco
 <td>
 
 Denies the extract_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-finish-voice-enrollment`
+
+</td>
+<td>
+
+Enables the finish_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-finish-voice-enrollment`
+
+</td>
+<td>
+
+Denies the finish_voice_enrollment command without any pre-configured scope.
 
 </td>
 </tr>
@@ -583,6 +694,32 @@ Enables the get_stopped_capture command without any pre-configured scope.
 <td>
 
 Denies the get_stopped_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-improve-voice-enrollment-from-segment`
+
+</td>
+<td>
+
+Enables the improve_voice_enrollment_from_segment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-improve-voice-enrollment-from-segment`
+
+</td>
+<td>
+
+Denies the improve_voice_enrollment_from_segment command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1240,6 +1377,32 @@ Denies the start_transcription command without any pre-configured scope.
 <tr>
 <td>
 
+`transcription:allow-start-voice-enrollment`
+
+</td>
+<td>
+
+Enables the start_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-start-voice-enrollment`
+
+</td>
+<td>
+
+Denies the start_voice_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `transcription:allow-stop-capture`
 
 </td>
@@ -1389,6 +1552,32 @@ Enables the update_capture_credentials command without any pre-configured scope.
 <td>
 
 Denies the update_capture_credentials command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-voice-enrollment-status`
+
+</td>
+<td>
+
+Enables the voice_enrollment_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-voice-enrollment-status`
+
+</td>
+<td>
+
+Denies the voice_enrollment_status command without any pre-configured scope.
 
 </td>
 </tr>

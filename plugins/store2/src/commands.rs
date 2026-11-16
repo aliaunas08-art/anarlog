@@ -2,7 +2,9 @@ use crate::Store2PluginExt;
 use crate::chunked::{self, ChunkedError};
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
-const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:"];
+// `voice_enrollment:` holds the user's voiceprint; only native code reads it,
+// so the webview can never exfiltrate the embedding.
+const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:", "voice_enrollment:"];
 #[cfg(target_os = "macos")]
 const MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX: &str = "macOS couldn't access your login Keychain.";
 #[cfg(target_os = "linux")]
