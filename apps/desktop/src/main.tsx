@@ -43,7 +43,6 @@ import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
 import { migratePlaintextAiProviderApiKeys } from "./settings/providers";
 import { initializeApplicationSettings } from "./settings/queries";
 import { initializeAppExitFlush } from "./shared/app-exit";
-import { detectUnexpectedQuit } from "./shared/unexpected-quit";
 import { initializeAppStoreBuild, isAppStoreBuild } from "./shared/app-store";
 import { useConfigValue } from "./shared/config";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
@@ -52,6 +51,8 @@ import { startInteractionProfiler } from "./shared/perf/interaction-profiler";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
+import { ContextMenuHost } from "./shared/ui/context-menu-host";
+import { detectUnexpectedQuit } from "./shared/unexpected-quit";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
 
@@ -130,6 +131,7 @@ function ReadyApp() {
             {isMainWindow ? <TrayRecordingSync /> : null}
             {isMainWindow && !isAppStoreBuild() ? <UpdaterMeetingSync /> : null}
             <Toaster position="bottom-right" theme={theme} />
+            <ContextMenuHost />
           </AppLockGate>
         </TaskSchedulerProvider>
       </AppI18nProvider>

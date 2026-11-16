@@ -447,6 +447,10 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
     (action): action is AppToastAction => action !== undefined,
   );
   const stackedBehind = stacked && stackDepth > 0;
+  // A compact toast with one action and no details keeps it on the message
+  // row ("Note deleted   Undo") instead of a second row.
+  const inlineActions =
+    compact && actions.length === 1 && toast.description === undefined;
   const visuallyExpanded = expanded && !stackedBehind;
   const stackScale = Math.max(
     0.88,
@@ -458,6 +462,37 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
     hasTimer && toast.durationMs > 0
       ? Math.max(0, Math.min(1, toast.remainingMs / toast.durationMs))
       : 0;
+
+  const renderActions = () => (
+    <>
+      {actions.map((action, index) => (
+        <button
+          key={index}
+          type="button"
+          data-variant={action === toast.action ? "primary" : "secondary"}
+          onClick={(event) => {
+            try {
+              action.onClick(event);
+            } finally {
+              if (!event.defaultPrevented && action.dismissOnClick !== false)
+                dismiss();
+            }
+          }}
+          className={cn([
+            "focus-visible:ring-ring inline-flex min-w-0 items-center justify-center font-medium transition-[color,background-color,transform] focus-visible:ring-2 focus-visible:outline-none active:scale-[0.98]",
+            action === toast.action
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "border-border bg-background text-foreground hover:bg-accent border",
+            compact
+              ? "min-h-7 rounded-md px-2.5 py-1 text-xs"
+              : "min-h-9 rounded-lg px-3 py-1.5 text-sm",
+          ])}
+        >
+          {action.label}
+        </button>
+      ))}
+    </>
+  );
 
   const dismiss = (direction: AppToastDirection = 1) =>
     dismissAppToast(toast.id, direction, "user");
@@ -552,48 +587,55 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
         data-slot="smooth-corners"
         className="bg-popover text-popover-foreground ring-border/70 relative ring-1"
       >
-        <button
-          type="button"
-          aria-label={
-            hasDetails
-              ? visuallyExpanded
-                ? "Collapse notification"
-                : "Expand notification"
-              : undefined
-          }
-          aria-expanded={hasDetails ? visuallyExpanded : undefined}
-          aria-controls={hasDetails ? detailsId : undefined}
-          disabled={!hasDetails}
-          onClick={() => setExpanded((current) => !current)}
-          className={cn([
-            "focus-visible:ring-ring flex w-full items-center text-left focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
-            hasDetails ? "cursor-pointer" : "cursor-default",
-            compact
-              ? "min-h-11 gap-2 px-2.5 py-1.5"
-              : "min-h-16 gap-3 px-4 py-3",
-          ])}
-        >
-          {/* The slot sizes the glyph, so callers only pass color. */}
-          <span
-            data-slot="app-toast-leading"
+        <div data-slot="app-toast-header" className="flex items-center">
+          <button
+            type="button"
+            aria-label={
+              hasDetails
+                ? visuallyExpanded
+                  ? "Collapse notification"
+                  : "Expand notification"
+                : undefined
+            }
+            aria-expanded={hasDetails ? visuallyExpanded : undefined}
+            aria-controls={hasDetails ? detailsId : undefined}
+            disabled={!hasDetails}
+            onClick={() => setExpanded((current) => !current)}
             className={cn([
-              "flex shrink-0 items-center justify-center",
-              compact ? "size-8 [&>svg]:size-4" : "size-7 [&>svg]:size-6",
-            ])}
-            aria-hidden
-          >
-            {toast.leading ?? <AppToastToneIcon tone={toast.tone} />}
-          </span>
-          <span
-            data-slot="app-toast-message"
-            className={cn([
-              "min-w-0 flex-1 font-semibold break-words whitespace-normal",
-              compact ? "text-[13px] leading-5" : "text-sm",
+              "focus-visible:ring-ring flex w-full items-center text-left focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
+              hasDetails ? "cursor-pointer" : "cursor-default",
+              compact
+                ? "min-h-11 gap-2 px-2.5 py-1.5"
+                : "min-h-16 gap-3 px-4 py-3",
             ])}
           >
-            {toast.message}
-          </span>
-        </button>
+            {/* The slot sizes the glyph, so callers only pass color. */}
+            <span
+              data-slot="app-toast-leading"
+              className={cn([
+                "flex shrink-0 items-center justify-center",
+                compact ? "size-8 [&>svg]:size-4" : "size-7 [&>svg]:size-6",
+              ])}
+              aria-hidden
+            >
+              {toast.leading ?? <AppToastToneIcon tone={toast.tone} />}
+            </span>
+            <span
+              data-slot="app-toast-message"
+              className={cn([
+                "min-w-0 flex-1 font-semibold break-words whitespace-normal",
+                compact ? "text-[13px] leading-5" : "text-sm",
+              ])}
+            >
+              {toast.message}
+            </span>
+          </button>
+          {!stackedBehind && inlineActions ? (
+            <div data-slot="app-toast-actions" className="shrink-0 pr-2.5">
+              {renderActions()}
+            </div>
+          ) : null}
+        </div>
 
         <AnimatePresence initial={false}>
           {visuallyExpanded && toast.description !== undefined ? (
@@ -627,7 +669,7 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
             </motion.div>
           ) : null}
         </AnimatePresence>
-        {!stackedBehind && actions.length > 0 ? (
+        {!stackedBehind && !inlineActions && actions.length > 0 ? (
           <div
             data-slot="app-toast-actions"
             className={cn([
@@ -635,39 +677,13 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
               compact ? "px-2.5 pb-2.5" : "px-4 pb-3",
             ])}
           >
-            {actions.map((action, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={(event) => {
-                  try {
-                    action.onClick(event);
-                  } finally {
-                    if (
-                      !event.defaultPrevented &&
-                      action.dismissOnClick !== false
-                    )
-                      dismiss();
-                  }
-                }}
-                className={cn([
-                  "focus-visible:ring-ring inline-flex min-w-0 items-center justify-center font-medium transition-[color,background-color,transform] focus-visible:ring-2 focus-visible:outline-none active:scale-[0.98]",
-                  action === toast.action
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "border-border bg-background text-foreground hover:bg-accent border",
-                  compact
-                    ? "min-h-7 rounded-md px-2.5 py-1 text-xs"
-                    : "min-h-9 rounded-lg px-3 py-1.5 text-sm",
-                ])}
-              >
-                {action.label}
-              </button>
-            ))}
+            {renderActions()}
           </div>
         ) : null}
         {visuallyExpanded && hasTimer ? (
           <button
             type="button"
+            data-slot="app-toast-timer"
             id={toast.description === undefined ? detailsId : undefined}
             aria-label={
               toast.paused ? "Resume auto-dismiss" : "Pause auto-dismiss"
