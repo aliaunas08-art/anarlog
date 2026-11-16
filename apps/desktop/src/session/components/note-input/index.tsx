@@ -396,6 +396,10 @@ const NoteInputContent = forwardRef<
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
                 : "scroll-pb-32 overflow-x-hidden overflow-y-auto pb-40",
+              // Scroll-edge fade: text dissolves before it reaches the
+              // translucent bar instead of showing through it.
+              renderedCurrentTab.type !== "transcript" &&
+                "[mask-image:linear-gradient(to_bottom,black_calc(100%-136px),transparent_calc(100%-44px))]",
             ])}
           >
             <div
