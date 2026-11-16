@@ -32,6 +32,7 @@ import {
 import { SettingSwitchRow } from "~/settings/setting-row";
 import { isAppStoreBuild } from "~/shared/app-store";
 import { resolveConfigValue, resolveConfigValues } from "~/shared/config";
+import { useTabs } from "~/store/zustand/tabs";
 
 const SETTINGS_FORM_KEYS = [
   "autostart",
@@ -190,8 +191,7 @@ function SettingsSectionContent({
   const setSettingValues = useSetSettingValues();
   const audioRetention =
     resolveConfigValue("audio_retention", storedSettings) || "forever";
-  const rememberSpeakers =
-    resolveConfigValue("remember_speakers", storedSettings) === true;
+  const openNewTab = useTabs((state) => state.openNew);
   const microphoneDevice = resolveConfigValue(
     "microphone_device",
     storedSettings,
@@ -376,11 +376,9 @@ function SettingsSectionContent({
                 onChange: (value) =>
                   setSettingValues({ microphone_device: value }),
               }}
-              rememberSpeakers={{
-                value: rememberSpeakers,
-                onChange: (value) =>
-                  setSettingValues({ remember_speakers: value }),
-              }}
+              onOpenVoiceProfile={() =>
+                openNewTab({ type: "settings", state: { tab: "account" } })
+              }
             />
           </div>
         </>

@@ -81,6 +81,11 @@ vi.mock("~/shared/utils", () => ({
 
 vi.mock("./account-profile", () => ({
   AccountProfile: () => <div>Profile editor</div>,
+  focusAccountProfileName: vi.fn(),
+}));
+
+vi.mock("./voice-profile", () => ({
+  VoiceProfileSection: () => <div>Voice profile</div>,
 }));
 
 import { SettingsAccount } from "./account";

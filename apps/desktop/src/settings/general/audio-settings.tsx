@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -9,16 +10,12 @@ import {
   SelectValue,
 } from "@anlg/ui/components/ui/select";
 
-import {
-  SETTING_CONTROL_CLASS,
-  SettingRow,
-  SettingSwitchRow,
-} from "~/settings/setting-row";
+import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 
 export function AudioSettingsView({
   audioRetention,
   microphoneDevice,
-  rememberSpeakers,
+  onOpenVoiceProfile,
 }: {
   audioRetention: {
     value: string;
@@ -29,10 +26,7 @@ export function AudioSettingsView({
     devices: string[];
     onChange: (value: string) => void;
   };
-  rememberSpeakers: {
-    value: boolean;
-    onChange: (value: boolean) => void;
-  };
+  onOpenVoiceProfile: () => void;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -49,18 +43,28 @@ export function AudioSettingsView({
         value={audioRetention.value}
         onChange={audioRetention.onChange}
       />
-      <SettingSwitchRow
-        title={<Trans>Remember speakers</Trans>}
+      <SettingRow
+        title={<Trans>Voice profile</Trans>}
         description={
           <Trans>
-            Build voiceprints from meeting audio so speakers you name in a
-            transcript are recognized in later meetings. Voiceprints never leave
-            this device, and unnamed ones are deleted after 45 days.
+            Optional. Labels your own voice in in-person meetings. Other people
+            are never recognised across meetings.
           </Trans>
         }
-        checked={rememberSpeakers.value}
-        onChange={rememberSpeakers.onChange}
-      />
+        controlWidth="content"
+      >
+        {(labelProps) => (
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-pill"
+            aria-labelledby={labelProps["aria-labelledby"]}
+            onClick={onOpenVoiceProfile}
+          >
+            <Trans>Open…</Trans>
+          </Button>
+        )}
+      </SettingRow>
     </div>
   );
 }

@@ -25,6 +25,7 @@ import {
 } from "./capture-result";
 import { useListener } from "./contexts";
 import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
+import { isSessionMarkedInPerson } from "./in-person-sessions";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
 import { createNativeTranscriptPersistence } from "./native-transcript-persistence";
 import { persistTranscriptWrite } from "./persist-retry";
@@ -47,7 +48,6 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
-import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
 import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import {
   catalogLocalSessionAudio,
@@ -63,6 +63,11 @@ import { APP_NAME } from "~/shared/app-name";
 import { playCompletionSound } from "~/shared/completion-sound";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
+import {
+  resolveSpeakerAttributionMode,
+  runPostCaptureSpeakerPass,
+} from "~/speakers/post-capture";
+import { maybeShowSpeakerSetupPrompt } from "~/speakers/setup-prompt";
 import { getLivePausedMs } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import type {
@@ -198,7 +203,6 @@ export function useCaptureLifecycle(sessionId: string) {
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
-  const rememberSpeakers = useConfigValue("remember_speakers") === true;
   const {
     conn,
     isReady: connectionReady,
@@ -1173,6 +1177,22 @@ export function useCaptureLifecycle(sessionId: string) {
             }
           }
         }
+        // Speaker pass runs before the summary so minutes and action owners
+        // use resolved names. It never blocks saving or the summary.
+        if (hasTranscriptEvidence && transcriptIsComplete) {
+          await runPostCaptureSpeakerPass({
+            sessionId,
+            transcriptId,
+            mode: resolveSpeakerAttributionMode({
+              inPerson: isSessionMarkedInPerson(sessionId),
+              recovered: Boolean(recoveredMarker),
+            }),
+          });
+          if (!recoveredMarker && !pendingSummaryMode) {
+            void maybeShowSpeakerSetupPrompt(ownerUserId);
+          }
+        }
+
         const shouldEnhance =
           hasTranscriptEvidence &&
           (transcriptIsComplete ||
@@ -1239,12 +1259,6 @@ export function useCaptureLifecycle(sessionId: string) {
 
         try {
           if (details.audioPath && transcriptIsComplete) {
-            await maybeExtractVoiceprintCandidates({
-              enabled: rememberSpeakers,
-              sessionId,
-              transcriptId,
-              audioPath: details.audioPath,
-            });
             await persistTranscriptWrite(() =>
               markSessionAudioTranscriptionComplete(sessionId),
             );
@@ -1521,7 +1535,6 @@ export function useCaptureLifecycle(sessionId: string) {
       conn?.model,
       conn?.provider,
       participantHumanIds,
-      rememberSpeakers,
       session?.raw_md,
       session?.user_id,
       sessionId,

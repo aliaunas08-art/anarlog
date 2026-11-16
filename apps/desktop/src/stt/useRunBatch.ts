@@ -27,7 +27,6 @@ import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
 } from "~/services/audio-retention";
-import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
 import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -326,7 +325,6 @@ export const useRunBatch = (sessionId: string) => {
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
-  const rememberSpeakers = useConfigValue("remember_speakers") === true;
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
@@ -661,12 +659,6 @@ export const useRunBatch = (sessionId: string) => {
                     ),
                   );
                 }
-                await maybeExtractVoiceprintCandidates({
-                  enabled: rememberSpeakers,
-                  sessionId,
-                  transcriptId: saved.transcript_id,
-                  audioPath: filePath,
-                });
               }
             }
             if (!options?.deferAudioFinalization) {
@@ -699,7 +691,6 @@ export const useRunBatch = (sessionId: string) => {
       audioRetention,
       billing.isPaid,
       dictionaryTerms,
-      rememberSpeakers,
       session,
       participants,
       spokenLanguages,

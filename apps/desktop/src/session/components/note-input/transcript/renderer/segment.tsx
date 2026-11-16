@@ -131,6 +131,7 @@ export const SegmentRenderer = memo(
           sessionId={sessionId}
           label={speakerLabel}
           selected={selected}
+          audioOffsetMs={offsetMs}
         />
 
         {editMode ? (

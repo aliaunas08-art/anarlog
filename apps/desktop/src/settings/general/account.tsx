@@ -8,7 +8,8 @@ import { PencilSimple } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { toast } from "@anlg/ui/components/ui/toast";
 
-import { AccountProfile } from "./account-profile";
+import { AccountProfile, focusAccountProfileName } from "./account-profile";
+import { VoiceProfileSection } from "./voice-profile";
 
 import { useAuth } from "~/auth";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -128,6 +129,7 @@ export function SettingsAccount() {
         </section>
 
         <AccountProfile />
+        <VoiceProfileSection onEditName={focusAccountProfileName} />
       </div>
     );
   }
@@ -180,6 +182,7 @@ export function SettingsAccount() {
       />
 
       <AccountProfile />
+      <VoiceProfileSection onEditName={focusAccountProfileName} />
 
       <DestructiveConfirmationDialog
         open={isSignOutDialogOpen}

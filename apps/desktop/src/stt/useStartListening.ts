@@ -11,6 +11,10 @@ import {
   loadCaptureLifecycleMarker,
 } from "./capture-lifecycle-storage";
 import { useListener } from "./contexts";
+import {
+  isSessionMarkedInPerson,
+  markSessionInPerson,
+} from "./in-person-sessions";
 import { startMeetingChatCapture } from "./meeting-chat-capture";
 import {
   MEETING_DISCLOSURE_MESSAGE,
@@ -51,20 +55,10 @@ export {
 export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
 
-// Sessions started with the in-person button. Resume/restart paths call
-// startListening() without options; they must not silently fall back to
-// meeting capture (system audio). In-memory only: cleared on app restart.
-const inPersonSessionIds = new Set<string>();
-
-/** Mark a session as in-person (mic only) before its recording auto-starts. */
-export function markSessionInPerson(sessionId: string) {
-  inPersonSessionIds.add(sessionId);
-}
-
-/** Whether this session was started in person during this app run. */
-export function isSessionMarkedInPerson(sessionId: string) {
-  return inPersonSessionIds.has(sessionId);
-}
+export {
+  isSessionMarkedInPerson,
+  markSessionInPerson,
+} from "./in-person-sessions";
 
 export function useStartListening(sessionId: string) {
   return useStartListeningState(sessionId).startListening;
@@ -125,9 +119,9 @@ export function useStartListeningState(
         options !== null &&
         (options as { micOnly?: unknown }).micOnly === true
       ) {
-        inPersonSessionIds.add(sessionId);
+        markSessionInPerson(sessionId);
       }
-      const micOnly = inPersonSessionIds.has(sessionId);
+      const micOnly = isSessionMarkedInPerson(sessionId);
       if (!canStartLiveSession(sessionId)) {
         return;
       }

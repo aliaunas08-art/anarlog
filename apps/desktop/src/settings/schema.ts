@@ -170,6 +170,16 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "remember_speakers"],
     default: true as boolean,
   },
+  speaker_setup_prompt_shown: {
+    type: "boolean",
+    path: ["general", "speaker_setup_prompt_shown"],
+    default: false as boolean,
+  },
+  voice_profile_improve_declined: {
+    type: "boolean",
+    path: ["general", "voice_profile_improve_declined"],
+    default: false as boolean,
+  },
   microphone_device: {
     type: "string",
     path: ["general", "microphone_device"],

@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { preserveScrollPosition } from "./viewport-hooks";
@@ -24,6 +25,13 @@ import {
   useSession,
   useSessionParticipants,
 } from "~/session/queries";
+import { describeSpeakerCommandError } from "~/speakers/api";
+import { segmentChannelIndex } from "~/speakers/attribution";
+import {
+  declineVoiceImprovement,
+  improveVoiceProfileFromSegment,
+  shouldOfferVoiceImprovement,
+} from "~/speakers/voice-improve";
 import type { Segment } from "~/stt/live-segment";
 import {
   assignSessionTranscriptSpeaker,
@@ -39,6 +47,9 @@ export function SpeakerAssignPopover({
   color,
   label,
   className,
+  title,
+  uncertain = false,
+  audioOffsetMs = 0,
   onAssigned,
 }: {
   segment: Segment;
@@ -47,6 +58,10 @@ export function SpeakerAssignPopover({
   color: string;
   label: string;
   className?: string;
+  title?: string;
+  uncertain?: boolean;
+  /** Where this transcript starts in the session audio. */
+  audioOffsetMs?: number;
   onAssigned?: (humanId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -56,16 +71,16 @@ export function SpeakerAssignPopover({
     setOpen(nextOpen);
   }, []);
 
-  const handleAssign = useCallback(
-    (humanId: string, assignmentMode: AssignmentMode) => {
-      if (segment.words.length === 0) return;
+  const assign = useCallback(
+    async (humanId: string, assignmentMode: AssignmentMode) => {
+      if (segment.words.length === 0) return false;
       const anchorWordId = getAssignmentAnchorWordId(segment);
-      if (!anchorWordId) return;
+      if (!anchorWordId) return false;
       const scrollContainer =
         triggerRef.current?.closest<HTMLElement>(
           "[data-transcript-container]",
         ) ?? null;
-      const assign = () =>
+      const run = () =>
         assignmentMode === "all" && sessionId
           ? assignSessionTranscriptSpeaker({
               sessionId,
@@ -83,20 +98,25 @@ export function SpeakerAssignPopover({
               mode: assignmentMode,
               wordIds: getAssignmentWordIds(segment),
             });
-      void preserveScrollPosition(scrollContainer, assign)
-        .then(() => {
-          trackAnalyticsEvent("participant_assigned", {
-            assignment_scope: assignmentMode,
-            word_count: segment.words.length,
-          });
-          onAssigned?.(humanId);
-          handleOpenChange(false);
-        })
+      await preserveScrollPosition(scrollContainer, run);
+      trackAnalyticsEvent("participant_assigned", {
+        assignment_scope: assignmentMode,
+        word_count: segment.words.length,
+      });
+      onAssigned?.(humanId);
+      return true;
+    },
+    [onAssigned, sessionId, transcriptId, segment],
+  );
+
+  const handleAssign = useCallback(
+    (humanId: string, assignmentMode: AssignmentMode) =>
+      assign(humanId, assignmentMode)
+        .then(() => handleOpenChange(false))
         .catch((error) => {
           console.error("[transcript] failed to assign speaker", error);
-        });
-    },
-    [handleOpenChange, onAssigned, sessionId, transcriptId, segment],
+        }),
+    [assign, handleOpenChange],
   );
 
   return (
@@ -106,6 +126,8 @@ export function SpeakerAssignPopover({
           ref={triggerRef}
           type="button"
           data-transcript-speaker-assign
+          data-speaker-uncertain={uncertain ? "true" : undefined}
+          title={title}
           className={cn([
             "-my-0.5 cursor-pointer rounded-full py-0.5 pr-2",
             "underline-offset-2 hover:underline focus-visible:underline",
@@ -125,13 +147,287 @@ export function SpeakerAssignPopover({
         collisionPadding={16}
         className="w-80"
       >
-        <SpeakerParticipantPicker
+        <SpeakerPopoverBody
+          segment={segment}
           sessionId={sessionId}
-          onSelect={handleAssign}
-          showAssignmentScope={Number.isInteger(segment.key.speaker_index)}
+          label={label}
+          audioOffsetMs={audioOffsetMs}
+          assign={assign}
+          onSelectPerson={handleAssign}
+          onClose={() => handleOpenChange(false)}
         />
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Whether a segment is the recording user's own voice. */
+export function isSelfSegment(
+  segment: Pick<Segment, "key">,
+  ownerHumanId: string | null | undefined,
+): boolean {
+  const { key } = segment;
+  if (key.speaker_human_id) return key.speaker_human_id === ownerHumanId;
+  return key.channel === "DirectMic" && key.speaker_index == null;
+}
+
+/**
+ * Finds the person a rename refers to, creating a contact when the name is
+ * new. Names match case-insensitively so renaming twice reuses one person.
+ */
+export async function resolveRenameHumanId({
+  name,
+  candidates,
+  ownerUserId,
+  create,
+}: {
+  name: string;
+  candidates: { id: string; name: string }[];
+  ownerUserId: string | null | undefined;
+  create: (input: { ownerUserId: string; name: string }) => Promise<string>;
+}): Promise<string | null> {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.toLowerCase();
+  const existing = candidates.find(
+    (candidate) => candidate.name.trim().toLowerCase() === normalized,
+  );
+  if (existing) return existing.id;
+  if (!ownerUserId) return null;
+  return create({ ownerUserId, name: trimmed });
+}
+
+type PopoverView = "actions" | "people" | "improve";
+
+function SpeakerPopoverBody({
+  segment,
+  sessionId,
+  label,
+  audioOffsetMs,
+  assign,
+  onSelectPerson,
+  onClose,
+}: {
+  segment: Segment;
+  sessionId: string | undefined;
+  label: string;
+  audioOffsetMs: number;
+  assign: (humanId: string, mode: AssignmentMode) => Promise<boolean>;
+  onSelectPerson: (humanId: string, mode: AssignmentMode) => Promise<void>;
+  onClose: () => void;
+}) {
+  const { t } = useLingui();
+  const session = useSession(sessionId ?? "");
+  const participantRecords = useSessionParticipants(sessionId ?? "");
+  const humanRecords = useHumans();
+  const ownerHumanId = session?.user_id || null;
+  const [view, setView] = useState<PopoverView>("actions");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const hasSpeakerScope = Number.isInteger(segment.key.speaker_index);
+  const isSelf = isSelfSegment(segment, ownerHumanId);
+
+  const rename = async (mode: AssignmentMode) => {
+    setBusy(true);
+    try {
+      const candidates = [
+        ...participantRecords.flatMap((participant) =>
+          participant.humanId
+            ? [{ id: participant.humanId, name: participant.name }]
+            : [],
+        ),
+        ...humanRecords.map((human) => ({ id: human.id, name: human.name })),
+      ];
+      const humanId = await resolveRenameHumanId({
+        name,
+        candidates,
+        ownerUserId: ownerHumanId,
+        create: ({ ownerUserId, name: newName }) =>
+          createHuman({
+            ownerUserId,
+            name: newName,
+            entryPoint: "speaker_assignment",
+          }),
+      });
+      if (!humanId) return;
+      if (
+        sessionId &&
+        !participantRecords.some(
+          (participant) => participant.humanId === humanId,
+        )
+      ) {
+        await addSessionParticipant(sessionId, humanId);
+      }
+      await assign(humanId, mode);
+      onClose();
+    } catch (error) {
+      console.error("[transcript] failed to rename speaker", error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const assignToMe = async () => {
+    if (!ownerHumanId) return;
+    setBusy(true);
+    try {
+      await assign(ownerHumanId, "all");
+      if (sessionId && (await shouldOfferVoiceImprovement())) {
+        setView("improve");
+      } else {
+        onClose();
+      }
+    } catch (error) {
+      console.error("[transcript] failed to assign speaker to me", error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const improve = async () => {
+    if (!sessionId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await improveVoiceProfileFromSegment({
+        sessionId,
+        channel: segmentChannelIndex(segment.key.channel),
+        startMs: Math.round(audioOffsetMs + segment.start_ms),
+        endMs: Math.round(audioOffsetMs + segment.end_ms),
+      });
+      toast.success(t`Voice profile updated`);
+      onClose();
+    } catch (error) {
+      setMessage(describeSpeakerCommandError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decline = () => {
+    void declineVoiceImprovement().catch((error) =>
+      console.error("[transcript] failed to save voice prompt choice", error),
+    );
+    onClose();
+  };
+
+  if (view === "people") {
+    return (
+      <SpeakerParticipantPicker
+        sessionId={sessionId}
+        onSelect={onSelectPerson}
+        showAssignmentScope={hasSpeakerScope}
+      />
+    );
+  }
+
+  if (view === "improve") {
+    return (
+      <AppFloatingPanel className="flex flex-col gap-3 p-3">
+        <p className="text-sm text-[var(--cf-label)]">
+          <Trans>Use this to improve your voice profile?</Trans>
+        </p>
+        <p className="text-xs text-[var(--cf-secondary)]">
+          <Trans>
+            Only this part of the recording is used. Your voice profile stays on
+            this Mac.
+          </Trans>
+        </p>
+        {message ? (
+          <p role="status" className="text-xs text-[var(--cf-secondary)]">
+            {message}
+          </p>
+        ) : null}
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-pill h-7 px-3 text-xs text-[var(--cf-secondary)] hover:bg-[var(--cf-fill)]"
+            disabled={busy}
+            onClick={decline}
+          >
+            <Trans>Not now</Trans>
+          </button>
+          <button
+            type="button"
+            className="rounded-pill bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 text-xs font-medium disabled:opacity-50"
+            disabled={busy}
+            onClick={() => void improve()}
+          >
+            <Trans>Improve</Trans>
+          </button>
+        </div>
+      </AppFloatingPanel>
+    );
+  }
+
+  const canRename = name.trim().length > 0 && !busy;
+
+  return (
+    <AppFloatingPanel className="flex flex-col py-1">
+      <form
+        className="flex flex-col gap-2 px-3 pt-2 pb-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canRename) void rename("all");
+        }}
+      >
+        <input
+          autoFocus
+          type="text"
+          aria-label={t`Rename speaker`}
+          placeholder={t`Rename speaker`}
+          className="h-8 w-full rounded-md bg-[var(--cf-fill)] px-2 text-sm text-[var(--cf-label)] outline-hidden placeholder:text-[var(--cf-tertiary)]"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-xs text-[var(--cf-tertiary)]">
+            {hasSpeakerScope ? (
+              <Trans>Renames every line from {label}</Trans>
+            ) : null}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            {hasSpeakerScope ? (
+              <button
+                type="button"
+                className="rounded-pill h-7 px-2 text-xs text-[var(--cf-secondary)] hover:bg-[var(--cf-fill)] disabled:opacity-50"
+                disabled={!canRename}
+                onClick={() => void rename("segment")}
+              >
+                <Trans>This line only</Trans>
+              </button>
+            ) : null}
+            <button
+              type="submit"
+              className="rounded-pill bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-3 text-xs font-medium disabled:opacity-50"
+              disabled={!canRename}
+            >
+              <Trans>Rename</Trans>
+            </button>
+          </div>
+        </div>
+      </form>
+      <div className="border-t border-[var(--cf-separator)] py-1">
+        {!isSelf && ownerHumanId ? (
+          <button
+            type="button"
+            className="flex w-full items-center px-3 py-1.5 text-left text-sm text-[var(--cf-label)] hover:bg-[var(--cf-fill)] disabled:opacity-50"
+            disabled={busy}
+            onClick={() => void assignToMe()}
+          >
+            <Trans>Assign to me</Trans>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="flex w-full items-center px-3 py-1.5 text-left text-sm text-[var(--cf-label)] hover:bg-[var(--cf-fill)]"
+          onClick={() => setView("people")}
+        >
+          <Trans>Choose a person…</Trans>
+        </button>
+      </div>
+    </AppFloatingPanel>
   );
 }
 

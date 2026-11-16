@@ -52,7 +52,7 @@ describe("SegmentKeyUtils", () => {
       label: "Speaker 2",
     },
     {
-      name: "an unnamed assigned self is You on the direct mic",
+      name: "an unnamed assigned self is Me on the direct mic",
       key: {
         channel: "DirectMic",
         speaker_index: null,
@@ -63,7 +63,7 @@ describe("SegmentKeyUtils", () => {
         getHumanName: () => undefined,
       } as RenderLabelContext,
       known: undefined,
-      label: "You",
+      label: "Me",
     },
     {
       name: "remote-party segments label as the unique other participant",

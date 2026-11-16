@@ -613,6 +613,10 @@ msgstr "Add to project"
 msgid "Add webhook"
 msgstr "Add webhook"
 
+#: src/speakers/setup-prompt.ts
+msgid "Add your name and voice profile so your lines are labelled as you."
+msgstr "Add your name and voice profile so your lines are labelled as you."
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Additional spoken languages"
 msgstr "Additional spoken languages"
@@ -823,6 +827,10 @@ msgstr "Ask Notes anything"
 msgid "Ask scope"
 msgstr "Ask scope"
 
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Assign to me"
+msgstr "Assign to me"
+
 #: src/task/resource-view.tsx
 msgid "Assignees:"
 msgstr "Assignees:"
@@ -1023,10 +1031,6 @@ msgstr "Bring your meeting history"
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"
 
-#: src/settings/general/audio-settings.tsx
-msgid "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
-msgstr "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
-
 #: src/settings/stats/insights.tsx
 msgid "Busiest day"
 msgstr "Busiest day"
@@ -1088,6 +1092,7 @@ msgstr "Can view"
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/settings/general/voice-profile.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/team/index.tsx
 #: src/settings/todo/github.tsx
@@ -1226,6 +1231,7 @@ msgid "Checking trial eligibility..."
 msgstr "Checking trial eligibility..."
 
 #: src/settings/developers/cli.tsx
+#: src/settings/general/voice-profile.tsx
 msgid "Checking…"
 msgstr "Checking…"
 
@@ -1278,6 +1284,10 @@ msgstr "Choose a Linear team first."
 #: src/settings/automations/index.tsx
 msgid "Choose a Notion page first."
 msgstr "Choose a Notion page first."
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Choose a person…"
+msgstr "Choose a person…"
 
 #: src/settings/automations/index.tsx
 msgid "Choose a Slack channel first."
@@ -2240,6 +2250,7 @@ msgstr "Default sharing"
 #: src/folders/folder-editor.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
+#: src/settings/general/voice-profile.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
@@ -2300,9 +2311,17 @@ msgstr "Delete This Event"
 msgid "Delete workspace"
 msgstr "Delete workspace"
 
+#: src/settings/general/voice-profile.tsx
+msgid "Delete your voice profile?"
+msgstr "Delete your voice profile?"
+
 #: src/settings/team/index.tsx
 msgid "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
 msgstr "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
+
+#: src/settings/general/voice-profile.tsx
+msgid "Deleting…"
+msgstr "Deleting…"
 
 #: src/session-sharing/access-management.tsx
 msgid "Deny"
@@ -2402,6 +2421,7 @@ msgstr "Don't save"
 
 #: src/meeting-float/overlay/bar.tsx
 #: src/resource-sharing/share-dialog.tsx
+#: src/settings/general/voice-profile.tsx
 #: src/settings/sync/index.tsx
 #: src/task/tasks-view.tsx
 msgid "Done"
@@ -2494,6 +2514,10 @@ msgstr "Edit"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
 msgstr "Edit date"
+
+#: src/settings/general/voice-profile.tsx
+msgid "Edit name"
+msgstr "Edit name"
 
 #: src/crm/enrich-contact.tsx
 msgid "email"
@@ -3148,6 +3172,10 @@ msgstr "Importing audio..."
 msgid "Imports"
 msgstr "Imports"
 
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Improve"
+msgstr "Improve"
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Improve format"
 msgstr "Improve format"
@@ -3374,6 +3402,10 @@ msgstr "Keep notes current automatically."
 #: src/settings/sync/index.tsx
 msgid "Keep notes encrypted and synced across your devices."
 msgstr "Keep notes encrypted and synced across your devices."
+
+#: src/settings/general/voice-profile.tsx
+msgid "Keep reading at your normal pace."
+msgstr "Keep reading at your normal pace."
 
 #: src/session/components/note-conflict-banner.tsx
 msgid "Keep this version"
@@ -4259,6 +4291,10 @@ msgstr "No upcoming bots."
 msgid "Not available"
 msgstr "Not available"
 
+#: src/settings/general/voice-profile.tsx
+msgid "Not available in this build."
+msgstr "Not available in this build."
+
 #: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
@@ -4277,12 +4313,17 @@ msgid "Not invited"
 msgstr "Not invited"
 
 #: src/billing/trial-payment-reminder-dialog.tsx
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Not now"
 msgstr "Not now"
 
 #: src/settings/developers/webhooks.tsx
 msgid "not receiving events"
 msgstr "not receiving events"
+
+#: src/settings/general/voice-profile.tsx
+msgid "Not set up"
+msgstr "Not set up"
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Not shared with a Team"
@@ -4400,6 +4441,10 @@ msgstr "Only public repositories are supported."
 msgid "Only sync items from this {0}."
 msgstr "Only sync items from this {0}."
 
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Only this part of the recording is used. Your voice profile stays on this Mac."
+msgstr "Only this part of the recording is used. Your voice profile stays on this Mac."
+
 #: src/calendar/components/apple/permission.tsx
 #: src/main/home.tsx
 #: src/task/resource-view.tsx
@@ -4479,6 +4524,7 @@ msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
 
 #: src/calendar/components/apple/permission.tsx
+#: src/speakers/setup-prompt.ts
 msgid "Open Settings"
 msgstr "Open Settings"
 
@@ -4498,6 +4544,10 @@ msgstr "Open transcript"
 #: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
 msgstr "Open web copy"
+
+#: src/settings/general/audio-settings.tsx
+msgid "Open…"
+msgstr "Open…"
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Opening sign-in…"
@@ -4519,6 +4569,10 @@ msgstr "Opens System Settings and guides you to add {APP_NAME} to the {0} list"
 #: src/settings/general/permissions.tsx
 msgid "Opens System Settings and guides you to add {APP_NAME} to the {0} list."
 msgstr "Opens System Settings and guides you to add {APP_NAME} to the {0} list."
+
+#: src/settings/general/audio-settings.tsx
+msgid "Optional. Labels your own voice in in-person meetings. Other people are never recognised across meetings."
+msgstr "Optional. Labels your own voice in in-person meetings. Other people are never recognised across meetings."
 
 #: src/calendar/components/apple/permission.tsx
 #: src/calendar/components/oauth/provider-content.tsx
@@ -4884,6 +4938,10 @@ msgstr "Public on the web"
 msgid "Question or note title"
 msgstr "Question or note title"
 
+#: src/settings/general/voice-profile.tsx
+msgid "Re-record"
+msgstr "Re-record"
+
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Re-transcribe"
 msgstr "Re-transcribe"
@@ -4997,6 +5055,7 @@ msgstr "Reconnecting…"
 
 #: src/main/home.tsx
 #: src/session/components/floating/meeting-action.tsx
+#: src/settings/general/voice-profile.tsx
 msgid "Record"
 msgstr "Record"
 
@@ -5036,6 +5095,10 @@ msgstr "Recording paused"
 #: src/session/components/floating/recording-pill.tsx
 msgid "Recording paused at {elapsed}"
 msgstr "Recording paused at {elapsed}"
+
+#: src/settings/general/voice-profile.tsx
+msgid "Recording progress"
+msgstr "Recording progress"
 
 #: src/settings/general/notification.tsx
 msgid "Recording status prompts"
@@ -5089,10 +5152,6 @@ msgstr "Reinstall"
 #: src/contacts/related-notes.tsx
 msgid "Related Notes"
 msgstr "Related Notes"
-
-#: src/settings/general/audio-settings.tsx
-msgid "Remember speakers"
-msgstr "Remember speakers"
 
 #: src/settings/todo/provider-content.tsx
 msgid "Reminders"
@@ -5161,6 +5220,7 @@ msgstr "Remove repository"
 msgid "Remove workspace logo"
 msgstr "Remove workspace logo"
 
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 #: src/sidebar/folder-materials.tsx
 msgid "Rename"
 msgstr "Rename"
@@ -5173,9 +5233,17 @@ msgstr "Rename device"
 msgid "Rename project"
 msgstr "Rename project"
 
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Rename speaker"
+msgstr "Rename speaker"
+
 #: src/settings/sync/index.tsx
 msgid "Rename this device"
 msgstr "Rename this device"
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Renames every line from {label}"
+msgstr "Renames every line from {label}"
 
 #: src/automations/starters.tsx
 msgid "Render canonical Markdown"
@@ -5474,6 +5542,10 @@ msgstr "Saved locally"
 msgid "Saving..."
 msgstr "Saving..."
 
+#: src/settings/general/voice-profile.tsx
+msgid "Saving…"
+msgstr "Saving…"
+
 #: src/settings/team/index.tsx
 msgid "SCIM bearer token"
 msgstr "SCIM bearer token"
@@ -5702,9 +5774,17 @@ msgstr "Set as current"
 msgid "Set as default"
 msgstr "Set as default"
 
+#: src/settings/general/voice-profile.tsx
+msgid "Set up"
+msgstr "Set up"
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Set up AI summaries"
 msgstr "Set up AI summaries"
+
+#: src/settings/general/voice-profile.tsx
+msgid "Set up on {setUpDate}"
+msgstr "Set up on {setUpDate}"
 
 #: src/settings/sync/index.tsx
 msgid "Set up your recovery key to start encrypted cloud sync."
@@ -6177,6 +6257,10 @@ msgstr "Sparkle"
 msgid "Speak into the focused text field in your apps. Your transcript appears when you finish."
 msgstr "Speak into the focused text field in your apps. Your transcript appears when you finish."
 
+#: src/session/components/note-input/transcript/renderer/segment-header.tsx
+msgid "Speaker uncertain"
+msgstr "Speaker uncertain"
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "SQLite migration verification is incomplete"
 msgstr "SQLite migration verification is incomplete"
@@ -6580,6 +6664,10 @@ msgstr "Test runs are not available yet."
 msgid "The link may have expired or its access may have changed."
 msgstr "The link may have expired or its access may have changed."
 
+#: src/settings/general/voice-profile.tsx
+msgid "The morning train was quieter than usual, so I had time to look out of the window. Fields gave way to small towns, then to the edge of the city. I thought about the week ahead: a few meetings, a long list of small tasks, and one project I am looking forward to finishing. By the time we arrived, the clouds had cleared and the station was full of people heading in every direction."
+msgstr "The morning train was quieter than usual, so I had time to look out of the window. Fields gave way to small towns, then to the edge of the city. I thought about the week ahead: a few meetings, a long list of small tasks, and one project I am looking forward to finishing. By the time we arrived, the clouds had cleared and the station was full of people heading in every direction."
+
 #: src/settings/referrals.tsx
 msgid "The new referral offer is not available yet. Your previous referrals are shown below."
 msgstr "The new referral offer is not available yet. Your previous referrals are shown below."
@@ -6640,6 +6728,10 @@ msgstr "This guest needs Team access"
 #: src/session/components/floating/index.tsx
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Notes in action."
 msgstr "This is a prerecorded demo, so your camera stays off. Click Join & record to see Notes in action."
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "This line only"
+msgstr "This line only"
 
 #: src/chat/components/ask-scope-control.tsx
 msgid "This meeting"
@@ -7071,6 +7163,10 @@ msgstr "Use the other version"
 msgid "Use this domain for links shared from this workspace."
 msgstr "Use this domain for links shared from this workspace."
 
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Use this to improve your voice profile?"
+msgstr "Use this to improve your voice profile?"
+
 #: src/lock/screen.tsx
 msgid "Use Touch ID or enter your password to view."
 msgstr "Use Touch ID or enter your password to view."
@@ -7090,6 +7186,10 @@ msgstr "Use your microphone to capture your voice"
 #: src/settings/general/spoken-languages.tsx
 msgid "Used for transcription and automatic summary language detection."
 msgstr "Used for transcription and automatic summary language detection."
+
+#: src/settings/general/voice-profile.tsx
+msgid "Used to label your lines in transcripts."
+msgstr "Used to label your lines in transcripts."
 
 #: src/settings/team/index.tsx
 msgid "Verify domain"
@@ -7132,6 +7232,15 @@ msgstr "View sync log"
 #: src/chat/components/input/use-dictation.ts
 msgid "Voice input is unavailable while {APP_NAME} is recording a meeting."
 msgstr "Voice input is unavailable while {APP_NAME} is recording a meeting."
+
+#: src/settings/general/audio-settings.tsx
+#: src/settings/general/voice-profile.tsx
+msgid "Voice profile"
+msgstr "Voice profile"
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Voice profile updated"
+msgstr "Voice profile updated"
 
 #: src/settings/general/notification.tsx
 msgid "Wait before treating microphone activity as a meeting."
@@ -7225,6 +7334,10 @@ msgstr "When they start their free trial, yours gets one more month. Up to 3 fri
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
 msgstr "When this happens"
+
+#: src/settings/general/voice-profile.tsx
+msgid "When you're ready, press Record and read this aloud at your normal pace. It takes about 30 seconds."
+msgstr "When you're ready, press Record and read this aloud at your normal pace. It takes about 30 seconds."
 
 #: src/settings/general/meeting-settings.tsx
 msgid "While you record with {APP_NAME} in the background, a small bar with the timer and Stop stays at the bottom of the screen."
@@ -7374,6 +7487,10 @@ msgstr "Your last note"
 msgid "Your local notes are available. Connect this library to sync with your current account."
 msgstr "Your local notes are available. Connect this library to sync with your current account."
 
+#: src/settings/general/voice-profile.tsx
+msgid "Your name"
+msgstr "Your name"
+
 #: src/billing/trial-ended-dialog.tsx
 msgid "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
 msgstr "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
@@ -7446,6 +7563,14 @@ msgstr "Your summary is ready."
 #: src/settings/referrals.tsx
 msgid "Your trial or paid subscription is extended by one month. No payment from your friend is required."
 msgstr "Your trial or paid subscription is extended by one month. No payment from your friend is required."
+
+#: src/settings/general/voice-profile.tsx
+msgid "Your voice profile is biometric data. It's optional, it stays only on this Mac in your Keychain, it's never uploaded, synced, or included in exports, and you can delete or re-record it any time. It's used only to label your own voice in in-person meetings."
+msgstr "Your voice profile is biometric data. It's optional, it stays only on this Mac in your Keychain, it's never uploaded, synced, or included in exports, and you can delete or re-record it any time. It's used only to label your own voice in in-person meetings."
+
+#: src/settings/general/voice-profile.tsx
+msgid "Your voice profile will be removed from this Mac. Your lines in in-person meetings will no longer be labelled automatically."
+msgstr "Your voice profile will be removed from this Mac. Your lines in in-person meetings will no longer be labelled automatically."
 
 #: src/settings/stats/insights.tsx
 msgid "Your week at a glance"

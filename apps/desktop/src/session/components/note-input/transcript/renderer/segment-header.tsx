@@ -1,3 +1,5 @@
+import { useLingui } from "@lingui/react/macro";
+
 import { Check } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
@@ -5,6 +7,7 @@ import { useTranscriptSelectionState } from "./selection-context";
 import { SpeakerAssignPopover } from "./speaker-assign";
 import { useSegmentColorVars } from "./utils";
 
+import { isSegmentSpeakerUncertain } from "~/speakers/attribution";
 import type { Segment } from "~/stt/live-segment";
 
 export function SegmentHeader({
@@ -13,14 +16,19 @@ export function SegmentHeader({
   sessionId,
   label,
   selected = false,
+  audioOffsetMs = 0,
 }: {
   segment: Segment;
   transcriptId: string;
   sessionId?: string;
   label: string;
   selected?: boolean;
+  audioOffsetMs?: number;
 }) {
+  const { t } = useLingui();
   const { selectMode } = useTranscriptSelectionState();
+  // Uncertain attributions stay quiet: a muted label and a tooltip.
+  const uncertain = isSegmentSpeakerUncertain(segment);
   const colorVars = useSegmentColorVars(segment.key);
   const headerClassName = cn([
     // Board speaker line: 6px dot, 11px semibold secondary label.
@@ -57,9 +65,12 @@ export function SegmentHeader({
         segment={segment}
         transcriptId={transcriptId}
         sessionId={sessionId}
-        color="var(--cf-secondary)"
+        color={uncertain ? "var(--cf-tertiary)" : "var(--cf-secondary)"}
         className="-ml-1 font-semibold"
         label={label}
+        title={uncertain ? t`Speaker uncertain` : undefined}
+        uncertain={uncertain}
+        audioOffsetMs={audioOffsetMs}
       />
     </div>
   );

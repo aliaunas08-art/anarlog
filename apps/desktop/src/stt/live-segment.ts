@@ -145,7 +145,7 @@ export const SegmentKeyUtils = {
         (assignedHumanId == null || assignedHumanId === selfHumanId)
       ) {
         const selfHuman = ctx.getHumanName(selfHumanId);
-        return selfHuman || "You";
+        return selfHuman || "Me";
       }
     }
 
