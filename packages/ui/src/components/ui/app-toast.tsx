@@ -111,7 +111,7 @@ type AppToastTimer = Readonly<{
 
 const DEFAULT_APP_TOAST_DURATION_MS = 3_000;
 const APP_TOAST_CORNER_RADIUS = 20;
-const APP_TOAST_COMPACT_CORNER_RADIUS = 14;
+const APP_TOAST_COMPACT_CORNER_RADIUS = 20;
 const APP_TOAST_EXIT_DURATION_MS = 220;
 const APP_TOAST_TICK_MS = 100;
 const APP_TOAST_DESKTOP_HOVER_QUERY = "(hover: hover) and (pointer: fine)";
@@ -571,7 +571,7 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
       className={cn([
         "no-drag pointer-events-auto col-start-1 row-start-1 mx-auto origin-top touch-pan-y self-start select-none",
         compact
-          ? "w-[min(20rem,calc(100vw-2rem))] rounded-[14px] shadow-md"
+          ? "w-[min(20rem,calc(100vw-2rem))] rounded-[20px] shadow-md"
           : "w-[min(32rem,calc(100vw-2rem))] rounded-[20px] shadow-lg",
         toast.dismissible && toast.phase === "visible"
           ? "cursor-grab active:cursor-grabbing"

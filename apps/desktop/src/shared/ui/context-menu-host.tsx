@@ -216,7 +216,7 @@ function ContextMenu({ menu }: { menu: OpenContextMenu }) {
           top: placement?.top ?? menu.y,
           transformOrigin: placement?.origin ?? "left top",
         }}
-        className="cf-glass fixed max-w-[min(20rem,calc(100vw-16px))] min-w-[200px] rounded-[14px] p-1.5 text-(--cf-label) outline-none select-none"
+        className="cf-glass fixed max-w-[min(20rem,calc(100vw-16px))] min-w-[200px] rounded-[20px] p-1.5 text-(--cf-label) outline-none select-none"
       >
         {menu.items.map((item, index) =>
           "separator" in item ? (
@@ -237,7 +237,7 @@ function ContextMenu({ menu }: { menu: OpenContextMenu }) {
               }}
               onClick={() => run(item)}
               className={cn([
-                "flex h-7 items-center gap-6 rounded-[8px] px-2.5 text-[13px] leading-none",
+                "flex h-8 items-center gap-6 rounded-[14px] px-2.5 text-[13px] leading-none",
                 item.disabled
                   ? "text-(--cf-tertiary)"
                   : isDestructive(item)
