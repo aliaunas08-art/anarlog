@@ -65,10 +65,18 @@ pub(crate) async fn cleanup_recording_imports(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn list_meetings(
+pub(crate) async fn list_meetings<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::ListMeetingsInput,
 ) -> Result<anlg_agent_access::MeetingPage, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     anlg_agent_access::list_meetings(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
@@ -76,10 +84,18 @@ pub(crate) async fn list_meetings(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_meeting(
+pub(crate) async fn get_meeting<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::GetMeetingInput,
 ) -> Result<anlg_agent_access::Meeting, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     anlg_agent_access::get_meeting(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
@@ -87,10 +103,18 @@ pub(crate) async fn get_meeting(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_meeting_transcript(
+pub(crate) async fn get_meeting_transcript<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::GetMeetingTranscriptInput,
 ) -> Result<anlg_agent_access::TranscriptPage, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     anlg_agent_access::get_meeting_transcript(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
@@ -98,10 +122,18 @@ pub(crate) async fn get_meeting_transcript(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_recurring_meeting_history(
+pub(crate) async fn get_recurring_meeting_history<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::GetRecurringMeetingHistoryInput,
 ) -> Result<anlg_agent_access::MeetingPage, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     anlg_agent_access::get_recurring_meeting_history(state.pool(), input)
         .await
         .map_err(|error| error.to_string())
@@ -109,11 +141,19 @@ pub(crate) async fn get_recurring_meeting_history(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn execute(
+pub(crate) async fn execute<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     sql: String,
     params: Vec<serde_json::Value>,
 ) -> Result<Vec<serde_json::Value>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .execute(sql, params)
         .await
@@ -122,10 +162,18 @@ pub(crate) async fn execute(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn execute_transaction(
+pub(crate) async fn execute_transaction<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     statements: Vec<TransactionStatement>,
 ) -> Result<Vec<u64>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .execute_transaction(statements)
         .await
@@ -134,12 +182,20 @@ pub(crate) async fn execute_transaction(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn execute_proxy(
+pub(crate) async fn execute_proxy<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     sql: String,
     params: Vec<serde_json::Value>,
     method: String,
 ) -> Result<ExecuteProxyResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let method = method
         .parse::<anlg_db_execute::ProxyQueryMethod>()
         .map_err(|error| error.to_string())?;
@@ -541,6 +597,13 @@ pub(crate) async fn subscribe<R: tauri::Runtime>(
     params: Vec<serde_json::Value>,
     on_event: Channel<QueryEvent>,
 ) -> Result<anlg_db_reactive::SubscriptionRegistration, String> {
+    anlg_aspc::require_ignoring_lock(
+        &webview,
+        &webview,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .subscribe(sql, params, state.query_channel(webview.label(), on_event))
         .await

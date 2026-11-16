@@ -594,10 +594,18 @@ impl PluginDbRuntime {
     }
 
     /// Lock or unlock all SQL from the webview (`db:execute*`, live queries).
-    /// While locked, the SQLite authorizer denies every webview statement.
-    /// Internal Rust paths are unaffected. Default: unlocked.
+    /// While locked, the SQLite authorizer denies every webview statement
+    /// except the lock screen's settings reads. Internal Rust paths are
+    /// unaffected. Default: unlocked. The desktop app drives this from the
+    /// Rust-held app lock.
     pub fn set_webview_sql_locked(&self, locked: bool) {
         self.webview_sql.set_locked(locked);
+    }
+
+    /// The access context every webview statement is checked against, per
+    /// table (A2.4).
+    pub fn set_webview_sql_context(&self, context: anlg_aspc::AccessContext) {
+        self.webview_sql.set_context(context);
     }
 
     pub fn webview_sql_locked(&self) -> bool {

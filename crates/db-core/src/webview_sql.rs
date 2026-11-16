@@ -13,8 +13,11 @@
 //! closed and the policy leaked so the callback's context stays valid.
 
 use std::ffi::{CStr, c_char, c_int, c_void};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
+
+use anlg_aspc as aspc;
+use aspc::{AccessContext, Action, DataType};
 
 use libsqlite3_sys as ffi;
 use sqlx::pool::PoolConnection;
@@ -45,11 +48,52 @@ const INTROSPECTION_PRAGMAS: &[&str] = &[
 
 const DENIED_FUNCTIONS: &[&str] = &["load_extension", "fts3_tokenizer"];
 
-/// Policy and lock state for webview SQL. One instance is shared by every
-/// webview execution path of a database.
+/// Tables the lock screen may read while the app is locked: the settings the
+/// shared boot path needs (theme, language, the `lock_app` flag) to render
+/// the lock screen. Reads only; every write is denied while locked.
+const LOCK_SCREEN_READABLE: &[&str] = &[
+    "app_settings",
+    "synced_preferences",
+    "sqlite_master",
+    "sqlite_schema",
+    "sqlite_temp_master",
+];
+
+/// The data type of each app table (A2.4). Unknown tables, including
+/// CloudSync's `*_cloudsync` shadow tables written by triggers, fall back to
+/// `Notes`, the content type every role that can use the app reads.
+pub fn table_data_type(table: &str) -> DataType {
+    let table = table.to_ascii_lowercase();
+    match table.as_str() {
+        "transcripts" | "transcript_live_deltas" | "transcript_live_state" => DataType::Transcript,
+        "local_recording_import_jobs"
+        | "local_recording_import_worker"
+        | "voiceprint_candidates"
+        | "voiceprint_exemplars"
+        | "voiceprint_exemplars_next" => DataType::Recording,
+        "action_items" => DataType::Actions,
+        "app_settings"
+        | "synced_preferences"
+        | "managed_app_settings"
+        | "templates"
+        | "calendars"
+        | "workspaces"
+        | "workspace_memberships"
+        | "storage_migration_state" => DataType::Settings,
+        "api_keys" | "webhook_endpoints" => DataType::Keys,
+        _ if table.starts_with("e2ee_") => DataType::Keys,
+        _ => DataType::Notes,
+    }
+}
+
+/// Policy, access context and lock state for webview SQL. One instance is
+/// shared by every webview execution path of a database.
 #[derive(Debug, Default)]
 pub struct WebviewSqlAuthorizer {
     locked: AtomicBool,
+    /// Set by the app at startup. Until then (and in tests that never set
+    /// it) only the static policy applies, which is the Phase 1 behaviour.
+    context: RwLock<Option<AccessContext>>,
 }
 
 impl WebviewSqlAuthorizer {
@@ -57,8 +101,9 @@ impl WebviewSqlAuthorizer {
         Arc::new(Self::default())
     }
 
-    /// While locked, every webview statement is denied. Phase 2 wires this to
-    /// the app lock; the default is unlocked.
+    /// Mirrors the Rust-held app lock (A4.2). While locked, every webview
+    /// statement is denied except reads of [`LOCK_SCREEN_READABLE`].
+    /// Default: unlocked.
     pub fn set_locked(&self, locked: bool) {
         self.locked.store(locked, Ordering::SeqCst);
     }
@@ -67,11 +112,54 @@ impl WebviewSqlAuthorizer {
         self.locked.load(Ordering::SeqCst)
     }
 
+    /// The actor whose rights every webview statement is checked against.
+    /// `window` is ignored here (the window is checked by the `db:*`
+    /// command guard) and `unlocked` comes from [`Self::set_locked`].
+    pub fn set_context(&self, mut context: AccessContext) {
+        context.window = None;
+        *self.context.write().unwrap_or_else(|e| e.into_inner()) = Some(context);
+    }
+
     fn decide(&self, request: &AuthRequest<'_>) -> Decision {
         if self.is_locked() {
+            return decide_locked(request);
+        }
+        if decide(request) == Decision::Deny {
             return Decision::Deny;
         }
-        decide(request)
+        let Some((data, action)) = data_access(request) else {
+            return Decision::Allow;
+        };
+        let guard = self.context.read().unwrap_or_else(|e| e.into_inner());
+        let Some(context) = guard.as_ref() else {
+            return Decision::Allow;
+        };
+        let mut context = context.clone();
+        context.unlocked = true;
+        match aspc::authorize(&context, &context.workspace_id, data, action) {
+            Ok(_) => Decision::Allow,
+            Err(_) => Decision::Deny,
+        }
+    }
+}
+
+/// Reads map to `Read`; inserts, updates and deletes to `Edit`.
+fn data_access(request: &AuthRequest<'_>) -> Option<(DataType, Action)> {
+    let action = match request.action {
+        ffi::SQLITE_READ => Action::Read,
+        ffi::SQLITE_INSERT | ffi::SQLITE_UPDATE | ffi::SQLITE_DELETE => Action::Edit,
+        _ => return None,
+    };
+    let table = request.arg1?;
+    Some((table_data_type(table), action))
+}
+
+fn decide_locked(request: &AuthRequest<'_>) -> Decision {
+    match request.action {
+        ffi::SQLITE_SELECT => Decision::Allow,
+        ffi::SQLITE_READ if eq_any(request.arg1, LOCK_SCREEN_READABLE) => Decision::Allow,
+        ffi::SQLITE_FUNCTION if !eq_any(request.arg2, DENIED_FUNCTIONS) => Decision::Allow,
+        _ => Decision::Deny,
     }
 }
 
@@ -212,11 +300,6 @@ impl AuthorizedConnection {
         pool: &SqlitePool,
         policy: &Arc<WebviewSqlAuthorizer>,
     ) -> Result<Self, sqlx::Error> {
-        if policy.is_locked() {
-            return Err(sqlx::Error::Protocol(
-                "webview SQL is locked: not authorized".to_string(),
-            ));
-        }
         let connection = pool.acquire().await?;
         let mut this = Self {
             connection: Some(connection),
@@ -336,6 +419,10 @@ mod tests {
         std::mem::forget(db);
         sqlx::query(
             "CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT);
+             CREATE TABLE app_settings (id TEXT PRIMARY KEY, value_json TEXT);
+             CREATE TABLE synced_preferences (id TEXT PRIMARY KEY, value_json TEXT);
+             CREATE TABLE webhook_endpoints (id TEXT PRIMARY KEY, secret TEXT);
+             INSERT INTO app_settings VALUES ('lock_app', 'true');
              CREATE TABLE audit_x (id INTEGER PRIMARY KEY, entry TEXT);
              INSERT INTO audit_x (entry) VALUES ('secret');",
         )
@@ -454,16 +541,106 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn denies_everything_when_locked() {
+    async fn denies_everything_but_lock_screen_settings_when_locked() {
         let pool = test_pool().await;
         let policy = WebviewSqlAuthorizer::new();
         policy.set_locked(true);
-        assert!(is_not_authorized(run(&pool, &policy, "SELECT 1").await));
-        assert!(is_not_authorized(
-            run(&pool, &policy, "SELECT * FROM notes").await
-        ));
+        for sql in [
+            "SELECT * FROM notes",
+            "SELECT id FROM notes WHERE id = 'a'",
+            "INSERT INTO notes (id, body) VALUES ('b', 'x')",
+            "INSERT INTO app_settings (id, value_json) VALUES ('lock_app', 'false')",
+            "UPDATE app_settings SET value_json = 'false'",
+            "DELETE FROM synced_preferences",
+            "SELECT s.value_json, n.body FROM app_settings s JOIN notes n",
+        ] {
+            assert!(is_not_authorized(run(&pool, &policy, sql).await), "{sql}");
+        }
+        run(
+            &pool,
+            &policy,
+            "SELECT id, value_json, 0 AS source_rank FROM app_settings UNION ALL SELECT id, value_json, 1 FROM synced_preferences ORDER BY id, source_rank",
+        )
+        .await
+        .unwrap();
+        run(
+            &pool,
+            &policy,
+            "EXPLAIN QUERY PLAN SELECT id FROM app_settings",
+        )
+        .await
+        .unwrap();
         policy.set_locked(false);
         run(&pool, &policy, "SELECT * FROM notes").await.unwrap();
+    }
+
+    fn context(role: Option<aspc::Role>) -> AccessContext {
+        AccessContext {
+            actor_id: "actor".into(),
+            role,
+            workspace_id: "ws".into(),
+            device_id: "device".into(),
+            window: Some("main".into()),
+            unlocked: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn applies_the_role_per_table() {
+        let pool = test_pool().await;
+        let policy = WebviewSqlAuthorizer::new();
+
+        policy.set_context(context(Some(aspc::Role::Owner)));
+        run(
+            &pool,
+            &policy,
+            "INSERT INTO notes (id, body) VALUES ('o', 'x')",
+        )
+        .await
+        .unwrap();
+        run(&pool, &policy, "SELECT value_json FROM app_settings")
+            .await
+            .unwrap();
+
+        policy.set_context(context(Some(aspc::Role::Viewer)));
+        run(&pool, &policy, "SELECT body FROM notes").await.unwrap();
+        for sql in [
+            "INSERT INTO notes (id, body) VALUES ('v', 'x')",
+            "UPDATE notes SET body = 'y'",
+            "DELETE FROM notes",
+            "SELECT value_json FROM app_settings",
+            "SELECT secret FROM webhook_endpoints",
+        ] {
+            assert!(
+                is_not_authorized(run(&pool, &policy, sql).await),
+                "viewer: {sql}"
+            );
+        }
+
+        policy.set_context(context(None));
+        assert!(is_not_authorized(
+            run(&pool, &policy, "SELECT body FROM notes").await
+        ));
+
+        let mut empty_workspace = context(Some(aspc::Role::Owner));
+        empty_workspace.workspace_id.clear();
+        policy.set_context(empty_workspace);
+        assert!(is_not_authorized(
+            run(&pool, &policy, "SELECT body FROM notes").await
+        ));
+    }
+
+    #[test]
+    fn maps_tables_to_data_types() {
+        assert_eq!(table_data_type("transcripts"), DataType::Transcript);
+        assert_eq!(table_data_type("SESSIONS"), DataType::Notes);
+        assert_eq!(table_data_type("action_items"), DataType::Actions);
+        assert_eq!(table_data_type("app_settings"), DataType::Settings);
+        assert_eq!(table_data_type("webhook_endpoints"), DataType::Keys);
+        assert_eq!(table_data_type("e2ee_local_device"), DataType::Keys);
+        assert_eq!(table_data_type("voiceprint_exemplars"), DataType::Recording);
+        assert_eq!(table_data_type("sessions_cloudsync"), DataType::Notes);
+        assert_eq!(table_data_type("something_new"), DataType::Notes);
     }
 
     #[tokio::test]

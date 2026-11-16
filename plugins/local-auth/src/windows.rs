@@ -21,6 +21,10 @@ pub fn authenticate(reason: &str) -> Result<bool, Error> {
         ));
     }
 
+    if !available()? {
+        return Err(Error::Unavailable);
+    }
+
     let result = UserConsentVerifier::RequestVerificationAsync(&HSTRING::from(reason))
         .map_err(win_error)?
         .join()

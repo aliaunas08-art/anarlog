@@ -12,12 +12,23 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["specta", "tauri"] }
+anlg-db-core = { workspace = true }
+anlg-host = { workspace = true }
+anlg-local-accounts = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 specta = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 block2 = { workspace = true }

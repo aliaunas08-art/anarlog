@@ -16,6 +16,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-language = { workspace = true, features = ["detect"] }
 tantivy = "0.25"
 

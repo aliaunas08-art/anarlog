@@ -1,3 +1,5 @@
+pub mod access;
+mod app_lock;
 mod commands;
 mod error;
 mod ext;
@@ -7,6 +9,7 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
+pub use app_lock::{AppLockChanged, AppLockExt, RELOCK_GRACE};
 pub use error::{Error, Result};
 pub use ext::*;
 
@@ -18,7 +21,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::available::<tauri::Wry>,
             commands::authenticate::<tauri::Wry>,
+            commands::access_context::<tauri::Wry>,
+            commands::app_lock_state::<tauri::Wry>,
+            commands::unlock_app::<tauri::Wry>,
+            commands::lock_app::<tauri::Wry>,
+            commands::set_app_lock_enabled::<tauri::Wry>,
         ])
+        .events(tauri_specta::collect_events![app_lock::AppLockChanged])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
@@ -27,6 +36,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
+        .setup(move |app, _api| {
+            use tauri::Manager;
+            specta_builder.mount_events(app);
+            app.manage(app_lock::LockRuntime::default());
+            app_lock::forward_lock_events(app.app_handle());
+            Ok(())
+        })
         .build()
 }
 

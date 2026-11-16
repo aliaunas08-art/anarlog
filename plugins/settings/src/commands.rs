@@ -42,9 +42,17 @@ pub(crate) async fn load<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn save<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     settings: serde_json::Value,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.settings()
         .save(settings)
         .await

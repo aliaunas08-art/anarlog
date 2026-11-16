@@ -49,6 +49,7 @@ anlg-api-zoom = { path = "crates/api-zoom", package = "api-zoom" }
 anlg-apple-calendar = { path = "crates/apple-calendar", package = "apple-calendar" }
 anlg-apple-todo = { path = "crates/apple-todo", package = "apple-todo" }
 anlg-askama-utils = { path = "crates/askama-utils", package = "askama-utils" }
+anlg-aspc = { path = "crates/aspc", package = "aspc" }
 anlg-attachment-sync-core = { path = "crates/attachment-sync-core", package = "attachment-sync-core" }
 anlg-audacity = { path = "crates/audacity", package = "audacity" }
 anlg-audio = { path = "crates/audio", package = "audio" }

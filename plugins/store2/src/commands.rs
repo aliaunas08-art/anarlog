@@ -210,7 +210,16 @@ pub(crate) async fn save<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn repair_keychain_access() -> Result<(), String> {
+pub(crate) async fn repair_keychain_access<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     #[cfg(target_os = "macos")]
     {
         return tauri::async_runtime::spawn_blocking(repair_macos_keychain_access)
@@ -318,10 +327,19 @@ pub(crate) async fn set_number<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_secret<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .and_then(anlg_aspc::Grant::require_full)
+    .map_err(|denied| denied.to_string())?;
     read_secret_for(SecretCaller::Renderer, app, scope, key).await
 }
 
@@ -387,11 +405,19 @@ fn read_secret_blocking_for<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn set_secret<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,
     value: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     write_secret_for(SecretCaller::Renderer, app, scope, key, value).await
 }
 
@@ -446,10 +472,18 @@ fn write_secret_blocking_for<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn delete_secret<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     delete_secret_for(SecretCaller::Renderer, app, scope, key).await
 }
 

@@ -1,3 +1,11 @@
 [default]
 description = "Default permissions for the plugin"
-permissions = ["allow-available", "allow-authenticate"]
+permissions = [
+  "allow-available",
+  "allow-authenticate",
+  "allow-access-context",
+  "allow-app-lock-state",
+  "allow-unlock-app",
+  "allow-lock-app",
+  "allow-set-app-lock-enabled",
+]

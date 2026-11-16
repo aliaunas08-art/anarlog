@@ -295,6 +295,30 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the access_context command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-access-context",
+          "markdownDescription": "Enables the access_context command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the access_context command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-access-context",
+          "markdownDescription": "Denies the access_context command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the app_lock_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-app-lock-state",
+          "markdownDescription": "Enables the app_lock_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the app_lock_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-app-lock-state",
+          "markdownDescription": "Denies the app_lock_state command without any pre-configured scope."
+        },
+        {
           "description": "Enables the authenticate command without any pre-configured scope.",
           "type": "string",
           "const": "allow-authenticate",
@@ -319,10 +343,46 @@
           "markdownDescription": "Denies the available command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available`\n- `allow-authenticate`",
+          "description": "Enables the lock_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lock-app",
+          "markdownDescription": "Enables the lock_app command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lock_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lock-app",
+          "markdownDescription": "Denies the lock_app command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_app_lock_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-app-lock-enabled",
+          "markdownDescription": "Enables the set_app_lock_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_app_lock_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-app-lock-enabled",
+          "markdownDescription": "Denies the set_app_lock_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the unlock_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-unlock-app",
+          "markdownDescription": "Enables the unlock_app command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the unlock_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-unlock-app",
+          "markdownDescription": "Denies the unlock_app command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available`\n- `allow-authenticate`\n- `allow-access-context`\n- `allow-app-lock-state`\n- `allow-unlock-app`\n- `allow-lock-app`\n- `allow-set-app-lock-enabled`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available`\n- `allow-authenticate`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available`\n- `allow-authenticate`\n- `allow-access-context`\n- `allow-app-lock-state`\n- `allow-unlock-app`\n- `allow-lock-app`\n- `allow-set-app-lock-enabled`"
         }
       ]
     }

@@ -5,9 +5,17 @@ use crate::Fs2PluginExt;
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn read_text_file<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     path: String,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let path = PathBuf::from(path);
     app.fs2().read_text_file(&path).map_err(|e| e.to_string())
 }
@@ -15,9 +23,17 @@ pub(crate) async fn read_text_file<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn remove<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     path: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     let path = PathBuf::from(path);
     app.fs2().remove(&path).map_err(|e| e.to_string())
 }
@@ -25,10 +41,18 @@ pub(crate) async fn remove<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn write_text_file<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     path: PathBuf,
     content: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Export,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.fs2()
         .write_text_file(&path, &content)
         .map_err(|e| e.to_string())

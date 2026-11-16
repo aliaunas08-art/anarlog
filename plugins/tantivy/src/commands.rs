@@ -3,9 +3,17 @@ use crate::{SearchDocument, SearchRequest, SearchResult, TantivyPluginExt};
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn search<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     request: SearchRequest,
 ) -> Result<SearchResult, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tantivy()
         .search(request)
         .await

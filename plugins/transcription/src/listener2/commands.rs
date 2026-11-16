@@ -75,10 +75,18 @@ pub async fn parse_subtitle<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn export_to_vtt<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     session_id: String,
     words: Vec<core::VttWord>,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Export,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2().export_to_vtt(session_id, words)
 }
 
@@ -149,9 +157,17 @@ pub async fn save_batch_transcript<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn render_session_transcript<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     request: crate::session_transcript::RenderSessionTranscriptRequest,
 ) -> Result<Option<crate::session_transcript::RenderedSessionTranscript>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())

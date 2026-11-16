@@ -13,10 +13,10 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
-            commands::begin_connected_import,
+            commands::begin_connected_import::<tauri::Wry>,
             commands::cancel_connected_import,
-            commands::complete_connected_import,
-            commands::sync_connected_import,
+            commands::complete_connected_import::<tauri::Wry>,
+            commands::sync_connected_import::<tauri::Wry>,
             commands::read_text_files::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)

@@ -312,10 +312,18 @@ pub(crate) async fn audio_delete_orphaned_expired<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn audio_import<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     session_id: String,
     source_path: String,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     // ASPC A3.6: the source must be a file the user just picked or one
     // inside the vault (staged recording imports live there).
     let source_path = {
@@ -391,12 +399,20 @@ fn audio_import_source_path(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn audio_import_data<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     session_id: String,
     data: Vec<u8>,
     filename: String,
     content_type: Option<String>,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);

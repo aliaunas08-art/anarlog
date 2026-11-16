@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-access-context"
+description = "Enables the access_context command without any pre-configured scope."
+commands.allow = ["access_context"]
+
+[[permission]]
+identifier = "deny-access-context"
+description = "Denies the access_context command without any pre-configured scope."
+commands.deny = ["access_context"]

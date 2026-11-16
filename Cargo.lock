@@ -1167,6 +1167,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aspc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "specta",
+ "tauri",
+]
+
+[[package]]
 name = "assert-json-diff"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4424,6 +4433,7 @@ dependencies = [
 name = "db-core"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "backon",
  "cloudsync",
  "db-change",
@@ -4696,6 +4706,7 @@ dependencies = [
 name = "desktop"
 version = "0.0.0"
 dependencies = [
+ "aspc",
  "audio-actual",
  "audio-mock",
  "chrono",
@@ -16643,6 +16654,7 @@ dependencies = [
 name = "tauri-plugin-auth"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -16757,6 +16769,7 @@ version = "0.1.0"
 dependencies = [
  "agent-access",
  "anyhow",
+ "aspc",
  "db-app",
  "db-core",
  "db-execute",
@@ -16921,6 +16934,7 @@ dependencies = [
 name = "tauri-plugin-export"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "export-core",
  "specta",
  "specta-typescript",
@@ -16959,6 +16973,7 @@ dependencies = [
 name = "tauri-plugin-fs-sync"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "fs-sync-core",
  "rayon",
  "serde_json",
@@ -16979,6 +16994,7 @@ dependencies = [
 name = "tauri-plugin-fs2"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "serde",
  "specta",
  "specta-typescript",
@@ -17054,6 +17070,7 @@ dependencies = [
 name = "tauri-plugin-importer"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "meeting-import",
  "rmcp",
  "serde",
@@ -17089,6 +17106,7 @@ name = "tauri-plugin-local-api"
 version = "0.1.0"
 dependencies = [
  "agent-access",
+ "aspc",
  "bytes",
  "chrono",
  "db-app",
@@ -17117,16 +17135,26 @@ dependencies = [
 name = "tauri-plugin-local-auth"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "block2",
+ "db-core",
+ "host",
+ "local-accounts",
  "objc2",
  "objc2-foundation",
  "objc2-local-authentication",
+ "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
  "windows 0.62.2",
 ]
 
@@ -17457,6 +17485,7 @@ dependencies = [
 name = "tauri-plugin-session"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "chrono",
  "db-app",
  "db-core",
@@ -17477,6 +17506,7 @@ dependencies = [
 name = "tauri-plugin-settings"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "camino",
  "serde",
  "serde_json",
@@ -17599,6 +17629,7 @@ name = "tauri-plugin-store2"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aspc",
  "keyring",
  "objc2-security",
  "security-framework",
@@ -17621,6 +17652,7 @@ dependencies = [
 name = "tauri-plugin-tantivy"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "language",
  "serde",
  "specta",
@@ -17708,6 +17740,7 @@ dependencies = [
 name = "tauri-plugin-transcription"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "audio",
  "audio-utils",
  "base64 0.22.1",

@@ -45,7 +45,7 @@ fn policy_available() -> bool {
 fn start_authentication(reason: &str, tx: mpsc::Sender<Result<bool, Error>>) {
     let context = unsafe { LAContext::new() };
     if unsafe { context.canEvaluatePolicy_error(LAPolicy::DeviceOwnerAuthentication) }.is_err() {
-        let _ = tx.send(Ok(false));
+        let _ = tx.send(Err(Error::Unavailable));
         return;
     }
 

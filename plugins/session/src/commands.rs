@@ -37,20 +37,49 @@ session_write_command!(
     creation::CreateEventSessionRequest,
     Option<creation::EventSessionResult>
 );
-session_write_command!(
-    soft_delete_session,
-    deletion,
-    soft_delete_session,
-    deletion::TombstoneSessionRequest,
-    Option<deletion::DeletedSessionRow>
-);
-session_write_command!(
-    restore_deleted_session,
-    deletion,
-    restore_deleted_session,
-    deletion::TombstoneSessionRequest,
-    deletion::RestoreDeletedSessionOutcome
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn soft_delete_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    request: deletion::TombstoneSessionRequest,
+) -> Result<Option<deletion::DeletedSessionRow>, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    deletion::soft_delete_session(runtime.pool(), request).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn restore_deleted_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    request: deletion::TombstoneSessionRequest,
+) -> Result<deletion::RestoreDeletedSessionOutcome, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    deletion::restore_deleted_session(runtime.pool(), request).await
+}
+
+fn db_runtime<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<tauri_plugin_db::ManagedState, String> {
+    app.try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())
+}
 session_write_command!(
     add_session_participant,
     participants,
