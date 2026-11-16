@@ -229,3 +229,65 @@ Automated checks run on this branch:
 
 **Optional: online meeting (no bot)**: open a call, click **Record** (not In person), and allow System Audio Recording.
 The other side's speech should appear as separate speakers.
+
+## Connect Google and Microsoft (on the Mac, no server)
+
+The app signs in to Google and Microsoft directly: the browser opens the provider's consent page, the provider sends the
+browser back to a one-time page the app serves on this Mac (`127.0.0.1` / `localhost`), and the app keeps a refresh token in
+the macOS Keychain (item service `com.hyprnote.dev.accounts` for the dev build). Access is read-only: who you are, plus your
+calendars. Nothing goes through an app server.
+
+Each provider needs an app registration that you own. Both are free. The client IDs are not secret for a desktop app, but
+they still stay out of the code: they go in `apps/desktop/.env` (gitignored), and a release build can take them from the
+build environment instead.
+
+The console menu names below are as of late 2026 and may move.
+
+### Google (about 10 minutes)
+
+1. Open <https://console.cloud.google.com/> and create a project (for example "Notes").
+2. **APIs & Services → Library**: enable **Google Calendar API**.
+3. **Google Auth Platform → Branding**: app name "Notes", your support email.
+4. **Audience**:
+   - If everyone who will use it is in your own Google Workspace, choose **Internal**. That needs no Google review, and
+     sign-ins don't expire.
+   - Otherwise choose **External**, leave it in **Testing**, and add each tester's Google address under **Test users**.
+     In Testing, Google expires the sign-in after 7 days, so testers reconnect weekly. Publishing it for everyone needs
+     Google's verification of the calendar scope, which takes a few weeks.
+5. **Data access → Add or remove scopes**: `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`,
+   `.../auth/calendar.readonly`.
+6. **Clients → Create client → Application type: Desktop app**, name "Notes for Mac". Copy the **Client ID** and the
+   **Client secret**. Google says a desktop client's secret isn't confidential, but keep it out of the repo all the same.
+7. In `apps/desktop/.env`, uncomment and fill in:
+   ```
+   NOTES_GOOGLE_CLIENT_ID=...
+   NOTES_GOOGLE_CLIENT_SECRET=...
+   ```
+
+### Microsoft (about 10 minutes)
+
+1. Open <https://entra.microsoft.com/> → **App registrations → New registration**.
+2. Name "Notes for Mac". **Supported account types**: "Accounts in any organizational directory and personal Microsoft
+   accounts" (or "this organizational directory only" to limit it to your company).
+3. **Redirect URI**: platform **Public client/native (mobile & desktop)**, value `http://localhost`. No port; Microsoft
+   accepts any port for `localhost`.
+4. Register, then copy the **Application (client) ID**. Don't create a client secret: a desktop app is a public client.
+5. **API permissions → Add → Microsoft Graph → Delegated**: `Calendars.Read`, `User.Read`, `offline_access`, `openid`,
+   `profile`, `email`.
+   - Users in your own organisation can consent themselves, unless your IT policy needs an admin.
+   - Other organisations may need their admin to approve the app until it has a verified publisher.
+6. In `apps/desktop/.env`, uncomment and fill in:
+   ```
+   NOTES_MICROSOFT_CLIENT_ID=...
+   ```
+   Optional: `NOTES_MICROSOFT_TENANT=<your tenant id>` limits sign-in to one organisation (default `common`).
+
+### Try it
+
+1. Restart the app (`.env` is read when it starts).
+2. Open **Calendar** in the sidebar → **Google** (or **Outlook**) → **Connect Google Calendar**.
+3. Approve in the browser. The tab should say "You're connected".
+4. Back in Notes, the account's calendars appear. Tick the ones to follow.
+
+To disconnect: right-click the account's calendar group → **Disconnect**. For Google this also revokes the app's access; for
+Microsoft, remove it under <https://myapps.microsoft.com> if you want it gone on their side too.

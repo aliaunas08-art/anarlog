@@ -167,6 +167,9 @@ importers:
       '@anlg/editor':
         specifier: workspace:^
         version: link:../../packages/editor
+      '@anlg/plugin-accounts':
+        specifier: workspace:*
+        version: link:../../plugins/accounts
       '@anlg/plugin-analytics':
         specifier: workspace:*
         version: link:../../plugins/analytics
@@ -1398,6 +1401,12 @@ importers:
       tailwind-merge:
         specifier: ^2.6.1
         version: 2.6.1
+
+  plugins/accounts:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
 
   plugins/agent:
     dependencies:

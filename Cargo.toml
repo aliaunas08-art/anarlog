@@ -107,6 +107,7 @@ anlg-listener-core = { path = "crates/listener-core", package = "listener-core" 
 anlg-listener2-core = { path = "crates/listener2-core", package = "listener2-core" }
 anlg-llm-proxy = { path = "crates/llm-proxy", package = "llm-proxy" }
 anlg-lmstudio = { path = "crates/lmstudio", package = "lmstudio" }
+anlg-local-accounts = { path = "crates/local-accounts", package = "local-accounts" }
 anlg-local-llm-core = { path = "crates/local-llm-core", package = "local-llm-core" }
 anlg-local-model = { path = "crates/local-model", package = "local-model" }
 anlg-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
@@ -190,6 +191,7 @@ tauri-plugin-store = "2.4.3"
 tauri-plugin-updater = "2.10"
 tauri-plugin-window-state = "2.4"
 
+tauri-plugin-accounts = { path = "plugins/accounts" }
 tauri-plugin-agent = { path = "plugins/agent" }
 tauri-plugin-analytics = { path = "plugins/analytics" }
 tauri-plugin-attachment-sync = { path = "plugins/attachment-sync" }

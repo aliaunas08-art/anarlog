@@ -301,6 +301,7 @@ pub fn main() {
 
     builder = builder
         .plugin(tauri_plugin_importer::init())
+        .plugin(tauri_plugin_accounts::init())
         .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init());

@@ -2941,6 +2941,7 @@ dependencies = [
 name = "calendar"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "api-client",
  "apple-calendar",
  "calendar-interface",
@@ -2956,6 +2957,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "urlencoding",
  "wiremock",
 ]
 
@@ -4716,6 +4718,7 @@ dependencies = [
  "supervisor",
  "tauri",
  "tauri-build",
+ "tauri-plugin-accounts",
  "tauri-plugin-agent",
  "tauri-plugin-analytics",
  "tauri-plugin-anlg-tray",
@@ -9519,6 +9522,26 @@ dependencies = [
  "dirs 6.0.0",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "local-accounts"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "keyring",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]
@@ -16506,6 +16529,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-accounts"
+version = "0.1.0"
+dependencies = [
+ "local-accounts",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-opener",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "tauri-plugin-agent"
 version = "0.1.0"
 dependencies = [
@@ -16690,6 +16729,7 @@ dependencies = [
  "db-app",
  "db-core",
  "indexmap 2.14.0",
+ "local-accounts",
  "regex",
  "serde",
  "serde_json",
@@ -16698,12 +16738,14 @@ dependencies = [
  "sqlx",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-accounts",
  "tauri-plugin-auth",
  "tauri-plugin-db",
  "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "unicode-normalization",
  "uuid",
 ]

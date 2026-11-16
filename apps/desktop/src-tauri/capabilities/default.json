@@ -29,6 +29,7 @@
     "core:window:allow-set-always-on-top",
     "core:window:allow-is-always-on-top",
     "core:webview:allow-set-webview-zoom",
+    "accounts:default",
     "calendar:default",
     "audio-priority:default",
     "auth:default",

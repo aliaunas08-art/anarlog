@@ -30,6 +30,7 @@ import {
   AppleCalendarPermissionDialog,
   TroubleShootingLink,
 } from "./apple/permission";
+import { useLocalCalendarConnect } from "./oauth/local-provider-content";
 import { OAuthProviderContent } from "./oauth/provider-content";
 import {
   type CalendarProvider,
@@ -37,6 +38,11 @@ import {
   PROVIDERS,
 } from "./shared";
 
+import {
+  localProviderForCalendar,
+  useLocalAccountProviders,
+  useLocalAccounts,
+} from "~/accounts/local";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
@@ -232,6 +238,19 @@ function ProviderAccordionItem({
   const { isPaid, isPro } = useBillingAccess();
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const { data: connections, isPending, isError } = useConnections(isPaid);
+  const { data: localProviders } = useLocalAccountProviders();
+  const { data: localAccounts = [] } = useLocalAccounts();
+  const localProvider = localProviderForCalendar(provider.id);
+  const usesLocalSignIn =
+    !!localProvider && !!localProviders?.includes(localProvider);
+  const localConnect = useLocalCalendarConnect(
+    provider,
+    localProvider ?? "google",
+    onConnectStarted,
+  );
+  const localProviderAccounts = localAccounts.filter(
+    (account) => account.provider === localProvider,
+  );
   const [isApplePermissionDialogOpen, setIsApplePermissionDialogOpen] =
     useState(false);
   const providerConnections =
@@ -239,18 +258,42 @@ function ProviderAccordionItem({
       (connection) => connection.integration_id === provider.nangoIntegrationId,
     ) ?? [];
 
-  const requiresPro = !!provider.nangoIntegrationId && !isPro;
+  const requiresPro =
+    !usesLocalSignIn && !!provider.nangoIntegrationId && !isPro;
   const appleNeedsPermission =
     provider.id === "apple" && calendar.status !== "authorized";
 
-  const canAddAccount =
-    !!provider.nangoIntegrationId &&
-    !!auth.session &&
-    isPaid &&
-    !isPending &&
-    !isError;
+  const canAddAccount = usesLocalSignIn
+    ? !localConnect.isConnecting
+    : !!provider.nangoIntegrationId &&
+      !!auth.session &&
+      isPaid &&
+      !isPending &&
+      !isError;
   const shouldConnectOnClick =
-    canAddAccount && providerConnections.length === 0;
+    canAddAccount &&
+    (usesLocalSignIn
+      ? localProviderAccounts.length === 0
+      : providerConnections.length === 0);
+  const startConnect = useCallback(() => {
+    if (usesLocalSignIn) {
+      localConnect.connect();
+      return;
+    }
+    onConnectStarted();
+    void openIntegration({
+      nangoIntegrationId: provider.nangoIntegrationId,
+      action: "connect",
+      returnTo,
+    });
+  }, [
+    localConnect,
+    onConnectStarted,
+    openIntegration,
+    provider.nangoIntegrationId,
+    returnTo,
+    usesLocalSignIn,
+  ]);
 
   const canDisconnectApple =
     provider.id === "apple" && calendar.status === "authorized";
@@ -289,21 +332,13 @@ function ProviderAccordionItem({
       }
       if (!shouldConnectOnClick) return;
       event.preventDefault();
-      onConnectStarted();
-      openIntegration({
-        nangoIntegrationId: provider.nangoIntegrationId,
-        action: "connect",
-        returnTo,
-      });
+      startConnect();
     },
     [
       appleNeedsPermission,
       handleAppleConnect,
-      onConnectStarted,
-      openIntegration,
-      provider.nangoIntegrationId,
-      returnTo,
       shouldConnectOnClick,
+      startConnect,
     ],
   );
   const handleAddAccount = useCallback(
@@ -311,20 +346,9 @@ function ProviderAccordionItem({
       if (!canAddAccount) return;
       event.preventDefault();
       event.stopPropagation();
-      onConnectStarted();
-      openIntegration({
-        nangoIntegrationId: provider.nangoIntegrationId,
-        action: "connect",
-        returnTo,
-      });
+      startConnect();
     },
-    [
-      canAddAccount,
-      onConnectStarted,
-      openIntegration,
-      provider.nangoIntegrationId,
-      returnTo,
-    ],
+    [canAddAccount, startConnect],
   );
   const providerMenuItems = useMemo(
     (): MenuItemDef[] =>
@@ -333,14 +357,7 @@ function ProviderAccordionItem({
             {
               id: `add-${provider.id}-account`,
               text: t`Add ${provider.displayName} account`,
-              action: () => {
-                onConnectStarted();
-                void openIntegration({
-                  nangoIntegrationId: provider.nangoIntegrationId,
-                  action: "connect",
-                  returnTo,
-                });
-              },
+              action: startConnect,
             },
           ]
         : canDisconnectApple
@@ -369,12 +386,9 @@ function ProviderAccordionItem({
       canDisconnectApple,
       handleAppleConnect,
       handleAppleDisconnect,
-      onConnectStarted,
       provider.displayName,
       provider.id,
-      provider.nangoIntegrationId,
-      openIntegration,
-      returnTo,
+      startConnect,
       t,
     ],
   );
@@ -438,7 +452,7 @@ function ProviderAccordionItem({
             className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
             aria-label={t`Add ${provider.displayName} account`}
           >
-            {openingAction === "connect" ? (
+            {openingAction === "connect" || localConnect.isConnecting ? (
               <CircleNotch className="size-4 animate-spin" />
             ) : (
               <Plus className="size-4" />

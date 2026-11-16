@@ -1,0 +1,9 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-configured-providers",
+  "allow-list-accounts",
+  "allow-connect-account",
+  "allow-cancel-connect",
+  "allow-disconnect-account",
+]
