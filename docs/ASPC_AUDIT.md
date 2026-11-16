@@ -111,7 +111,7 @@ Most of the ASPC work is closing that boundary.
 | `export:export` (`plugins/export/src/commands.rs:7-15`)                                         | Writes a PDF to any path.                                                                                                                                                                                                                        |
 | ~~`settings:save` + `hooks:run_event_hooks` (`crates/hooks/src/runner.rs:48-65`)~~              | **FIXED (Phase 1):** the hooks feature was removed; see Phase 1 → Hooks.                                                                                                                                                                         |
 | `opener2:open_path` / `open_url` (`plugins/opener2/src/ext.rs:10-18`)                           | `open_with` isn't validated. GUESS: chained with `write_text_file`, this could run code.                                                                                                                                                         |
-| `get_env(key)` (`apps/desktop/src-tauri/src/commands.rs:45-47`) [V]                             | Returns any environment variable.                                                                                                                                                                                                                |
+| `get_env(key)` (`apps/desktop/src-tauri/src/commands.rs:45-47`) [V]                             | **FIXED (Phase 1):** allowlist, see Phase 1 → A3.7.                                                                                                                                                                                              |
 | `store2:get_secret`, `auth:get_item`                                                            | Return LLM/STT keys and sign-in tokens to JS.                                                                                                                                                                                                    |
 | `local-api:create_webhook` (`plugins/local-api/src/dispatch.rs:123-151`)                        | POSTs transcript text to any http(s) URL.                                                                                                                                                                                                        |
 | `http:default` scope (`capabilities/default.json:99-116`) [V]                                   | Any host, including localhost and the LAN.                                                                                                                                                                                                       |
@@ -315,6 +315,10 @@ How the overlay lists were derived: the floating bar and live caption load the w
   - On macOS the `floating-bar` and `live-caption` webviews are never created (native Swift panels; live caption is disabled on every platform), so these two files only matter on Windows/Linux.
   - The composer list comes from a static import trace, not a runtime trace. GUESS: anything it touches that was dropped fails with a logged ACL error, not a crash.
   - App-level commands in `apps/desktop/src-tauri/src/commands.rs` have no app manifest, so the ACL doesn't gate them in any window (unchanged).
+
+### A3.7 `get_env`: EXISTS
+
+- `apps/desktop/src-tauri/src/commands.rs:46` `WEBVIEW_ENV_ALLOWLIST` is empty: no frontend code calls `getEnv` (grep of `apps/desktop/src`, `packages`, `plugins/*/js`), so every key reads as unset. `get_env` (`:58`) keeps its signature (returns `""` for "unset") so the generated bindings don't change. Test: `env_tests::get_env_never_returns_keys_outside_the_allowlist`.
 
 ### Hooks feature: REMOVED
 

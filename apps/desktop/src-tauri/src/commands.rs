@@ -40,10 +40,23 @@ pub async fn set_dismissed_toasts<R: tauri::Runtime>(
     app.set_dismissed_toasts(v)
 }
 
+/// Environment variables the webview may read (ASPC A3.7). Only non-secret
+/// build flags belong here. No frontend code calls `get_env` today, so the list
+/// is empty and every key reads as unset.
+const WEBVIEW_ENV_ALLOWLIST: &[&str] = &[];
+
+fn allowed_env(key: &str) -> Option<String> {
+    WEBVIEW_ENV_ALLOWLIST
+        .contains(&key)
+        .then(|| std::env::var(key).ok())
+        .flatten()
+}
+
+/// Returns an empty string for any key outside the allowlist.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_env<R: tauri::Runtime>(_app: tauri::AppHandle<R>, key: String) -> String {
-    std::env::var(&key).unwrap_or_default()
+    allowed_env(&key).unwrap_or_default()
 }
 
 fn should_show_devtool(identifier: &str) -> bool {
@@ -178,4 +191,15 @@ pub async fn install_agent_skill(agent: SkillAgent) -> Result<SkillAgentStatus, 
     }
 
     crate::agent_skills::install(agent)
+}
+
+#[cfg(test)]
+mod env_tests {
+    #[test]
+    fn get_env_never_returns_keys_outside_the_allowlist() {
+        // PATH and HOME are always set; neither is allowlisted.
+        assert_eq!(super::allowed_env("PATH"), None);
+        assert_eq!(super::allowed_env("HOME"), None);
+        assert_eq!(super::allowed_env("ANTHROPIC_API_KEY"), None);
+    }
 }
