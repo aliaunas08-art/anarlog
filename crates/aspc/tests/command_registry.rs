@@ -173,3 +173,70 @@ fn guarded_commands_call_the_guard() {
     }
     assert!(problems.is_empty(), "guard missing: {problems:#?}");
 }
+
+/// A2.3: each guarded command's guard call names the same `(DataType,
+/// Action)` as its registry entry, so the guard-logic test in
+/// `state::tests::guard_denies_locked_viewer_and_wrong_window` (which runs
+/// every registry entry through the guard) covers what the command really
+/// enforces. Also ratchets the Pending count (224 on 2026-11-17) so it cannot grow.
+#[test]
+fn guarded_commands_require_their_registry_permission() {
+    use aspc::commands::Access;
+
+    let root = repo_root();
+    let mut problems = Vec::new();
+    let mut guarded = 0usize;
+    for entry in COMMANDS.iter().filter(|e| e.is_guarded()) {
+        guarded += 1;
+        let Access::Data(data, action) = entry.access else {
+            problems.push(format!(
+                "{}:{} guarded but Public",
+                entry.plugin, entry.name
+            ));
+            continue;
+        };
+        let dir = if entry.plugin == "app" {
+            root.join("apps/desktop/src-tauri/src")
+        } else {
+            root.join("plugins").join(entry.plugin).join("src")
+        };
+        let mut files = Vec::new();
+        rust_files(&dir, &mut files);
+        let call = match entry.guard {
+            Guard::Enforced => "aspc::require(",
+            Guard::LockExempt(_) => "aspc::require_ignoring_lock(",
+            _ => unreachable!(),
+        };
+        let want_data = format!("DataType::{data:?}");
+        let want_action = format!("Action::{action:?}");
+        for head in function_heads(&files, entry.name) {
+            let Some(at) = head.find(call) else {
+                problems.push(format!("{}:{} no {call}", entry.plugin, entry.name));
+                continue;
+            };
+            // The guard call's arguments: up to the closing `)?` / `)` line.
+            let args: String = head[at..].lines().take(8).collect::<Vec<_>>().join(" ");
+            if !args.contains(&want_data) || !args.contains(&want_action) {
+                problems.push(format!(
+                    "{}:{} guard call does not name {want_data}, {want_action}: {args}",
+                    entry.plugin, entry.name
+                ));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{problems:#?}");
+
+    let pending = COMMANDS
+        .iter()
+        .filter(|e| e.guard == Guard::Pending)
+        .count();
+    eprintln!(
+        "registry: {} commands, {guarded} guarded, {pending} Pending",
+        COMMANDS.len()
+    );
+    // Ratchet: new commands must not be added unguarded.
+    assert!(
+        pending <= 224,
+        "Pending count went up to {pending}: guard the new command"
+    );
+}
