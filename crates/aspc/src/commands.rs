@@ -160,6 +160,8 @@ pub static COMMANDS: &[CommandEntry] = &[
         "get_env",
         "allowlisted non-secret build flags only (A3.7)"
     ),
+    // D4.2 "Where your data lives": local paths only.
+    guarded!("app", "get_data_locations", Settings, Read),
     public!("app", "get_onboarding_needed", UI),
     pending!("app", "get_pinned_tabs", Notes, Read),
     pending!("app", "get_recently_opened_sessions", Notes, Read),

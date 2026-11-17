@@ -154,6 +154,14 @@ async installAgentSkill(agent: SkillAgent) : Promise<Result<SkillAgentStatus, st
  */
 async getDataProtectionStatus() : Promise<DataProtectionStatus> {
     return await TAURI_INVOKE("get_data_protection_status");
+},
+async getDataLocations() : Promise<Result<DataLocations, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_data_locations") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -167,6 +175,12 @@ async getDataProtectionStatus() : Promise<DataProtectionStatus> {
 
 /** user-defined types **/
 
+/**
+ * Where the library lives on this Mac, for Settings → Where your data
+ * lives (ASPC D4.2). Read from the same places the app uses, so the screen
+ * can't drift from them. Paths only; nothing is read from the files.
+ */
+export type DataLocations = { data_dir: string | null; database: string | null; audit_log: string | null; vault: string | null; sessions: string | null; search_index: string | null; logs: string | null }
 export type DataProtectionStatus = { 
 /**
  * `on`, `off` or `unknown`.

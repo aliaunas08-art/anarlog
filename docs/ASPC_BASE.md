@@ -283,11 +283,11 @@ The rules:
 
 ### D4. Privacy surfaces
 
-- **D4.1** Settings → Privacy links to the privacy policy and the terms. They are placeholders until the real ones are written.
+- **D4.1** Settings → Privacy links to the privacy policy and the terms. They are placeholders until the real ones are written. Built as disabled buttons labelled "(placeholder, not written yet)" with no URL (`PRIVACY_POLICY_URL` / `TERMS_URL` are `null` in `apps/desktop/src/settings/privacy/legal.tsx`); no legal text is invented. TODO (ASPC_AUDIT): write both documents and set the URLs.
 - **D4.2** A "Where your data lives" screen lists, in plain words:
   - what stays on this Mac;
   - what leaves it, to whom, and when: the AI provider gets meeting text when you enhance or Ask; the calendar provider is read-only; updates are a version check.
-    It is generated from the same settings the app uses, so it can't drift from them.
+    It is generated from the same settings the app uses, so it can't drift from them. Built: Settings → "Where your data lives" (`apps/desktop/src/settings/data-locations/index.tsx`, tab `data-locations`, also linked from Privacy). The local paths come from Rust (`app:get_data_locations`, `(Settings, Read)`, guarded: the database, audit log, vault `sessions/`, search index and log folders the app really opens); the transcription line follows `current_stt_provider` (on-device vs the named provider), and the usage-data and error-report lines follow `analytics_opt_in`, `crash_reporting_consent` and `session_replay_opt_in`. It states that meeting content is never used for analytics, telemetry, product research or training (D6.1) and names Anthropic as the AI provider with its API-terms training statement (D6.3). Test: `settings/data-locations/index.test.tsx`.
 - **D4.3** Consent wording about recording others appears in onboarding and in the first-recording notice (§C6.3).
 
 ### D5. Licences

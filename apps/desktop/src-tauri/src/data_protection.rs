@@ -60,3 +60,52 @@ pub async fn get_data_protection_status() -> DataProtectionStatus {
         .to_string(),
     }
 }
+
+/// Where the library lives on this Mac, for Settings → Where your data
+/// lives (ASPC D4.2). Read from the same places the app uses, so the screen
+/// can't drift from them. Paths only; nothing is read from the files.
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+pub struct DataLocations {
+    pub data_dir: Option<String>,
+    pub database: Option<String>,
+    pub audit_log: Option<String>,
+    pub vault: Option<String>,
+    pub sessions: Option<String>,
+    pub search_index: Option<String>,
+    pub logs: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_data_locations<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+) -> Result<DataLocations, String> {
+    use tauri::Manager;
+    use tauri_plugin_settings::SettingsPluginExt;
+
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )?;
+    let show = |path: std::path::PathBuf| path.display().to_string();
+    let data_dir = crate::db::desktop_db_dir(&app.config().identifier);
+    let vault = app
+        .settings()
+        .vault_base()
+        .ok()
+        .map(|base| base.into_std_path_buf());
+    Ok(DataLocations {
+        database: data_dir.as_ref().map(|dir| show(dir.join("app.db"))),
+        audit_log: data_dir
+            .as_ref()
+            .map(|dir| show(dir.join(anlg_audit_log::AUDIT_DB_FILENAME))),
+        data_dir: data_dir.map(show),
+        sessions: vault.as_ref().map(|dir| show(dir.join("sessions"))),
+        search_index: vault.as_ref().map(|dir| show(dir.join("search_index"))),
+        vault: vault.map(show),
+        logs: app.path().app_log_dir().ok().map(show),
+    })
+}

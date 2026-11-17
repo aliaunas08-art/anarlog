@@ -883,6 +883,14 @@ Nothing below was run in the app; see "Phase 5 runtime check".
   - the vault `sessions/` path is taken when staging; if the vault moves before the restart, the restored folder goes to the old place;
   - not run in CI as a separate job (C5.3): it runs with the `tauri-plugin-session` tests.
 
+### D4.1 / D4.2 / D6.3 privacy surfaces: EXISTS (links are placeholders)
+
+- **Placeholders** `apps/desktop/src/settings/privacy/legal.tsx`: "Privacy Policy" and "Terms of Use" are disabled buttons labelled "(placeholder, not written yet)"; `PRIVACY_POLICY_URL` and `TERMS_URL` are `null`. **TODO (owner: not assigned; date: not set):** write the privacy policy and terms, then set both URLs and open them with the opener plugin.
+- **"Where your data lives"** `apps/desktop/src/settings/data-locations/index.tsx` (nav: Advanced → "Where your data lives", `sidebar/settings-nav-groups.ts`; tab id `data-locations` in `store/zustand/tabs/schema.ts`): on this Mac (meetings folder, database, search index, audit log, logs, Keychain, FileVault state), what leaves it (Anthropic through the Engine with the user's key and the pinned Haiku model; transcription per the chosen provider; calendar read-only; sync only when turned on; update check; usage data and error reports per the opt-ins), and the "never" statement.
+- **Paths** `app:get_data_locations` (`apps/desktop/src-tauri/src/data_protection.rs`, guarded `(Settings, Read)`): `desktop_db_dir` for `app.db` / `audit.db`, the settings vault base for `sessions/` and `search_index/` (the Tantivy plugin joins `search_index` to the vault base), `app_log_dir` for logs.
+- **Tests:** `settings/data-locations/index.test.tsx` (paths shown, lines follow the settings).
+- **To check by a person (not verified in code):** the sync line says "end-to-end encrypted copy"; meeting rows sync as `e2ee_*` ciphertext (section 1), but whether every synced item, cloud attachments in particular, is end-to-end encrypted was not checked. The Anthropic training statement paraphrases Anthropic's commercial API terms and should be confirmed by whoever owns legal review before release.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

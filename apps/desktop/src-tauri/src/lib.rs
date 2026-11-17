@@ -878,6 +878,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::list_skill_agents,
             commands::install_agent_skill,
             data_protection::get_data_protection_status,
+            data_protection::get_data_locations::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

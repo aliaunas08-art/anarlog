@@ -24,6 +24,10 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("./legal", () => ({
+  LegalLinks: () => null,
+}));
+
 vi.mock("./backup", () => ({
   BackupSettings: () => null,
 }));
