@@ -82,6 +82,10 @@ pub async fn insert_folder_attachment(
               AND (session.folder_path = ? OR session.folder_path LIKE ?)
             ORDER BY session.updated_at DESC, session.id
             LIMIT 1
+          ), (
+            -- C1.1: an empty folder belongs to the local workspace.
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings WHERE id = 'cloudsync_workspace_binding'
           ), ''),
           ?,
           ?,
@@ -182,6 +186,10 @@ pub async fn insert_folder_if_missing(
               AND (session.folder_path = ? OR session.folder_path LIKE ?)
             ORDER BY session.updated_at DESC, session.id
             LIMIT 1
+          ), (
+            -- C1.1: an empty folder belongs to the local workspace.
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings WHERE id = 'cloudsync_workspace_binding'
           ), ''),
           ?
         WHERE NOT EXISTS (

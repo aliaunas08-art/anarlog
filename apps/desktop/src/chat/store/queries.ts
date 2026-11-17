@@ -5,6 +5,8 @@ import {
   rowToPersistedChatMessage,
 } from "./persisted-messages";
 
+import { LOCAL_WORKSPACE_ID_SQL } from "@anlg/db";
+
 import type { ChatScope } from "~/chat/types";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -186,7 +188,7 @@ export function createChatGroupWithMessage({
             id, workspace_id, owner_user_id, title, created_at, updated_at,
             deleted_at
           )
-          VALUES (?, '', ?, ?, ?, ?, NULL)
+          VALUES (?, ${LOCAL_WORKSPACE_ID_SQL}, ?, ?, ?, ?, NULL)
           ON CONFLICT(id) DO UPDATE SET
             owner_user_id = excluded.owner_user_id,
             title = excluded.title,
@@ -405,7 +407,7 @@ function buildUpsertChatMessageStatement(
         id, workspace_id, chat_group_id, owner_user_id, role, content,
         metadata_json, parts_json, status, created_at, updated_at, deleted_at
       )
-      VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      VALUES (?, ${LOCAL_WORKSPACE_ID_SQL}, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
       ON CONFLICT(id) DO UPDATE SET
         chat_group_id = excluded.chat_group_id,
         owner_user_id = excluded.owner_user_id,

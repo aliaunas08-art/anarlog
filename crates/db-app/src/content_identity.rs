@@ -17,6 +17,10 @@ use sqlx::{Sqlite, SqlitePool, Transaction};
 
 use crate::cloudsync::CLOUDSYNC_WORKSPACE_BINDING_ID;
 
+/// SQL for the local workspace id, for create paths that must not write `''`
+/// (C1.1). Same source as `insert_session`.
+pub const LOCAL_WORKSPACE_ID_SQL: &str = "(SELECT json_extract(value_json, '$.workspace_id') FROM app_settings WHERE id = 'cloudsync_workspace_binding')";
+
 /// Content tables with a `workspace_id` that holds the device's own rows.
 /// Not here: CloudSync/e2ee bookkeeping, `shared_session_cache` (other
 /// people's notes, keyed by the sharer's workspace), `workspaces` and
@@ -453,5 +457,176 @@ mod tests {
                 assert_ne!(owner, local, "{table} owner rekeyed by the claim");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod create_path_tests {
+    use super::*;
+    use anlg_db_core::Db;
+
+    const LEGACY_DEFAULT_USER: &str = "00000000-0000-0000-0000-000000000000";
+
+    /// C1.1: rows created through the normal Rust create paths, on a device
+    /// that has a local identity, never have an empty workspace or owner, and
+    /// are in the local workspace.
+    #[tokio::test]
+    async fn rust_create_paths_never_write_empty_ids() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        crate::prepare_schema(&db).await.unwrap();
+        let identity = local_content_identity(db.pool()).await.unwrap().unwrap();
+        let now = "2026-11-16T00:00:00.000Z";
+        let mut connection = db.pool().acquire().await.unwrap();
+        let conn = &mut *connection;
+
+        crate::insert_session(conn, "s1", "Planning", LEGACY_DEFAULT_USER, "", "", now)
+            .await
+            .unwrap();
+        crate::insert_empty_session_note(conn, "s1", "{}", now)
+            .await
+            .unwrap();
+        crate::upsert_session_owner_human(conn, "s1", now)
+            .await
+            .unwrap();
+        crate::insert_owner_session_participant(conn, "p-owner", "s1", now)
+            .await
+            .unwrap();
+        crate::create_human(
+            conn,
+            "h1",
+            LEGACY_DEFAULT_USER,
+            "Alice",
+            "a@example.com",
+            now,
+        )
+        .await
+        .unwrap();
+        crate::create_organization(conn, "o1", LEGACY_DEFAULT_USER, "ACME", now)
+            .await
+            .unwrap();
+        crate::insert_manual_session_participant(conn, "p-alice", "s1", "h1", "manual", now)
+            .await
+            .unwrap();
+        crate::upsert_tag(conn, &identity.owner_user_id, "launch", now)
+            .await
+            .unwrap();
+        crate::upsert_session_tag(conn, "s1", &identity.owner_user_id, "launch", now)
+            .await
+            .unwrap();
+        crate::insert_note_attachment(
+            conn,
+            "att-1",
+            "a.png",
+            "a.png",
+            "image/png",
+            1,
+            "sha",
+            "src-1",
+            "s1",
+        )
+        .await
+        .unwrap();
+        crate::insert_session_audio_attachment(
+            conn,
+            "audio-1",
+            "audio.wav",
+            "audio/wav",
+            1,
+            "sha",
+            "s1",
+        )
+        .await
+        .unwrap();
+        crate::insert_folder_if_missing(conn, "f1", "Projects")
+            .await
+            .unwrap();
+        crate::insert_folder_attachment(
+            conn,
+            "fa-1",
+            "Projects",
+            "b.pdf",
+            "b.pdf",
+            "application/pdf",
+            1,
+            "sha",
+            "src-2",
+        )
+        .await
+        .unwrap();
+        crate::insert_pending_session_proposal(
+            conn,
+            "prop-1",
+            "s1",
+            "summary_replace",
+            "doc",
+            "",
+            "old",
+            "new",
+            "cli",
+        )
+        .await
+        .unwrap();
+        crate::insert_batch_transcript(
+            conn,
+            &crate::BatchTranscriptInsert {
+                id: "t-batch".into(),
+                session_id: "s1".into(),
+                owner_user_id: identity.owner_user_id.clone(),
+                created_at: now.into(),
+                started_at_ms: 0.0,
+                memo: String::new(),
+                provider: "local".into(),
+                model: "m".into(),
+                words_json: "[]".into(),
+                speaker_hints_json: "[]".into(),
+            },
+            &crate::BatchTranscriptReplace {
+                replace_session: false,
+                replace_transcript_id: None,
+            },
+        )
+        .await
+        .unwrap();
+        drop(connection);
+        crate::append_live_transcript_deltas(
+            db.pool(),
+            &crate::LiveTranscriptInsert {
+                id: "t-live".into(),
+                session_id: "s1".into(),
+                owner_user_id: identity.owner_user_id.clone(),
+                created_at: now.into(),
+                started_at_ms: 0,
+                memo: String::new(),
+                provider: None,
+                model: None,
+            },
+            &[],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            count_unassigned_content_rows(db.pool()).await.unwrap(),
+            Vec::<(String, i64)>::new(),
+            "no content row has an empty workspace_id or owner_user_id"
+        );
+        for table in WORKSPACE_CONTENT_TABLES {
+            let foreign: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+                "SELECT count(*) FROM {table} WHERE workspace_id <> ?"
+            )))
+            .bind(&identity.workspace_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+            assert_eq!(foreign, 0, "{table} rows are in the local workspace");
+        }
+        let created: i64 = sqlx::query_scalar(
+            "SELECT (SELECT count(*) FROM sessions) + (SELECT count(*) FROM transcripts)
+                  + (SELECT count(*) FROM session_proposals) + (SELECT count(*) FROM tags)",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(created >= 5, "the create paths wrote rows ({created})");
     }
 }
