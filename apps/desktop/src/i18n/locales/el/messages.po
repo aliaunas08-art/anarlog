@@ -51,6 +51,17 @@ msgstr ""
 msgid "{0} is ready to use"
 msgstr ""
 
+#. placeholder {0}: summary.meetings
+#. placeholder {1}: summary.files
+#: src/settings/privacy/backup.tsx
+msgid "{0} meetings and {1} files."
+msgstr ""
+
+#. placeholder {0}: summary.meetings
+#: src/settings/privacy/backup.tsx
+msgid "{0} meetings will be restored when the app restarts. Your current library is kept in the app's data folder."
+msgstr ""
+
 #. placeholder {0}: number.format(stats.medianMinutes)
 #: src/settings/stats/insights.tsx
 msgid "{0} min"
@@ -170,6 +181,10 @@ msgstr ""
 msgid "{APP_NAME} skill added to {0} agents"
 msgstr ""
 
+#: src/stt/scheduled-auto-start-notice.ts
+msgid "{APP_NAME} started recording a calendar meeting. Stop it from the menu bar or the floating bar."
+msgstr ""
+
 #: src/session-sharing/access-management.tsx
 msgid "{APP_NAME} user"
 msgstr ""
@@ -209,6 +224,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "{entryCount} selected"
+msgstr ""
+
+#: src/settings/privacy/legal.tsx
+msgid "{label} (placeholder, not written yet)"
 msgstr ""
 
 #: src/session/components/editorial-header.tsx
@@ -359,6 +378,10 @@ msgstr ""
 msgid "7 days"
 msgstr ""
 
+#: src/settings/privacy/backup.tsx
+msgid "A backup holds every meeting, transcript, note and recording in one file. It is not encrypted, so keep it somewhere only you can reach. The audit log and your keys are not included."
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "A dated Notion update with the meeting summary."
 msgstr ""
@@ -395,8 +418,17 @@ msgstr ""
 msgid "A to Z"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "A version check. No library data is sent."
+msgstr ""
+
 #: src/sidebar/timeline/utils/index.ts
 msgid "a week ago"
+msgstr ""
+
+#: src/settings/about/index.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "About"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -750,12 +782,24 @@ msgstr ""
 msgid "Analyzing structure..."
 msgstr ""
 
+#: src/settings/privacy/backup.tsx
+msgid "Anarlog backup"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Animals & Nature"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Anthropic (AI)"
+msgstr ""
+
 #: src/settings/ai/engine/index.tsx
 msgid "Anthropic API key"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "Anthropic's commercial API terms say API inputs and outputs are not used to train its models by default."
 msgstr ""
 
 #: src/sidebar/date-filter.tsx
@@ -785,6 +829,10 @@ msgstr "Εφαρμογή"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "App icon"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "App logs (no meeting content)"
 msgstr ""
 
 #: src/settings/appearance/index.tsx
@@ -919,6 +967,10 @@ msgstr ""
 msgid "Audit"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Audit log (ids and counts only)"
+msgstr ""
+
 #: src/lock/screen.tsx
 msgid "Authenticate to continue."
 msgstr ""
@@ -1003,6 +1055,18 @@ msgstr ""
 #: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Back up library…"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Backup"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Backup failed"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -1096,6 +1160,7 @@ msgid "By person"
 msgstr ""
 
 #: src/main/sidebar-timeline-chrome.tsx
+#: src/settings/data-locations/index.tsx
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Calendar"
@@ -1301,6 +1366,10 @@ msgstr ""
 
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "Choose a .bin model"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Choose a backup to restore"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
@@ -2105,6 +2174,10 @@ msgstr ""
 msgid "Couldn’t check availability. You can still try Save."
 msgstr ""
 
+#: src/data-protection/disk-encryption-row.tsx
+msgid "Couldn't check FileVault. Check it in System Settings → Privacy & Security."
+msgstr ""
+
 #: src/accounts/local.ts
 msgid "Couldn't connect your {name} account."
 msgstr ""
@@ -2289,6 +2362,10 @@ msgstr ""
 msgid "Data"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Database: notes, transcripts and settings"
+msgstr ""
+
 #: src/settings/automations/markdown-export-options.tsx
 #: src/sidebar/note-filter-menu.tsx
 msgid "Date"
@@ -2429,6 +2506,7 @@ msgstr ""
 msgid "Desktop edits published. Sharing resumed."
 msgstr ""
 
+#: src/data-protection/filevault-warning.tsx
 #: src/settings/audit/index.tsx
 msgid "Details"
 msgstr ""
@@ -2510,6 +2588,10 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Disconnect private repo access."
+msgstr ""
+
+#: src/data-protection/disk-encryption-row.tsx
+msgid "Disk encryption (FileVault)"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -2747,6 +2829,10 @@ msgstr ""
 msgid "Error"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Error reports"
+msgstr ""
+
 #: src/composer/index.tsx
 msgid "Esc to dismiss"
 msgstr ""
@@ -2902,8 +2988,24 @@ msgstr ""
 msgid "Filename"
 msgstr ""
 
+#: src/data-protection/disk-encryption-row.tsx
+msgid "FileVault encrypts this Mac's disk, including your library."
+msgstr ""
+
+#: src/data-protection/filevault-warning.tsx
+msgid "FileVault is off"
+msgstr ""
+
+#: src/data-protection/disk-encryption-row.tsx
+msgid "FileVault is off: your library is stored without disk encryption. Turn it on in System Settings → Privacy & Security."
+msgstr ""
+
 #: src/crm/enrich-contact.tsx
 msgid "Filled {filled} from {provider}."
+msgstr ""
+
+#: src/settings/about/index.tsx
+msgid "Filter by package or licence"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
@@ -3164,7 +3266,7 @@ msgid "Help {APP_NAME} read meeting activity"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "Help improve {APP_NAME} with anonymous usage data."
+msgid "Help improve {APP_NAME} with anonymous usage data: event names, app version and counts, never meeting content. Off by default."
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
@@ -3231,6 +3333,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "If {APP_NAME} stays closed, paste the link in the sign-in window."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "If you connect a calendar, the app reads your events (read-only) directly from Google or Microsoft. Nothing is written back."
 msgstr ""
 
 #: src/settings/referrals.tsx
@@ -3420,6 +3526,10 @@ msgstr ""
 msgid "Invites remaining"
 msgstr ""
 
+#: src/settings/about/index.tsx
+msgid "JavaScript packages"
+msgstr ""
+
 #: src/crm/enrich-contact.tsx
 msgid "job title"
 msgstr ""
@@ -3512,6 +3622,10 @@ msgstr ""
 msgid "Key:"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Keys and tokens"
+msgstr ""
+
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "Γλώσσα και περιοχή"
@@ -3598,8 +3712,16 @@ msgstr ""
 msgid "Let people with access play the recording."
 msgstr ""
 
+#: src/settings/privacy/backup.tsx
+msgid "Library backed up"
+msgstr ""
+
 #: src/auth/connect-local-library-dialog.tsx
 msgid "Library connected, but sync could not restart. Try again in sync settings."
+msgstr ""
+
+#: src/settings/about/index.tsx
+msgid "Licence"
 msgstr ""
 
 #: src/settings/appearance/theme.tsx
@@ -3763,6 +3885,10 @@ msgstr ""
 msgid "macOS could not access your recovery key. Repair Keychain access, then resume sync."
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "macOS Keychain (never in files or the database)"
+msgstr ""
+
 #: src/settings/general/main-language.tsx
 msgid "Main language"
 msgstr "Κύρια γλώσσα"
@@ -3873,6 +3999,10 @@ msgstr ""
 msgid "Meeting chat"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Meeting content (audio, transcripts, notes, titles and participants) is never used for analytics, telemetry, product research or model training."
+msgstr ""
+
 #: src/session/components/floating/index.tsx
 msgid "Meeting controls"
 msgstr ""
@@ -3922,6 +4052,10 @@ msgstr ""
 #: src/sidebar/settings-nav-groups.ts
 msgid "Meetings"
 msgstr "Συναντήσεις"
+
+#: src/settings/data-locations/index.tsx
+msgid "Meetings: audio, notes and attachments"
+msgstr ""
 
 #: src/contacts/organization-details.tsx
 msgid "member"
@@ -4099,6 +4233,10 @@ msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "Needs setup"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "Never"
 msgstr ""
 
 #: src/sidebar/automations.tsx
@@ -4527,6 +4665,14 @@ msgstr ""
 msgid "Objects"
 msgstr ""
 
+#: src/data-protection/disk-encryption-row.tsx
+msgid "Off"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "Off. Nothing is sent."
+msgstr ""
+
 #. placeholder {0}: report.entries
 #: src/settings/audit/index.tsx
 msgid "OK: {0} entries, chain intact."
@@ -4546,6 +4692,14 @@ msgstr ""
 msgid "Oldest"
 msgstr ""
 
+#: src/data-protection/disk-encryption-row.tsx
+msgid "On"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "On this Mac"
+msgstr ""
+
 #: src/settings/dictation.tsx
 msgid "On Wayland, approve the shortcuts in your desktop's prompt. Use Control + Alt + Escape to cancel. On X11, press Escape to cancel. The target app must expose an editable accessibility field."
 msgstr ""
@@ -4556,6 +4710,22 @@ msgstr ""
 
 #: src/settings/general/billing.tsx
 msgid "On-device transcription, recordings, and your own keys."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "On, with session replay (all text and inputs masked). Never meeting content."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "On: event names, app version and counts. Never meeting content."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "On: sanitized error details. Never meeting content."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "Only if you sign in and turn on sync in Settings → Sync: an end-to-end encrypted copy of your library is kept on the sync server so your other devices can read it."
 msgstr ""
 
 #: src/folders/folder-editor.tsx
@@ -4601,7 +4771,7 @@ msgid "Open {APP_NAME}"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "Open {APP_NAME} from the menu bar."
+msgid "Open {APP_NAME} from the menu bar. While recording, the menu-bar icon is always shown."
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -4678,6 +4848,10 @@ msgstr ""
 
 #: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
+msgstr ""
+
+#: src/settings/about/index.tsx
+msgid "Open-source packages this app is built with, and their licences."
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -4868,6 +5042,10 @@ msgstr ""
 msgid "Pin"
 msgstr ""
 
+#: src/settings/privacy/legal.tsx
+msgid "Placeholder: not written yet"
+msgstr ""
+
 #: src/settings/general/billing.tsx
 msgid "Plan limits"
 msgstr ""
@@ -4985,6 +5163,10 @@ msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Privacy"
+msgstr ""
+
+#: src/settings/privacy/legal.tsx
+msgid "Privacy Policy"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/private-note.tsx
@@ -5228,6 +5410,10 @@ msgstr ""
 
 #: src/settings/general/voice-profile.tsx
 msgid "Recording progress"
+msgstr ""
+
+#: src/stt/scheduled-auto-start-notice.ts
+msgid "Recording started automatically"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -5515,9 +5701,25 @@ msgstr ""
 msgid "Restart App"
 msgstr ""
 
+#: src/settings/privacy/backup.tsx
+msgid "Restart now"
+msgstr ""
+
 #: src/main/windows-window-controls.tsx
 #: src/session/components/version-history-dialog.tsx
 msgid "Restore"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Restore failed"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Restore from backup…"
+msgstr ""
+
+#: src/settings/privacy/backup.tsx
+msgid "Restore ready"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -5595,6 +5797,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Runs once the AI summary for the meeting is ready."
+msgstr ""
+
+#: src/settings/about/index.tsx
+msgid "Rust crates"
 msgstr ""
 
 #: src/settings/ai/engine/index.tsx
@@ -5723,6 +5929,10 @@ msgstr ""
 msgid "Search icons..."
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Search index"
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Search installed apps..."
 msgstr ""
@@ -5808,6 +6018,10 @@ msgstr ""
 
 #: src/session/components/note-input/template-picker.tsx
 msgid "See all templates"
+msgstr ""
+
+#: src/settings/privacy/legal.tsx
+msgid "See where your meetings are stored and what leaves this Mac."
 msgstr ""
 
 #: src/settings/ai/shared/model-combobox.tsx
@@ -5901,6 +6115,10 @@ msgstr ""
 
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Session replay"
 msgstr ""
 
 #: src/session/components/title-input.tsx
@@ -6536,6 +6754,10 @@ msgstr ""
 msgid "Stop sharing"
 msgstr ""
 
+#: src/settings/privacy/backup.tsx
+msgid "Stop the recording first"
+msgstr ""
+
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Stop transcription"
 msgstr ""
@@ -6629,6 +6851,7 @@ msgstr ""
 msgid "Symbols"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
 #: src/settings/sync/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Sync"
@@ -6781,6 +7004,10 @@ msgstr ""
 msgid "Templates"
 msgstr ""
 
+#: src/settings/privacy/legal.tsx
+msgid "Terms of Use"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 #: src/settings/crm/index.tsx
 #: src/settings/developers/webhooks.tsx
@@ -6825,6 +7052,10 @@ msgstr ""
 msgid "The page you're looking for doesn't exist."
 msgstr ""
 
+#: src/settings/privacy/backup.tsx
+msgid "The restore finishes when the app restarts."
+msgstr ""
+
 #: src/sidebar/toast/registry.tsx
 msgid "The update download failed"
 msgstr ""
@@ -6847,6 +7078,10 @@ msgstr ""
 
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
+msgstr ""
+
+#: src/settings/about/index.tsx
+msgid "Third-party licences"
 msgstr ""
 
 #: src/resource-sharing/library.tsx
@@ -6990,6 +7225,7 @@ msgid "Transcript"
 msgstr ""
 
 #: src/settings/ai/stt/index.tsx
+#: src/settings/data-locations/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Transcription"
 msgstr ""
@@ -7092,6 +7328,7 @@ msgstr ""
 msgid "Unfiled"
 msgstr ""
 
+#: src/data-protection/disk-encryption-row.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
 msgstr ""
@@ -7209,6 +7446,10 @@ msgstr ""
 msgid "Update your personal contact card. Your sign-in email is managed separately."
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Updates"
+msgstr ""
+
 #: src/settings/automations/google-drive-config.tsx
 msgid "Updating a note replaces the Google document's content, including edits made in Google Docs. Changing formats keeps previously exported files."
 msgstr ""
@@ -7274,6 +7515,10 @@ msgstr ""
 #: src/settings/ai/engine/index.tsx
 #: src/settings/team/index.tsx
 msgid "Usage"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "Usage data"
 msgstr ""
 
 #: src/settings/appearance/time-format.tsx
@@ -7481,6 +7726,10 @@ msgstr ""
 msgid "What key decisions were made in my recent meetings?"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "What leaves this Mac"
+msgstr ""
+
 #: src/folders/folder-editor.tsx
 msgid "What these notes are usually about"
 msgstr ""
@@ -7505,8 +7754,22 @@ msgstr ""
 msgid "When this happens"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "When you enhance a meeting or use Ask, the meeting's text (transcript, notes, title) is sent to Anthropic's API with your own key, through the app's Efficiency Engine, which fixes the model (Claude Haiku). Nothing is sent until you add a key in Settings → AI."
+msgstr ""
+
 #: src/settings/general/voice-profile.tsx
 msgid "When you're ready, press Record and read this aloud at your normal pace. It takes about 30 seconds."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+#: src/settings/privacy/legal.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Where your data lives"
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "While transcribing, meeting audio is sent to {sttName}, the speech-to-text provider you chose."
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
@@ -7515,6 +7778,10 @@ msgstr ""
 
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "With error reports on, also send a replay of the app's screens with all text and inputs masked and media blocked. Off by default."
 msgstr ""
 
 #: src/task/tab-content.tsx
@@ -7633,6 +7900,14 @@ msgstr ""
 msgid "Your conversation patterns"
 msgstr ""
 
+#: src/settings/data-locations/index.tsx
+msgid "Your current speech-to-text model runs on this Mac: audio stays here."
+msgstr ""
+
+#: src/settings/privacy/legal.tsx
+msgid "Your data"
+msgstr ""
+
 #: src/settings/dictionary/index.tsx
 msgid "Your dictionary is empty"
 msgstr ""
@@ -7655,6 +7930,14 @@ msgstr ""
 
 #: src/auth/context.tsx
 msgid "Your local notes are available. Connect this library to sync with your current account."
+msgstr ""
+
+#: src/data-protection/filevault-warning.tsx
+msgid "Your meetings are stored on this Mac without disk encryption. Turn on FileVault in System Settings → Privacy & Security."
+msgstr ""
+
+#: src/settings/data-locations/index.tsx
+msgid "Your meetings are stored only on this Mac unless you turn on sync. Transcription can run on this Mac, depending on the model you choose."
 msgstr ""
 
 #: src/settings/general/voice-profile.tsx
