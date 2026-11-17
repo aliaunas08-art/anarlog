@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 use std::path::Path;
 
-use mp3::decode_to_wav;
+use audio_encode::decode_to_wav;
 use tempfile::tempdir;
 
 pub type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
@@ -122,13 +122,31 @@ pub fn read_wav(path: &Path) -> TestResult<(hound::WavSpec, Vec<f32>)> {
     Ok((spec, samples))
 }
 
-pub fn decode_mp3_bytes(bytes: &[u8]) -> TestResult<(hound::WavSpec, Vec<f32>)> {
+pub fn decode_aac_bytes(bytes: &[u8]) -> TestResult<(hound::WavSpec, Vec<f32>)> {
     let dir = tempdir()?;
-    let mp3_path = dir.path().join("encoded.mp3");
+    let aac_path = dir
+        .path()
+        .join(format!("encoded.{}", audio_encode::RECORDING_EXTENSION));
     let wav_path = dir.path().join("decoded.wav");
 
-    std::fs::write(&mp3_path, bytes)?;
-    decode_to_wav(&mp3_path, &wav_path)?;
+    std::fs::write(&aac_path, bytes)?;
+    decode_to_wav(&aac_path, &wav_path)?;
+    read_wav(&wav_path)
+}
+
+/// An MP4 container on macOS (`.m4a`), a FLAC stream elsewhere.
+pub fn assert_upload_container(bytes: &[u8]) {
+    if audio_encode::UPLOAD_EXTENSION == "m4a" {
+        assert_eq!(&bytes[4..8], b"ftyp", "an MP4 container");
+    } else {
+        assert_eq!(&bytes[..4], b"fLaC", "a FLAC stream");
+    }
+}
+
+pub fn decode_audio_file(path: &Path) -> TestResult<(hound::WavSpec, Vec<f32>)> {
+    let dir = tempdir()?;
+    let wav_path = dir.path().join("decoded.wav");
+    decode_to_wav(path, &wav_path)?;
     read_wav(&wav_path)
 }
 

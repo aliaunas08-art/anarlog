@@ -1,9 +1,9 @@
 mod common;
 
-use mp3::{MonoStreamEncoder, StereoStreamEncoder};
+use audio_encode::{MonoStreamEncoder, StereoStreamEncoder};
 
 use crate::common::{
-    Case, TestResult, assert_decoded_matches_case, decode_mp3_bytes, fixture_channel_f32,
+    Case, TestResult, assert_decoded_matches_case, decode_aac_bytes, fixture_channel_f32,
     fixture_channel_i16,
 };
 
@@ -23,9 +23,9 @@ fn mono_stream_encoder_f32_roundtrips_across_multiple_chunks() -> TestResult {
     encoder.encode_f32(&samples[5_000..], &mut output)?;
     encoder.flush(&mut output)?;
 
-    assert!(!output.is_empty(), "streaming encoder produced no mp3 data");
+    assert!(!output.is_empty(), "streaming encoder produced no aac data");
 
-    let (decoded_spec, decoded_samples) = decode_mp3_bytes(&output)?;
+    let (decoded_spec, decoded_samples) = decode_aac_bytes(&output)?;
     assert_decoded_matches_case(case, samples.len(), &decoded_spec, &decoded_samples);
     Ok(())
 }
@@ -47,9 +47,9 @@ fn stereo_stream_encoder_f32_roundtrips_across_multiple_chunks() -> TestResult {
     encoder.encode_f32(&left[5_120..], &right[5_120..], &mut output)?;
     encoder.flush(&mut output)?;
 
-    assert!(!output.is_empty(), "streaming encoder produced no mp3 data");
+    assert!(!output.is_empty(), "streaming encoder produced no aac data");
 
-    let (decoded_spec, decoded_samples) = decode_mp3_bytes(&output)?;
+    let (decoded_spec, decoded_samples) = decode_aac_bytes(&output)?;
     assert_decoded_matches_case(case, case.frames * 2, &decoded_spec, &decoded_samples);
     Ok(())
 }
@@ -69,9 +69,9 @@ fn mono_stream_encoder_i16_roundtrips() -> TestResult {
     encoder.encode_i16(&samples[2_048..], &mut output)?;
     encoder.flush(&mut output)?;
 
-    assert!(!output.is_empty(), "streaming encoder produced no mp3 data");
+    assert!(!output.is_empty(), "streaming encoder produced no aac data");
 
-    let (decoded_spec, decoded_samples) = decode_mp3_bytes(&output)?;
+    let (decoded_spec, decoded_samples) = decode_aac_bytes(&output)?;
     assert_decoded_matches_case(case, samples.len(), &decoded_spec, &decoded_samples);
     Ok(())
 }
@@ -92,9 +92,9 @@ fn stereo_stream_encoder_i16_roundtrips() -> TestResult {
     encoder.encode_i16(&left[1_024..], &right[1_024..], &mut output)?;
     encoder.flush(&mut output)?;
 
-    assert!(!output.is_empty(), "streaming encoder produced no mp3 data");
+    assert!(!output.is_empty(), "streaming encoder produced no aac data");
 
-    let (decoded_spec, decoded_samples) = decode_mp3_bytes(&output)?;
+    let (decoded_spec, decoded_samples) = decode_aac_bytes(&output)?;
     assert_decoded_matches_case(case, case.frames * 2, &decoded_spec, &decoded_samples);
     Ok(())
 }
@@ -115,10 +115,10 @@ fn mono_stream_encoder_empty_flush_produces_decodable_silence() -> TestResult {
 
     assert!(
         !output.is_empty(),
-        "flush-only stream should still emit mp3 data"
+        "flush-only stream should still emit aac data"
     );
 
-    let (decoded_spec, decoded_samples) = decode_mp3_bytes(&output)?;
+    let (decoded_spec, decoded_samples) = decode_aac_bytes(&output)?;
     assert_decoded_matches_case(case, 0, &decoded_spec, &decoded_samples);
     Ok(())
 }
@@ -142,5 +142,37 @@ fn stereo_stream_encoder_zero_pads_short_right_channel() -> TestResult {
     padded_encoder.flush(&mut padded_output)?;
 
     assert_eq!(short_output, padded_output);
+    Ok(())
+}
+
+#[test]
+fn appending_to_an_existing_recording_keeps_one_decodable_stream() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join(audio_encode::RECORDING_FILE);
+    let tone: Vec<f32> = (0..16_000).map(|i| (i as f32 * 0.05).sin() * 0.4).collect();
+
+    let mut first = StereoStreamEncoder::new(16_000)?;
+    let mut bytes = Vec::new();
+    first.encode_f32(&tone, &tone, &mut bytes)?;
+    first.flush(&mut bytes)?;
+    std::fs::write(&path, &bytes)?;
+
+    // A meeting records again: the new stream is appended to the file.
+    let mut next = StereoStreamEncoder::appending_to(16_000, &path)?;
+    let mut appended = Vec::new();
+    next.encode_f32(&tone, &tone, &mut appended)?;
+    next.flush(&mut appended)?;
+    let mut file = std::fs::OpenOptions::new().append(true).open(&path)?;
+    std::io::Write::write_all(&mut file, &appended)?;
+    drop(file);
+
+    let (spec, samples) = common::decode_audio_file(&path)?;
+    assert_eq!(spec.channels, 2);
+    let frames = samples.len() / 2;
+    // Two seconds of audio, plus each stream's codec overhead.
+    assert!(
+        (32_000..32_000 + 2 * 4_096).contains(&frames),
+        "{frames} frames"
+    );
     Ok(())
 }

@@ -9,7 +9,7 @@ target `aarch64-apple-darwin`) and every production npm package of
 corrections listed in `LICENSE_CORRECTIONS`. Licence texts ship with
 each package; Settings → About → Licences lists the same data.
 
-Totals: 1018 Rust crates, 769 npm packages.
+Totals: 1020 Rust crates, 769 npm packages.
 
 ## Needs review
 
@@ -26,8 +26,6 @@ fails on missing and GPL-family licences unless they are in
 | khroma | 2.1.0 | npm | Unknown | incompatible |
 | lightningcss | 1.30.1 | npm | MPL-2.0 | review |
 | lightningcss-darwin-arm64 | 1.30.1 | npm | MPL-2.0 | review |
-| mp3lame-encoder | 0.2.3 | cargo | LGPL-3.0 | review |
-| mp3lame-sys | 0.1.11 | cargo | LGPL-3.0 | review |
 | option-ext | 0.2.0 | cargo | MPL-2.0 | review |
 | oxlint-plugin-react-doctor | 0.9.23 | npm | LicenseRef-Modified-MIT | incompatible |
 | pos | 0.4.2 | npm | LGPL | review |
@@ -99,7 +97,7 @@ fails on missing and GPL-family licences unless they are in
 
 - @pierre/diffs 1.1.15 (npm package)
 
-### Apache-2.0 (96)
+### Apache-2.0 (97)
 
 - approx 0.5.1 (Rust crate)
 - backon 1.6.0 (Rust crate)
@@ -110,6 +108,7 @@ fails on missing and GPL-family licences unless they are in
 - codex 0.2.0 (Rust crate)
 - cpal 0.17.3 (Rust crate)
 - debugid 0.8.0 (Rust crate)
+- flacenc 0.5.1 (Rust crate)
 - gethostname 1.1.0 (Rust crate)
 - hayro 0.4.0 (Rust crate)
 - hayro-font 0.3.0 (Rust crate)
@@ -501,11 +500,6 @@ fails on missing and GPL-family licences unless they are in
 ### LGPL (1)
 
 - pos 0.4.2 (npm package)
-
-### LGPL-3.0 (2)
-
-- mp3lame-encoder 0.2.3 (Rust crate)
-- mp3lame-sys 0.1.11 (Rust crate)
 
 ### LicenseRef-Modified-MIT (2)
 
@@ -1370,7 +1364,7 @@ fails on missing and GPL-family licences unless they are in
 
 - matchit 0.8.4 (Rust crate)
 
-### MIT OR Apache-2.0 (398)
+### MIT OR Apache-2.0 (401)
 
 - actix-codec 0.5.2 (Rust crate)
 - actix-http 3.12.1 (Rust crate)
@@ -1513,6 +1507,7 @@ fails on missing and GPL-family licences unless they are in
 - glidesort 0.1.2 (Rust crate)
 - glob 0.3.3 (Rust crate)
 - half 2.7.1 (Rust crate)
+- hash32 0.3.1 (Rust crate)
 - hashbrown 0.12.3 (Rust crate)
 - hashbrown 0.14.5 (Rust crate)
 - hashbrown 0.15.5 (Rust crate)
@@ -1520,6 +1515,7 @@ fails on missing and GPL-family licences unless they are in
 - hashbrown 0.17.0 (Rust crate)
 - hashlink 0.10.0 (Rust crate)
 - hayagriva 0.9.1 (Rust crate)
+- heapless 0.8.0 (Rust crate)
 - heck 0.5.0 (Rust crate)
 - hex 0.4.3 (Rust crate)
 - hkdf 0.12.4 (Rust crate)
@@ -1655,6 +1651,7 @@ fails on missing and GPL-family licences unless they are in
 - security-framework-sys 2.17.0 (Rust crate)
 - semver 1.0.28 (Rust crate)
 - sentry-rust-minidump 0.13.0 (Rust crate)
+- seq-macro 0.3.6 (Rust crate)
 - serde 1.0.228 (Rust crate)
 - serde_bytes 0.11.19 (Rust crate)
 - serde_core 1.0.228 (Rust crate)

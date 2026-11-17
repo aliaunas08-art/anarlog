@@ -33,7 +33,7 @@ All items passed on the first round, so the 3-round escalation rule was never tr
 1. **C1 webview SQL filtering.** The interim fail-closed single-workspace guard is in place. Real filtering needs option (b), scoped Rust commands per table, or option (c), views on a dedicated pool.
 2. **224 unguarded commands (A2.3).** These include E2EE key and sync commands that also run from background or locked flows, and the Tantivy writes.
 3. **Licences that may not fit MIT (D5):**
-   - `mp3lame-encoder` / `mp3lame-sys`: LGPL-3.0, statically linked;
+   - `mp3lame-encoder` / `mp3lame-sys`: removed 2026-11-17 (recordings are now AAC through macOS AudioToolbox, FLAC on Windows and Linux);
    - `pos`: LGPL;
    - no licence in package metadata: `@giscus/react`, `@splinetool/runtime` (guess: proprietary) and `khroma`.
 4. **Legal text before release:**

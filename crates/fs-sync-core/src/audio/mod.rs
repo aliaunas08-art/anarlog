@@ -15,11 +15,26 @@ mod peaks;
 pub use activity::has_speech;
 pub use peaks::{AudioPeaks, PEAKS_PER_CHANNEL, cached_peaks, compute_peaks};
 
-const AUDIO_FORMATS: [&str; 3] = ["audio.mp3", "audio.wav", "audio.ogg"];
-const AUDIO_ARTIFACTS: [&str; 7] = [
+/// A session's audio file, this platform's format first. Recording and
+/// import write `audio.aac` (AAC-LC, ADTS) on macOS and `audio.flac` on
+/// Windows and Linux; the other format (synced from another platform) and
+/// `audio.mp3` (before LAME was removed) are still read.
+const AUDIO_FORMATS: [&str; 5] = [
+    anlg_audio_encode::RECORDING_FILES[0],
+    anlg_audio_encode::RECORDING_FILES[1],
+    anlg_audio_encode::RECORDING_FILES[2],
+    "audio.wav",
+    "audio.ogg",
+];
+const ENCODED_AUDIO_FILE: &str = anlg_audio_encode::RECORDING_FILE;
+const AUDIO_ARTIFACTS: [&str; 11] = [
+    "audio.aac",
+    "audio.flac",
     "audio.mp3",
     "audio.wav",
     "audio.ogg",
+    "audio.aac.tmp",
+    "audio.flac.tmp",
     "audio.mp3.tmp",
     "audio.wav.tmp",
     "audio_mic.wav",
@@ -109,6 +124,8 @@ pub fn metadata(session_dir: &Path) -> std::io::Result<Option<AudioFileMetadata>
     };
 
     let content_type = match filename {
+        "audio.aac" => "audio/aac",
+        "audio.flac" => "audio/flac",
         "audio.mp3" => "audio/mpeg",
         "audio.wav" => "audio/wav",
         "audio.ogg" => "audio/ogg",
@@ -298,8 +315,8 @@ pub fn import_to_session(
 
     std::fs::create_dir_all(session_dir)?;
 
-    let target_path = session_dir.join("audio.mp3");
-    let tmp_path = session_dir.join("audio.mp3.tmp");
+    let target_path = session_dir.join(ENCODED_AUDIO_FILE);
+    let tmp_path = session_dir.join(format!("{ENCODED_AUDIO_FILE}.tmp"));
 
     let on_progress = {
         let session_id = session_id.to_string();
@@ -331,6 +348,13 @@ pub fn import_to_session(
     match result {
         Ok(()) => {
             let final_path = target_path;
+            // The imported audio replaces a recording in another format.
+            for other in &anlg_audio_encode::RECORDING_FILES[1..] {
+                let path = session_dir.join(other);
+                if path.exists() {
+                    std::fs::remove_file(&path)?;
+                }
+            }
             runtime.emit(AudioImportEvent::Completed {
                 session_id: session_id.to_string(),
             });
@@ -513,6 +537,19 @@ mod tests {
                     .to_string(),
             }
         );
+    }
+
+    #[test]
+    fn aac_recordings_are_preferred_over_legacy_mp3() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("audio.mp3"), b"old").unwrap();
+        std::fs::write(temp.path().join("audio.aac"), b"new").unwrap();
+
+        let metadata = metadata(temp.path()).unwrap().unwrap();
+
+        assert_eq!(metadata.filename, "audio.aac");
+        assert_eq!(metadata.content_type, "audio/aac");
+        assert_eq!(metadata.size_bytes, 3);
     }
 
     #[test]

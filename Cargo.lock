@@ -1692,6 +1692,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-encode"
+version = "0.1.0"
+dependencies = [
+ "audio-utils",
+ "flacenc",
+ "hound",
+ "objc2-audio-toolbox",
+ "objc2-core-audio-types",
+ "objc2-core-foundation",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "audio-interface"
 version = "0.1.0"
 dependencies = [
@@ -1725,10 +1739,10 @@ version = "0.1.0"
 dependencies = [
  "afconvert",
  "assert_fs",
+ "audio-encode",
  "audio-utils",
  "audioadapter-buffers",
  "data",
- "mp3",
  "resampler",
  "rodio",
  "thiserror 2.0.18",
@@ -1843,15 +1857,6 @@ name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
-
-[[package]]
-name = "autotools"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef941527c41b0fc0dd48511a8154cd5fc7e29200a0ff8b7203c5d777dbc795cf"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "aws-config"
@@ -2847,6 +2852,12 @@ dependencies = [
  "thiserror 1.0.69",
  "try_match",
 ]
+
+[[package]]
+name = "built"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56ed6191a7e78c36abdb16ab65341eefd73d64d303fffccdbb00d51e4205967b"
 
 [[package]]
 name = "bumpalo"
@@ -5831,6 +5842,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
+name = "flacenc"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74c892c2b5fa08f967e8b5ad29121570b4762202f2402033ce08479ec65eccd0"
+dependencies = [
+ "built",
+ "crc",
+ "heapless",
+ "md-5",
+ "num-traits",
+ "rustversion",
+ "seq-macro",
+]
+
+[[package]]
 name = "flate2"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6033,6 +6059,7 @@ name = "fs-sync-core"
 version = "0.1.0"
 dependencies = [
  "assert_fs",
+ "audio-encode",
  "audio-norm",
  "audio-utils",
  "chrono",
@@ -9440,6 +9467,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "audio-device",
+ "audio-encode",
  "audio-utils",
  "bytes",
  "data",
@@ -9448,7 +9476,6 @@ dependencies = [
  "host",
  "hound",
  "language",
- "mp3",
  "owhisper-client",
  "owhisper-interface",
  "ractor",
@@ -9481,6 +9508,7 @@ dependencies = [
  "aspasia",
  "async-stream",
  "audio-chunking",
+ "audio-encode",
  "audio-utils",
  "axum",
  "data",
@@ -9488,7 +9516,6 @@ dependencies = [
  "futures-util",
  "hound",
  "language",
- "mp3",
  "owhisper-client",
  "owhisper-interface",
  "pyannote-local",
@@ -10191,37 +10218,6 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
-]
-
-[[package]]
-name = "mp3"
-version = "0.1.0"
-dependencies = [
- "audio-utils",
- "hound",
- "mp3lame-encoder",
- "tempfile",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "mp3lame-encoder"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4764fd362524f3b15808fe877c40d49a191f31f1b043ceabb4079c5d327e3b"
-dependencies = [
- "mp3lame-sys",
-]
-
-[[package]]
-name = "mp3lame-sys"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e3b1772db47828840702e5a2e05694527f731abadf9b931355d54035f019d8"
-dependencies = [
- "autotools",
- "cc",
- "libc",
 ]
 
 [[package]]

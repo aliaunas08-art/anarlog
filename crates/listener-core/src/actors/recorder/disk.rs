@@ -13,7 +13,12 @@ use super::into_actor_err;
 #[cfg(test)]
 use anlg_audio_utils::mix_audio_f32;
 
-const FINAL_AUDIO_FILE: &str = "audio.mp3";
+/// `audio.aac` (ADTS, macOS AudioToolbox) or `audio.flac` (Windows, Linux).
+/// Recordings in another format (`audio.mp3` from before LAME was removed,
+/// another platform's after sync) are still read.
+const FINAL_AUDIO_FILE: &str = anlg_audio_encode::RECORDING_FILE;
+#[cfg(test)]
+const LEGACY_AUDIO_FILE: &str = "audio.mp3";
 const WAV_FILE: &str = "audio.wav";
 const OGG_FILE: &str = "audio.ogg";
 #[cfg(test)]
@@ -34,7 +39,11 @@ pub(super) struct DiskSink {
 pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProcessingErr> {
     let wav_path = session_dir.join(WAV_FILE);
     let ogg_path = session_dir.join(OGG_FILE);
-    let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
+    let encoded_path = anlg_audio_encode::RECORDING_FILES
+        .into_iter()
+        .map(|name| session_dir.join(name))
+        .find(|path| path.exists())
+        .unwrap_or_else(|| session_dir.join(FINAL_AUDIO_FILE));
     let recovered_audio = if !encoded_path.exists() && !ogg_path.exists() {
         preserve_invalid_wav(&wav_path)?
     } else {
@@ -154,8 +163,8 @@ pub(super) fn finalize_disk_sink(sink: &mut DiskSink) -> Result<(), ActorProcess
     finalize_writer(&mut sink.writer_spk, None)?;
 
     if sink.wav_path.exists() {
-        let encoded_path = sink.wav_path.with_extension("mp3");
-        match anlg_mp3::encode_wav(&sink.wav_path, &encoded_path) {
+        let encoded_path = sink.wav_path.with_file_name(FINAL_AUDIO_FILE);
+        match anlg_audio_encode::encode_wav(&sink.wav_path, &encoded_path) {
             Ok(()) => {
                 sync_file(&encoded_path);
                 sync_dir(&encoded_path);
@@ -163,7 +172,7 @@ pub(super) fn finalize_disk_sink(sink: &mut DiskSink) -> Result<(), ActorProcess
                 sync_dir(&sink.wav_path);
             }
             Err(error) => {
-                tracing::error!("Encoding to mp3 failed, keeping WAV: {}", error);
+                tracing::error!("Encoding to AAC failed, keeping WAV: {}", error);
                 sync_file(&sink.wav_path);
                 sync_dir(&sink.wav_path);
             }
@@ -179,7 +188,7 @@ fn prepare_existing_audio_state(
     wav_path: &Path,
 ) -> Result<bool, ActorProcessingErr> {
     if encoded_path.exists() {
-        decode_mp3_to_wav(encoded_path, wav_path)?;
+        decode_encoded_to_wav(encoded_path, wav_path)?;
         std::fs::remove_file(encoded_path)?;
         return Ok(wav_is_stereo(wav_path)?);
     }
@@ -202,13 +211,13 @@ fn prepare_existing_audio_state(
     Ok(false)
 }
 
-fn decode_mp3_to_wav(encoded_path: &Path, wav_path: &Path) -> Result<(), ActorProcessingErr> {
+fn decode_encoded_to_wav(encoded_path: &Path, wav_path: &Path) -> Result<(), ActorProcessingErr> {
     let tmp_path = wav_path.with_extension("wav.tmp");
     if tmp_path.exists() {
         std::fs::remove_file(&tmp_path)?;
     }
 
-    anlg_mp3::decode_to_wav(encoded_path, &tmp_path).map_err(into_actor_err)?;
+    anlg_audio_encode::decode_to_wav(encoded_path, &tmp_path).map_err(into_actor_err)?;
 
     if wav_path.exists() {
         std::fs::remove_file(wav_path)?;
@@ -540,20 +549,20 @@ mod tests {
     }
 
     #[test]
-    fn create_disk_sink_decodes_existing_mp3_to_wav() {
+    fn create_disk_sink_decodes_existing_legacy_mp3_to_wav() {
         let dir = tempdir().unwrap();
         let session_dir = dir.path().join("session");
         std::fs::create_dir_all(&session_dir).unwrap();
         std::fs::copy(
             anlg_data::english_1::AUDIO_MP3_PATH,
-            session_dir.join(FINAL_AUDIO_FILE),
+            session_dir.join(LEGACY_AUDIO_FILE),
         )
         .unwrap();
 
         let _sink = create_disk_sink(&session_dir).unwrap();
 
         assert!(session_dir.join(WAV_FILE).exists());
-        assert!(!session_dir.join(FINAL_AUDIO_FILE).exists());
+        assert!(!session_dir.join(LEGACY_AUDIO_FILE).exists());
     }
 
     #[test]
@@ -599,21 +608,23 @@ mod tests {
     }
 
     #[test]
-    fn create_disk_sink_prefers_existing_mp3_over_stale_wav() {
+    fn create_disk_sink_continues_a_legacy_mp3_as_aac() {
         let dir = tempdir().unwrap();
         let session_dir = dir.path().join("session");
         std::fs::create_dir_all(&session_dir).unwrap();
+        let legacy_path = session_dir.join(LEGACY_AUDIO_FILE);
         let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
         let wav_path = session_dir.join(WAV_FILE);
-        std::fs::copy(anlg_data::english_1::AUDIO_MP3_PATH, &encoded_path).unwrap();
+        std::fs::copy(anlg_data::english_1::AUDIO_MP3_PATH, &legacy_path).unwrap();
         write_test_wav(&wav_path, 128);
-        let original_frames = decoded_frame_count(&encoded_path);
+        let original_frames = decoded_frame_count(&legacy_path);
 
         let mut sink = create_disk_sink(&session_dir).unwrap();
         write_single(&mut sink, &vec![0.0; SAMPLE_RATE as usize]).unwrap();
         finalize_disk_sink(&mut sink).unwrap();
 
         assert!(!wav_path.exists());
+        assert!(!legacy_path.exists(), "the old MP3 is replaced");
         assert!(encoded_path.exists());
         assert!(decoded_frame_count(&encoded_path) > original_frames);
     }

@@ -109,7 +109,7 @@ async fn next_recorder_runs_while_previous_listener_finalizes() {
         vault
             .path()
             .join(&next_ctx.params.session_id)
-            .join("audio.mp3")
+            .join("audio.aac")
             .metadata()
             .unwrap()
             .len()
@@ -314,7 +314,7 @@ async fn refreshed_credentials_resume_live_transcription_after_authentication_fa
             .unwrap()
             .is_empty()
     );
-    assert!(!session_dir.join("audio.mp3").exists());
+    assert!(!session_dir.join("audio.aac").exists());
 }
 
 #[tokio::test]
@@ -435,7 +435,7 @@ async fn live_words_resume_after_stalled_streams_without_restarting_recorder() {
             vault
                 .path()
                 .join(&session_id)
-                .join("audio.mp3")
+                .join("audio.aac")
                 .metadata()
                 .unwrap()
                 .len()

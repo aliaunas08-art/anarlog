@@ -296,9 +296,11 @@ pub fn find_session_dir(sessions_base: &Path, session_id: &str) -> PathBuf {
 
 pub fn resolve_final_audio_path(sessions_base: &Path, session_id: &str) -> Option<PathBuf> {
     let session_dir = find_session_dir(sessions_base, session_id);
-    let mp3_path = session_dir.join("audio.mp3");
-    if mp3_path.exists() {
-        return Some(mp3_path);
+    for name in anlg_audio_encode::RECORDING_FILES {
+        let encoded_path = session_dir.join(name);
+        if encoded_path.exists() {
+            return Some(encoded_path);
+        }
     }
 
     let wav_path = session_dir.join("audio.wav");

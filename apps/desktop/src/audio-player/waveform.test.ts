@@ -145,6 +145,34 @@ describe("loadWaveform", () => {
     expect(relabeled.type).toBe("audio/mpeg");
   });
 
+  it("relabels a mis-sniffed AAC recording as audio/aac", async () => {
+    const { ws, fetchAudio } = setup();
+    const media = {
+      src: "",
+      canPlayType: vi.fn((type: string) =>
+        type === "audio/aac" ? "maybe" : "",
+      ),
+    };
+    ws.getMediaElement.mockReturnValue(media);
+    fetchAudio.mockResolvedValue({
+      status: 200,
+      blob: () => Promise.resolve(new Blob(["audio"], { type: "text/html" })),
+    });
+
+    await loadWaveform(ws, {
+      url: "asset://localhost/%2Fsessions%2Fs1%2Faudio.aac",
+      sessionId: "session",
+      signal: new AbortController().signal,
+      fetchAudio,
+      loadPeaks: vi.fn().mockResolvedValue(peaks),
+    });
+
+    const relabeled = vi
+      .mocked(URL.createObjectURL)
+      .mock.calls.at(-1)![0] as Blob;
+    expect(relabeled.type).toBe("audio/aac");
+  });
+
   it("falls back to wavesurfer decoding when peaks are unavailable", async () => {
     const { ws, fetchAudio } = setup();
 

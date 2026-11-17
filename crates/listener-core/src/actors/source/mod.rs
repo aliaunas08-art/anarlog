@@ -1151,7 +1151,8 @@ mod tests {
             .unwrap()
             .unwrap();
         let wav = dir.path().join("decoded.wav");
-        anlg_mp3::decode_to_wav(&dir.path().join("partial-audio/audio.mp3"), &wav).unwrap();
+        anlg_audio_encode::decode_to_wav(&dir.path().join("partial-audio/audio.aac"), &wav)
+            .unwrap();
         let mut reader = hound::WavReader::open(wav).unwrap();
         assert_eq!(reader.spec().channels, 2);
         assert!(reader.duration() >= 16_000);

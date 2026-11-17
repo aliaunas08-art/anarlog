@@ -2,8 +2,8 @@ mod common;
 
 use std::time::Duration;
 
-use common::{Case, TestResult, decode_mp3_bytes, write_fixture_wav};
-use mp3::encode_mono_segments;
+use audio_encode::encode_mono_segments;
+use common::{Case, TestResult, decode_audio_file, write_fixture_wav};
 use tempfile::tempdir;
 
 #[test]
@@ -21,7 +21,12 @@ fn splits_stereo_audio_into_mono_segments() -> TestResult {
 
     assert_eq!(segments.len(), 3, "5s of audio in 2s segments");
     for segment in &segments {
-        let (spec, samples) = decode_mp3_bytes(&std::fs::read(segment)?)?;
+        assert_eq!(
+            segment.extension().and_then(|e| e.to_str()),
+            Some(audio_encode::UPLOAD_EXTENSION),
+            "segments use the upload format"
+        );
+        let (spec, samples) = decode_audio_file(segment)?;
         assert_eq!(spec.channels, 1, "segments are downmixed to mono");
         assert_eq!(spec.sample_rate, case.sample_rate);
         assert!(!samples.is_empty(), "segment decoded to no audio");

@@ -14,20 +14,17 @@ pub enum Error {
     #[error("invalid segment duration: {0:?}")]
     InvalidSegmentDuration(std::time::Duration),
 
-    #[error("failed to create LAME encoder")]
-    LameInit,
+    #[error("AudioToolbox {what} failed (OSStatus {status})")]
+    AudioToolbox { what: &'static str, status: i32 },
 
-    #[error("LAME configuration error: {0}")]
-    LameConfig(String),
+    #[error("sample rate {0} Hz isn't supported by AAC")]
+    UnsupportedSampleRate(u32),
 
-    #[error("LAME build error: {0}")]
-    LameBuild(String),
+    #[error("audio file path isn't valid UTF-8")]
+    NonUtf8Path,
 
-    #[error("LAME encode error: {0}")]
-    LameEncode(String),
-
-    #[error("LAME flush error: {0}")]
-    LameFlush(String),
+    #[error("FLAC encode error: {0}")]
+    Flac(String),
 
     #[error(transparent)]
     Wav(#[from] hound::Error),

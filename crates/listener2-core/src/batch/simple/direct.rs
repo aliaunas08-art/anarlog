@@ -165,33 +165,35 @@ pub(super) async fn prepare_anarlog_batch_upload(
                     .to_string(),
             }
         })?;
-    let encoded_path = temp_dir.path().join("audio.mp3");
+    let encoded_path = temp_dir
+        .path()
+        .join(format!("audio.{}", anlg_audio_encode::UPLOAD_EXTENSION));
     let encode_source = source_path.clone();
     let encode_target = encoded_path.clone();
-    tokio::task::spawn_blocking(move || anlg_mp3::encode_wav(&encode_source, &encode_target))
-        .await
-        .map_err(|_error| {
-            tracing::error!(
-                error.type = "local_task_join_failed",
-                "large_batch_audio_encode_task_failed"
-            );
-            crate::BatchFailure::DirectRequestFailed {
-                provider: AdapterKind::Anarlog.to_string(),
-                message: "Anarlog couldn't prepare this large recording for transcription."
-                    .to_string(),
-            }
-        })?
-        .map_err(|_error| {
-            tracing::error!(
-                error.type = "audio_encode_failed",
-                "large_batch_audio_encode_failed"
-            );
-            crate::BatchFailure::DirectRequestFailed {
-                provider: AdapterKind::Anarlog.to_string(),
-                message: "Anarlog couldn't prepare this large recording for transcription."
-                    .to_string(),
-            }
-        })?;
+    tokio::task::spawn_blocking(move || {
+        anlg_audio_encode::encode_wav(&encode_source, &encode_target)
+    })
+    .await
+    .map_err(|_error| {
+        tracing::error!(
+            error.type = "local_task_join_failed",
+            "large_batch_audio_encode_task_failed"
+        );
+        crate::BatchFailure::DirectRequestFailed {
+            provider: AdapterKind::Anarlog.to_string(),
+            message: "Anarlog couldn't prepare this large recording for transcription.".to_string(),
+        }
+    })?
+    .map_err(|_error| {
+        tracing::error!(
+            error.type = "audio_encode_failed",
+            "large_batch_audio_encode_failed"
+        );
+        crate::BatchFailure::DirectRequestFailed {
+            provider: AdapterKind::Anarlog.to_string(),
+            message: "Anarlog couldn't prepare this large recording for transcription.".to_string(),
+        }
+    })?;
 
     let encoded_size = tokio::fs::metadata(&encoded_path).await?.len();
     if encoded_size > max_bytes {
@@ -222,6 +224,13 @@ pub(super) async fn run_direct_batch<A: BatchSttAdapter>(
     listen_params: owhisper_interface::ListenParams,
     limit: Option<BatchUploadLimit>,
 ) -> crate::Result<BatchRunOutput> {
+    // Kept alive until the upload is done; its directory is then deleted.
+    let converted =
+        super::super::upload::provider_compatible_copy(&params.file_path, provider).await?;
+    let mut params = params;
+    if let Some(copy) = &converted {
+        params.file_path = copy.path().to_string_lossy().into_owned();
+    }
     let audio_duration = audio_duration(&params.file_path);
     let timeout = direct_batch_timeout_for_audio(audio_duration);
 

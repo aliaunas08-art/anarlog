@@ -1,17 +1,17 @@
-use std::fs::File;
-use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anlg_audio_utils::Source;
 
+use crate::Error;
 use crate::encoder::f32_to_i16;
-use crate::{Error, MonoStreamEncoder};
+use crate::platform::UploadWriter;
 
 const ENCODE_FRAMES: usize = 4096;
 
 /// Decodes any supported audio file, downmixes it to mono, and writes it back out
-/// as MP3 segments of at most `segment_duration`. Providers that cap upload size
+/// as upload segments (`.m4a` AAC-LC on macOS, `.flac` elsewhere) of at most
+/// `segment_duration`. Every STT provider accepts both. Providers that cap upload size
 /// or time out on long audio get one request per segment.
 pub fn encode_mono_segments(
     source_path: &Path,
@@ -38,7 +38,11 @@ pub fn encode_mono_segments(
         }
 
         if current.is_none() {
-            let path = output_dir.join(format!("segment-{:04}.mp3", paths.len()));
+            let path = output_dir.join(format!(
+                "segment-{:04}.{}",
+                paths.len(),
+                crate::UPLOAD_EXTENSION
+            ));
             current = Some(SegmentEncoder::create(&path, sample_rate)?);
             paths.push(path);
         }
@@ -65,20 +69,16 @@ fn frames_per_segment(sample_rate: u32, segment_duration: Duration) -> Result<us
 }
 
 struct SegmentEncoder {
-    encoder: MonoStreamEncoder,
-    writer: BufWriter<File>,
+    writer: UploadWriter,
     pcm: Vec<i16>,
-    encoded: Vec<u8>,
     frames: usize,
 }
 
 impl SegmentEncoder {
     fn create(path: &Path, sample_rate: u32) -> Result<Self, Error> {
         Ok(Self {
-            encoder: MonoStreamEncoder::new(sample_rate)?,
-            writer: BufWriter::new(File::create(path)?),
+            writer: UploadWriter::create(path, sample_rate, 1)?,
             pcm: Vec::with_capacity(ENCODE_FRAMES),
-            encoded: Vec::new(),
             frames: 0,
         })
     }
@@ -94,21 +94,14 @@ impl SegmentEncoder {
     }
 
     fn drain(&mut self) -> Result<(), Error> {
-        self.encoded.clear();
-        self.encoder.encode_i16(&self.pcm, &mut self.encoded)?;
-        self.writer.write_all(&self.encoded)?;
+        self.writer.write(&self.pcm)?;
         self.pcm.clear();
         Ok(())
     }
 
     fn finish(mut self) -> Result<(), Error> {
         self.drain()?;
-        self.encoded.clear();
-        self.encoder.flush(&mut self.encoded)?;
-        self.writer.write_all(&self.encoded)?;
-        self.writer.flush()?;
-        self.writer.get_ref().sync_all()?;
-        Ok(())
+        self.writer.finish()
     }
 }
 

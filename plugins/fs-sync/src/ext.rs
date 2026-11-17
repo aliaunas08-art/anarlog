@@ -25,7 +25,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsSync<'a, R, M> {
             .await
     }
 
-    /// Retained audio file of a session (`audio.mp3`, `.wav` or `.ogg`), if any.
+    /// Retained audio file of a session (`audio.aac`, or an older `audio.mp3`,
+    /// `.wav` or `.ogg`), if any.
     pub fn session_audio_path(
         &self,
         session_id: &str,

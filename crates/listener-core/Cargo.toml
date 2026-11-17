@@ -25,7 +25,8 @@ anlg-vad-masking = { workspace = true }
 owhisper-client = { workspace = true, features = ["local"] }
 owhisper-interface = { workspace = true }
 
-anlg-mp3 = { workspace = true }
+anlg-audio-encode = { workspace = true }
+tempfile = { workspace = true }
 hound = { workspace = true }
 
 ractor = { workspace = true, features = ["async-trait"] }
