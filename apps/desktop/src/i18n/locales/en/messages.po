@@ -1844,6 +1844,10 @@ msgstr "Connected"
 msgid "Connected {who}"
 msgstr "Connected {who}"
 
+#: src/accounts/local.ts
+msgid "Connected a different {name} account than last time"
+msgstr "Connected a different {name} account than last time"
+
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
 msgstr "Connected accounts"
@@ -2576,6 +2580,7 @@ msgstr "Disable"
 msgid "Disable all notifications"
 msgstr "Disable all notifications"
 
+#: src/accounts/local.ts
 #: src/calendar/components/oauth/local-provider-content.tsx
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
@@ -3569,6 +3574,10 @@ msgstr "Joined {0}"
 #: src/main/home.tsx
 msgid "Jump back in"
 msgstr "Jump back in"
+
+#: src/accounts/local.ts
+msgid "Keep"
+msgstr "Keep"
 
 #: src/settings/dictation.tsx
 msgid "Keep {APP_NAME} running to use your shortcut in other apps."
@@ -4657,6 +4666,14 @@ msgstr "Notion update"
 msgid "Now"
 msgstr "Now"
 
+#. placeholder {0}: accountLabel(account)
+#. placeholder {1}: account.id
+#. placeholder {2}: accountLabel(replaced)
+#. placeholder {3}: replaced.id
+#: src/accounts/local.ts
+msgid "Now: {0}, id {1}. Before: {2}, id {3}. If this isn't the account you meant, disconnect it and connect again, choosing the other account."
+msgstr "Now: {0}, id {1}. Before: {2}, id {3}. If this isn't the account you meant, disconnect it and connect again, choosing the other account."
+
 #: src/settings/audit/index.tsx
 msgid "Object"
 msgstr "Object"
@@ -5024,6 +5041,10 @@ msgstr "Permissions for {0}"
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
 msgstr "Permissions granted"
+
+#: src/accounts/local.ts
+msgid "Personal account"
+msgstr "Personal account"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Personal email"
@@ -7787,6 +7808,10 @@ msgstr "With error reports on, also send a replay of the app's screens with all 
 #: src/task/tab-content.tsx
 msgid "Work on this task"
 msgstr "Work on this task"
+
+#: src/accounts/local.ts
+msgid "Work or school account"
+msgstr "Work or school account"
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "Workflow"
