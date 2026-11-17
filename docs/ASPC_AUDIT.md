@@ -911,6 +911,13 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 - **Observed, not changed:** `sqlx` logs full statement text at `debug` (and slow statements at `warn`); Rust code binds values, so content appears only if a statement embeds a literal. The app logs at `info` unless `RUST_LOG` is set. The `[cloudsync]` console allowlist keeps the first argument up to 200 characters, so `console.error("[cloudsync] … " + content)` would be logged (no such call was looked for).
 - **Not covered yet:** live capture and transcription, Tantivy search errors, PDF/Markdown export failures, Ask tool errors, and the real `app.log` writer (the test uses an equivalent subscriber, not `plugins/tracing`'s file layer and redaction).
 
+### C3.1 / C7.7 check-secrets: fresh database and release wiring: EXISTS
+
+- `scripts/check-secrets.mjs`: `--fresh-db` (`withFreshDatabase`: temp folder, `cargo run --locked -p db-app --example fresh_db`, scan `app.db` / `-wal` / `-shm` as bytes, delete) and `--db <file>`; `scanDatabaseFiles` allows no fake keys. `crates/db-app/examples/fresh_db.rs` opens a new database, runs `prepare_schema` (migrations and seed templates) and checkpoints. Test: `a key stored in a database file fails, even inside binary pages` (`scripts/check-secrets.test.mjs`).
+- **Run on this Mac:** `scripts/check-secrets --fresh-db` → sources scanned, fresh database scanned, 0 findings.
+- **CI:** `cli_ci.yaml` runs `--fresh-db` after the db-app tests (path filter now includes `scripts/check-secrets.mjs`); `desktop_cd.yaml` runs `--require-bundle` after the macOS, Linux and Windows `tauri build` steps.
+- GUESS: the release bundle embeds `VITE_POSTHOG_API_KEY` and `VITE_SUPABASE_ANON_KEY` (public client keys); neither matches the key patterns (`sk-ant-`, `sk-`, `AKIA`/`ASIA`, `AIza`), so the release step should pass. Not run against a real release bundle.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

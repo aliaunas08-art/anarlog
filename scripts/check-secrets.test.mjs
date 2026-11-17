@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { findSecrets, scan } from "./check-secrets.mjs";
+import { findSecrets, scan, scanDatabaseFiles } from "./check-secrets.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const realLooking = ["sk-ant-api03-", "Q7v9xLm2RtP4wZk8NcB3hJ6d"].join("");
@@ -56,4 +56,27 @@ test("a built bundle with an embedded key fails", async () => {
 test("the repository sources hold no key", () => {
   const { findings } = scan({ root, bundle: undefined });
   assert.deepEqual(findings, []);
+});
+
+test("a key stored in a database file fails, even inside binary pages", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "check-secrets-db-"));
+  try {
+    const file = path.join(dir, "app.db");
+    const page = Buffer.concat([
+      Buffer.from("SQLite format 3\0"),
+      Buffer.alloc(64),
+      Buffer.from(realLooking),
+      Buffer.alloc(64),
+    ]);
+    await writeFile(file, page);
+    await writeFile(`${file}-wal`, Buffer.alloc(32));
+    const findings = scanDatabaseFiles([file, `${file}-wal`, `${file}-shm`]);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].name, "Anthropic key");
+    // A fake-looking key is not allowed in a database either.
+    await writeFile(file, Buffer.from("sk-ant-test-0000000000000000"));
+    assert.equal(scanDatabaseFiles([file]).length, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

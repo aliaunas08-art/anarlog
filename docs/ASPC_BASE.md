@@ -239,7 +239,7 @@ The rules:
 - **C7.4** On a network error, 5xx, 429, a used-up quota or a missing or rejected key, the Engine returns a typed code (`ai.unavailable`, `ai.rate_limited`, `ai.quota`, `ai.no_key`, `ai.invalid_key`), and AI features show "AI paused: …". The SDK does not retry these. Recording, transcripts and notes keep working. Tests: `provider_errors_map_to_pause_codes_and_never_leak_the_key`, `quotas_and_rate_limit_stop_calls_before_the_network`, `missing_key_pauses_with_ai_no_key`, and `turns a pause into one calm error and does not retry` (`apps/desktop/src/ai/engine/engine.test.ts`).
 - **C7.5** Enhancing a meeting makes exactly one model call, which returns the summary and the title (a `<meeting_title>` line the workflow cuts from the stream). Enhance has no SDK or validation retries. Test: `enhance-one-call.test.ts` runs a fixture meeting through the task pipeline with a stub Engine transport and counts one call with the pinned model.
 - **C7.6 Pre-publish gate.** Before any build is given to other users while it runs on the developer's key, the hosted proxy must exist: PROXY mode implemented, user sign-in, and server-side spend caps; and in that build `resolve_engine_config()` must return PROXY, so DIRECT mode with a developer key is impossible. Until then, builds are for this Mac with the user's own key only.
-- **C7.7 Hard rule:** no developer key is ever embedded in, or shipped with, a distributed build. The DIRECT key is only ever typed by the user into Settings → AI and kept in their Keychain. Check: `scripts/check-secrets` scans the tracked Rust and desktop sources and the built frontend bundle (`apps/desktop/dist`, or `--bundle <dir>`; `--require-bundle` for release builds) for `sk-ant-…` and other key-like strings; its test runs in CI (`ci.yaml`).
+- **C7.7 Hard rule:** no developer key is ever embedded in, or shipped with, a distributed build. The DIRECT key is only ever typed by the user into Settings → AI and kept in their Keychain. Check: `scripts/check-secrets` scans the tracked Rust and desktop sources and the built frontend bundle (`apps/desktop/dist`, or `--bundle <dir>`; `--require-bundle` for release builds) for `sk-ant-…` and other key-like strings; its test runs in CI (`ci.yaml`). The release workflow (`desktop_cd.yaml`) runs `--require-bundle` after each macOS, Linux and Windows build, so a release fails if the bundle is missing or holds a key. `--fresh-db` creates a database with the app's migrations and seed data (`cargo run -p db-app --example fresh_db`) and scans its bytes, with no fake-key exception; `cli_ci.yaml` runs it.
 
 ## D. Compliance
 
@@ -378,9 +378,9 @@ These tests must exist and pass; each item is true or false:
 - [x] Marker string appears in no log, error or analytics output (C4.2): the C4.2 tests listed there (capture, search and export failures not yet covered)
 - [x] Deleting a meeting removes every trace (D2.2): `a_purged_meeting_leaves_no_marker_in_the_database_wal_vault_or_cache` and `purged_sessions_leave_no_bytes_in_the_index_directory` (two tests; see ASPC_AUDIT Phase 4 gaps)
 - [x] Backup restores into a clean install (C5.2): `backup_restores_into_a_clean_library` (`plugins/session`; a library wiped and recreated in place, not a separate install)
-- [ ] No secret in the repo or a fresh DB: `scripts/check-secrets` runs `git grep` for key patterns and scans a fresh `app.db` (C3.1)
+- [x] No secret in the repo or a fresh DB: `scripts/check-secrets` scans the tracked sources for key patterns and, with `--fresh-db`, a fresh `app.db` (C3.1)
 - [ ] Existing tests and Efficiency Engine tests pass: one call per meeting, model locked, no AI call site outside the Engine (C7.1, C7.2, C7.5)
-- [ ] `scripts/check-secrets --require-bundle` finds no key in the sources or the built bundle (C7.7)
+- [ ] `scripts/check-secrets --require-bundle` finds no key in the sources or the built bundle (C7.7): wired into `desktop_cd.yaml`; passes once a release build runs it
 
 ## Decisions
 

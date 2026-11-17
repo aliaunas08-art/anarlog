@@ -7,6 +7,9 @@
 //   node scripts/check-secrets.mjs                 # sources + apps/desktop/dist if built
 //   node scripts/check-secrets.mjs --bundle <dir>  # a specific built bundle
 //   node scripts/check-secrets.mjs --require-bundle  # fail if no bundle exists (release CI)
+//   node scripts/check-secrets.mjs --fresh-db      # also create a fresh app.db with the
+//                                                  # app's migrations and scan its bytes
+//   node scripts/check-secrets.mjs --db <file>     # also scan an existing database file
 //
 // In sources, obviously fake keys in test code are allowed: the match must
 // sit in a test file and contain a marker such as "test" or "fake". In a
@@ -14,7 +17,15 @@
 // the API crates' tests) are not API keys and are out of scope here.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -122,6 +133,55 @@ export function scan({ root, bundle, requireBundle }) {
   return { findings, bundleScanned };
 }
 
+/**
+ * Findings in a database file (and its `-wal` / `-shm`), read as bytes.
+ * Nothing is allowed: a database never holds a key (C3.1).
+ */
+export function scanDatabaseFiles(files, root) {
+  const findings = [];
+  for (const full of files) {
+    if (!existsSync(full)) continue;
+    findings.push(
+      ...findSecrets(readFileSync(full).toString("latin1"), {
+        file: root ? path.relative(root, full) : full,
+        inBundle: true,
+      }),
+    );
+  }
+  return findings;
+}
+
+function databaseFiles(file) {
+  return [file, `${file}-wal`, `${file}-shm`];
+}
+
+/** Creates a fresh app.db with the app's migrations (needs cargo). */
+function withFreshDatabase(root, use) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "check-secrets-db-"));
+  try {
+    const file = path.join(dir, "app.db");
+    execFileSync(
+      "cargo",
+      [
+        "run",
+        "--locked",
+        "--quiet",
+        "-p",
+        "db-app",
+        "--example",
+        "fresh_db",
+        "--",
+        file,
+      ],
+      { cwd: root, stdio: ["ignore", "ignore", "inherit"] },
+    );
+    if (!existsSync(file)) throw new Error("fresh database was not created");
+    return use(file);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function main(argv) {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const bundleIndex = argv.indexOf("--bundle");
@@ -134,11 +194,30 @@ function main(argv) {
     bundle,
     requireBundle: argv.includes("--require-bundle"),
   });
+  const databases = [];
+  const dbIndex = argv.indexOf("--db");
+  if (dbIndex >= 0) {
+    const file = path.resolve(argv[dbIndex + 1]);
+    if (!existsSync(file)) {
+      findings.push({ file, name: "database missing", value: "" });
+    } else {
+      findings.push(...scanDatabaseFiles(databaseFiles(file)));
+      databases.push("given");
+    }
+  }
+  if (argv.includes("--fresh-db")) {
+    findings.push(
+      ...withFreshDatabase(root, (file) =>
+        scanDatabaseFiles(databaseFiles(file)),
+      ),
+    );
+    databases.push("fresh");
+  }
   for (const finding of findings) {
     console.error(`${finding.file}: ${finding.name} ${finding.value}`);
   }
   console.log(
-    `check-secrets: sources scanned; bundle ${bundleScanned ? "scanned" : "not built, skipped"}; ${findings.length} finding(s)`,
+    `check-secrets: sources scanned; bundle ${bundleScanned ? "scanned" : "not built, skipped"}; database ${databases.length > 0 ? databases.join(" + ") + " scanned" : "not scanned"}; ${findings.length} finding(s)`,
   );
   return findings.length === 0 ? 0 : 1;
 }
