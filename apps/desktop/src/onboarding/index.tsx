@@ -215,7 +215,7 @@ function OnboardingScreenContent({
           headerClassName,
         ])}
       >
-        <h1 className="font-hand text-foreground text-4xl leading-none font-semibold tracking-normal">
+        <h1 className="text-foreground font-sans text-4xl leading-none font-bold tracking-[-0.03em]">
           <Trans>Welcome to {APP_NAME}</Trans>
         </h1>
       </div>
