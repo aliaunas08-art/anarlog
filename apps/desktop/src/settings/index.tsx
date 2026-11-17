@@ -9,6 +9,7 @@ import {
 } from "./general";
 import { SettingsTodo } from "./todo";
 
+import { SettingsAbout } from "~/settings/about";
 import { AiEngineSettings } from "~/settings/ai/engine";
 import { STT } from "~/settings/ai/stt";
 import { SettingsAppearance } from "~/settings/appearance";
@@ -89,6 +90,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsAudit />;
       case "data-locations":
         return <SettingsDataLocations />;
+      case "about":
+        return <SettingsAbout />;
       case "developers":
         return <SettingsDevelopers />;
       case "dictionary":

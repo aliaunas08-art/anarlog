@@ -64,6 +64,7 @@ export type SettingsTab =
   | "privacy"
   | "audit"
   | "data-locations"
+  | "about"
   | "permissions"
   | "dictionary"
   | "dictation"
@@ -91,6 +92,7 @@ const normalizeSettingsTab = (
     case "privacy":
     case "audit":
     case "data-locations":
+    case "about":
     case "permissions":
     case "dictionary":
     case "dictation":

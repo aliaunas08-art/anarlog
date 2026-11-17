@@ -891,6 +891,17 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 - **Tests:** `settings/data-locations/index.test.tsx` (paths shown, lines follow the settings).
 - **To check by a person (not verified in code):** the sync line says "end-to-end encrypted copy"; meeting rows sync as `e2ee_*` ciphertext (section 1), but whether every synced item, cloud attachments in particular, is end-to-end encrypted was not checked. The Anthropic training statement paraphrases Anthropic's commercial API terms and should be confirmed by whoever owns legal review before release.
 
+### D5.1 licences screen: EXISTS; D5.3 flags: NEED A DECISION
+
+- **Generator** `scripts/generate-licenses.mjs` (`classify` handles SPDX `OR` / `AND` / `WITH` and old `A/B`; test `scripts/generate-licenses.test.mjs`, added to the `node --test` list in `.github/workflows/ci.yaml`). Output `apps/desktop/src/settings/about/third-party-licenses.gen.json`: the `LICENSE` text, 1018 crates, 1049 npm packages, and `flagged`. `--check` is not run in CI yet (the `ci.yaml` job has no Rust toolchain).
+- **UI** Settings → About (`apps/desktop/src/settings/about/index.tsx`, nav Advanced → About, tab `about`): the MIT licence verbatim, then Rust crates and JavaScript packages with their licences, filterable; the JSON is loaded only when the page opens.
+- **Flagged on 2026-11-17 (facts from package metadata; none approved):**
+  - **LGPL-3.0 (Rust, linked into the app):** `mp3lame-encoder` 0.2.3, `mp3lame-sys` 0.1.11 (LAME MP3 encoder, statically linked). LGPL in a statically linked, closed or MIT app has relinking obligations: **needs a decision** (replace, make it dynamic, or accept with the LGPL obligations met).
+  - **LGPL (npm):** `pos` 0.4.2: **needs a decision**.
+  - **MPL-2.0 (file-level copyleft; usually fine unmodified, keep notices):** `symphonia` and its codec/format crates 0.5.5, `cssparser` 0.29.6 / 0.36.0, `cssparser-macros`, `selectors` 0.24.0 / 0.36.1, `dtoa-short`, `option-ext`, `progenitor-client`; npm `lightningcss` 1.30.1 (+ `lightningcss-darwin-arm64`).
+  - **No licence in the package metadata (npm):** `@giscus/react` 3.1.0, `@splinetool/runtime` 0.9.526, `khroma` 2.1.0. GUESS: `khroma` and `@giscus/react` are MIT in their repositories, but the shipped package doesn't say so; `@splinetool/runtime` is a proprietary runtime as far as I know (not verified). **Needs a decision.**
+- **Gaps:** licence names only, not the full notice texts (Apache-2.0 `NOTICE` files are not collected); the generator covers macOS dependencies only.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

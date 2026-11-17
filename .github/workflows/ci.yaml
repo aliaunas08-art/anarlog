@@ -35,6 +35,7 @@ jobs:
           scripts/workflow-security.test.mjs
           scripts/security-dependencies.test.mjs
           scripts/check-secrets.test.mjs
+          scripts/generate-licenses.test.mjs
           scripts/publish-anarlog-skill.test.mjs
           scripts/repack-linux-appimage.test.mjs
           scripts/verify-linux-audio-qa-run.test.mjs

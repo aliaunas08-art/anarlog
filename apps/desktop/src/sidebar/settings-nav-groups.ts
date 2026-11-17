@@ -14,6 +14,7 @@ import {
   FileText,
   FolderSimple,
   Gear,
+  Info,
   Lightning,
   type Icon,
   ListChecks,
@@ -159,6 +160,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
         { id: "audit", label: t`Audit`, icon: ListChecks },
         { id: "permissions", label: t`Permissions`, icon: Lock },
         { id: "developers", label: t`Developers`, icon: Code },
+        { id: "about", label: t`About`, icon: Info },
       ],
     },
   ];
