@@ -112,7 +112,7 @@ export const useAppLock = create<AppLockState>((set, get) => {
     },
     setLockEnabled: async (enabled) => {
       if (get().authenticating) return false;
-      set({ authenticating: true });
+      set({ authenticating: true, unlockError: null });
       try {
         const result = await setAppLockEnabledInRust(enabled);
         if (!result.ok) {

@@ -839,6 +839,14 @@ msgstr "App"
 msgid "App icon"
 msgstr "App icon"
 
+#: src/settings/privacy/index.tsx
+msgid "App lock wasn't turned off"
+msgstr "App lock wasn't turned off"
+
+#: src/settings/privacy/index.tsx
+msgid "App lock wasn't turned on"
+msgstr "App lock wasn't turned on"
+
 #: src/settings/data-locations/index.tsx
 msgid "App logs (no meeting content)"
 msgstr "App logs (no meeting content)"
@@ -7245,6 +7253,10 @@ msgstr "Tokens per month"
 #: src/task/tasks-view.tsx
 msgid "Tomorrow"
 msgstr "Tomorrow"
+
+#: src/settings/privacy/index.tsx
+msgid "Touch ID or your password wasn't confirmed. Try again and confirm the macOS prompt."
+msgstr "Touch ID or your password wasn't confirmed. Try again and confirm the macOS prompt."
 
 #: src/chat/components/input/index.tsx
 msgid "Transcribing voice input"

@@ -51,8 +51,14 @@ fn start_authentication(reason: &str, tx: mpsc::Sender<Result<bool, Error>>) {
 
     let keep_alive = context.clone();
     let localized_reason = NSString::from_str(reason);
-    let reply = RcBlock::new(move |success: Bool, _error: *mut NSError| {
+    let reply = RcBlock::new(move |success: Bool, error: *mut NSError| {
         let _keep_alive = &keep_alive;
+        if !success.as_bool() {
+            // LAError code only (for example -2 user cancel, -4 system
+            // cancel, -1004 not interactive): says why nothing changed.
+            let code = unsafe { error.as_ref() }.map(|error| error.code());
+            tracing::warn!(?code, "device_auth_not_confirmed");
+        }
         let _ = tx.send(Ok(success.as_bool()));
     });
 

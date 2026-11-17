@@ -115,8 +115,10 @@ pub(crate) async fn set_enabled<R: Runtime>(
         AuthResult::Failed => return Ok(state.lock_snapshot()),
         AuthResult::Unavailable => return Err(UNAVAILABLE_MESSAGE.to_string()),
     }
+    // The app manages the database as `Arc<Db>`; looking up a bare `Db`
+    // never matched, so the lock setting could not be saved.
     let db = app
-        .try_state::<anlg_db_core::Db>()
+        .try_state::<std::sync::Arc<anlg_db_core::Db>>()
         .ok_or_else(|| "database is not available".to_string())?;
     crate::access::write_lock_setting(&db, enabled)
         .await

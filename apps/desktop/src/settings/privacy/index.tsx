@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 
+import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { BackupSettings } from "./backup";
@@ -77,7 +78,21 @@ export function SettingsPrivacy() {
               if (!canAuth) return;
               // Rust runs the device authentication and stores the setting
               // (ASPC A4.2); the webview never writes `lock_app` itself.
-              await setLockEnabled(next);
+              const changed = await setLockEnabled(next);
+              if (!changed) {
+                // Say why the switch didn't move instead of failing quietly.
+                const reason = useAppLock.getState().unlockError;
+                toast.error(
+                  next
+                    ? t`App lock wasn't turned on`
+                    : t`App lock wasn't turned off`,
+                  {
+                    description:
+                      reason ??
+                      t`Touch ID or your password wasn't confirmed. Try again and confirm the macOS prompt.`,
+                  },
+                );
+              }
             })();
           }}
         />
