@@ -224,7 +224,9 @@ async fn a_cancelled_first_attempt_reports_no_denial() {
         .unwrap();
     let guard = connection.workspace_guard().unwrap();
     let sql = "SELECT s.id FROM sessions s, humans h";
-    guard.check_read(connection.connection(), "SELECT id FROM sessions").await;
+    guard
+        .check_read(connection.connection(), "SELECT id FROM sessions")
+        .await;
     let first = sqlx::query(sqlx::AssertSqlSafe(sql))
         .fetch_all(connection.connection())
         .await;
@@ -237,6 +239,22 @@ async fn a_cancelled_first_attempt_reports_no_denial() {
         "a cancelled first attempt was reported: {:?}",
         seen.lock().unwrap()
     );
+}
+
+#[tokio::test]
+async fn a_locked_app_still_reads_its_settings_through_the_guard() {
+    let f = fixture(Some("local-ws")).await;
+    f.authorizer.set_locked(true);
+
+    // The lock screen needs settings: Rust's own BEGIN/COMMIT around the
+    // guarded read must not be refused while locked.
+    select(&f.webview, "SELECT id FROM app_settings")
+        .await
+        .expect("settings are readable while locked");
+    // Content stays refused while locked.
+    assert!(denied(select(&f.webview, "SELECT id FROM sessions").await));
+    // The webview still can't control transactions itself.
+    assert!(denied(select(&f.webview, "BEGIN").await));
 }
 
 #[tokio::test]

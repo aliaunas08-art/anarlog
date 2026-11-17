@@ -308,6 +308,15 @@ impl WebviewSqlAuthorizer {
         connection: &ConnectionState,
     ) -> (Decision, &'static str) {
         if self.is_locked() {
+            // The guard's own transaction is opened and ended by Rust, never
+            // by the webview; refusing it failed the lock-screen settings read
+            // at a locked cold start, so the app never left its splash.
+            if request.action == ffi::SQLITE_TRANSACTION
+                && connection.guarded
+                && connection.transaction_control.load(Ordering::SeqCst)
+            {
+                return (Decision::Allow, aspc::DenyCode::Locked.as_str());
+            }
             return (decide_locked(request), aspc::DenyCode::Locked.as_str());
         }
         if decide(request) == Decision::Deny {
