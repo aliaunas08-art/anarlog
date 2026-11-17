@@ -822,7 +822,7 @@ Nothing below was run in the app; see "Phase 4 runtime check". Approved schema c
 7. **Retention:** Settings → Privacy → "Delete meetings older than…" 1 day, relaunch: meetings older than a day are gone (not one being recorded), and Settings → Audit shows `retention.run` with the count. Set it back to "Keep meetings forever".
 8. **Private:** mark a meeting Private from its "…" menu; the header shows "Private". All-meetings Ask about a phrase only in that meeting finds nothing; "This meeting" Ask on it still answers. `anarlog meetings list` leaves it out, `--include-private` shows it. Sharing it asks first; declining shows "Not shared: this meeting is Private." A second Mac with sync shows it as Private too.
 
-## Phase 5 changes (defaults, encryption check, backup, privacy surfaces, licences), 2026-11-16
+## Phase 5 changes (defaults, encryption check, backup, privacy surfaces, licences), 2026-11-16/17
 
 Nothing below was run in the app; see "Phase 5 runtime check".
 
@@ -924,6 +924,27 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 - **How they were chosen:** deletes, key changes and installs whose only callers (checked by grep) are user actions in the main or note windows: folder delete (`sidebar/folder-materials.tsx`, `folders/folder-editor.tsx`), folder material delete, session audio delete (`audio-player/provider.tsx`, `session/move-contents.ts`), voice profile delete (Settings), calendar account connect/disconnect (calendar settings), developer installs (Settings → Developers).
 - **Left Pending on purpose (risk of breaking a background path):** deletes that also run from background flows (`fs-sync:delete_session_folder` from sync evictions, `fs-sync:audio_delete` from capture cleanup, `fs-sync:attachment_remove` from screen-record cleanup, `calendar:tombstone_calendar_connection`), the E2EE key commands (`db:create_e2ee_identity`, `import_*`, `seal_*`, called by automatic sync enrollment and possibly while the app is locked), `db:configure_cloudsync_token` (token refresh), `misc:allow_http_origin` (also called by `enterprise-capture`), and macro-generated commands whose functions the registry test can't see (`calendar:soft_delete_contact`).
 - **Tests:** `tests/command_registry.rs` (every guarded entry calls the guard), `state::tests::guard_denies_locked_viewer_and_wrong_window` (every registry entry). Not run: the `tauri-plugin-fs-sync` and `tauri-plugin-transcription` test suites (`cargo check -p desktop` compiles them).
+
+### Phase 5 test results (2026-11-17, this Mac)
+
+- **Rust:** `db-execute --test workspace_guard` 9 (new `only_final_denials_reach_the_denial_sink` fails on the Phase 4 code); `db-core --lib webview_sql` 11; `db-reactive` all pass; `aspc` 23 unit + 2 registry + 2 role scans; `tauri-plugin-analytics` 4; `tauri-plugin-anlg-tray` 16; `tauri-plugin-session` 46 (backup 2, content marker 1); `tauri-plugin-accounts` 1; `ai-engine` 23 + 2; `analytics` 4; `tauri-plugin-tracing` console test; `desktop --lib` 35. `cargo check --locked -p desktop` passes. `cargo clippy --all-targets --no-deps -D warnings` is clean for `aspc`, `db-core`, `db-app` (with the new example), `db-execute`, `ai-engine`, `tauri-plugin-session`, `tauri-plugin-accounts`. Clippy fails on existing code in `analytics` (`is_safe_analytics_string`, `nonminimal_bool`) and `tauri-plugin-anlg-tray` (`rebuild_menu`, `refresh_menu_if_agenda_changed`); not changed here.
+- **Desktop:** `tsc --noEmit` passes; `oxlint` 0 errors (225 warnings, as before); full `vitest run`: 503 of 504 files, 4422 of 4424 tests pass; the 2 failures are the known date-dependent `settings/general/billing.test.tsx` cases. i18n: `lingui extract --clean` and `compile --strict` are stable.
+- **Scripts:** the `ci.yaml` `node --test` list: 102 of 104 pass; the 2 failures (`desktop-release-provenance.test.mjs`, Store package cases) also fail without these changes. `scripts/check-secrets --fresh-db`: 0 findings. `node scripts/generate-licenses.mjs --check`: up to date.
+- **Not run:** `tauri-plugin-fs-sync`, `tauri-plugin-transcription`, `tauri-plugin-db` test suites (compiled by `cargo check -p desktop`); the app itself.
+
+### Phase 5 runtime check
+
+1. **Denials at startup:** launch, then Settings → Audit: no `permission.denied` / `sql.workspace` entries for `events`, `json_each` or `local_recording_import_jobs` from the launch. Locking the app with a note open still records a few denials.
+2. **Defaults:** on this existing install, Settings → Privacy shows "Share usage data", "Error" and "Session replay" all off (this install's earlier consent is ignored on purpose). Turn "Share usage data" on and off; nothing else changes.
+3. **Recording indicator:** Settings → App → turn "Show tray icon" off; start a recording: the menu-bar icon appears and animates; stop: it disappears again. With the floating bar off as well, the icon is still there.
+4. **Calendar auto-start:** with "Auto-start scheduled meetings" on and the window hidden, let a calendar meeting with a link start: a macOS notification "Recording started automatically" appears (no meeting title) and the menu-bar icon animates.
+5. **Permissions and FileVault:** after the first launch, `ls -la` of the data folder shows `drwx------` and `-rw-------` for `app.db*`, `audit.db*` and `store.json`; `app.log` has `app_data_permissions_tightened` lines with paths and modes only. If FileVault is off, a "FileVault is off" toast appears once; Settings → Privacy shows "Disk encryption (FileVault)".
+6. **Backup:** Settings → Privacy → "Back up library…", pick a place: a native dialog warns it is not encrypted; after OK a `.anarlogbackup` file appears (mode `0600`) and Settings → Audit shows `backup.created` with counts.
+7. **Restore:** "Restore from backup…", pick that file: a native confirmation; after OK, "Restore ready" with "Restart now". Restart: the library matches the backup; the data folder has `app.db.<time>.pre-restore` and `sessions.<time>.pre-restore`; Settings → Audit shows `backup.restored`. Try a renamed non-backup file: "Restore failed", nothing changes.
+8. **Where your data lives:** Settings → Advanced → "Where your data lives": the paths match the real data folder; the transcription line names the chosen provider (or says audio stays on the Mac); the usage-data and error-report lines follow the switches.
+9. **Legal placeholders:** Settings → Privacy shows "Privacy Policy (placeholder, not written yet)" and "Terms of Use (…)" as disabled buttons.
+10. **About:** Settings → Advanced → About shows the MIT licence and the Rust and JavaScript lists; the filter works.
+11. **Guarded commands:** delete a folder, a folder file, a meeting's audio and the voice profile; connect and disconnect a calendar account; all still work from the main window.
 
 ## Not verified
 
