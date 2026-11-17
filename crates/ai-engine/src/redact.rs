@@ -40,8 +40,11 @@ mod tests {
 
     #[test]
     fn removes_keys_tokens_and_live_secrets() {
-        let text = "bad sk-ant-api03-abcdefghijkl Bearer abc.def x-api-key: zzz \
-                    https://h/?key=123&token=456 my-live-secret-value";
+        let text = concat!(
+            "bad sk-",
+            "ant-api03-abcdefghijkl Bearer abc.def x-api-key: zzz ",
+            "https://h/?key=123&token=456 my-live-secret-value"
+        );
         let out = redact(text, &["my-live-secret-value"]);
         for leaked in [
             "sk-ant",

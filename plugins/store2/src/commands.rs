@@ -23,6 +23,13 @@ enum SecretCaller {
     Renderer,
 }
 
+// C3.2: language-model provider keys. Every LLM call goes through the
+// Efficiency Engine (`plugins/ai-engine`), which keeps its own key in the
+// Keychain, so the webview never reads an LLM key. STT keys (`stt:…`) and
+// connected-import tokens (`meeting-imports:…`) are still read by the
+// webview: it hands them to the Rust transcription and import commands.
+const RENDERER_DENIED_SECRET_PREFIXES: &[&str] = &["ai-provider-api-keys:llm:"];
+
 fn validate_secret_coordinate(caller: SecretCaller, scope: &str, key: &str) -> Result<(), String> {
     let account = format!("{scope}:{key}");
     if caller == SecretCaller::Renderer
@@ -33,6 +40,19 @@ fn validate_secret_coordinate(caller: SecretCaller, scope: &str, key: &str) -> R
         return Err("secure-store account is reserved for native use".to_string());
     }
 
+    Ok(())
+}
+
+/// Reads from the webview: also refuses LLM provider keys (C3.2).
+fn validate_renderer_read(scope: &str, key: &str) -> Result<(), String> {
+    validate_secret_coordinate(SecretCaller::Renderer, scope, key)?;
+    let account = format!("{scope}:{key}");
+    if RENDERER_DENIED_SECRET_PREFIXES
+        .iter()
+        .any(|prefix| account.starts_with(prefix))
+    {
+        return Err("AI keys are held by the AI engine and can't be read here".to_string());
+    }
     Ok(())
 }
 
@@ -340,6 +360,7 @@ pub(crate) async fn get_secret<R: tauri::Runtime>(
     )
     .and_then(anlg_aspc::Grant::require_full)
     .map_err(|denied| denied.to_string())?;
+    validate_renderer_read(&scope, &key)?;
     read_secret_for(SecretCaller::Renderer, app, scope, key).await
 }
 
@@ -530,6 +551,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn webview_cannot_read_llm_keys_but_keeps_stt_and_import_secrets() {
+        for key in ["llm:anthropic", "llm:openai", "llm:anarlog"] {
+            assert!(
+                validate_renderer_read("ai-provider-api-keys", key).is_err(),
+                "{key}"
+            );
+        }
+        assert!(validate_renderer_read("ai-provider-api-keys", "stt:deepgram").is_ok());
+        assert!(validate_renderer_read("meeting-imports", "granola").is_ok());
+        assert!(validate_renderer_read("e2ee", "recovery").is_err());
+        // Native callers (Rust) are unaffected.
+        assert!(
+            validate_secret_coordinate(SecretCaller::Native, "ai-provider-api-keys", "llm:x")
+                .is_ok()
+        );
+    }
+
+    #[test]
     fn maps_bundle_identifiers_to_secure_store_services() {
         for (identifier, expected) in [
             ("com.hyprnote.dev", "com.anarlog.dev.secure-store"),
@@ -617,6 +656,8 @@ mod tests {
 
     #[tokio::test]
     async fn renderer_secret_commands_reject_native_accounts_before_keychain_access() {
+        // The commands now run the ASPC guard first; this checks the
+        // renderer path behind it (Phase 2a left the old call shape here).
         let app = tauri::test::mock_builder()
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
             .unwrap();
@@ -626,13 +667,19 @@ mod tests {
         let expected = "secure-store account is reserved for native use";
 
         assert_eq!(
-            get_secret(app.clone(), scope.clone(), key.clone())
-                .await
-                .unwrap_err(),
+            read_secret_for(
+                SecretCaller::Renderer,
+                app.clone(),
+                scope.clone(),
+                key.clone()
+            )
+            .await
+            .unwrap_err(),
             expected
         );
         assert_eq!(
-            set_secret(
+            write_secret_for(
+                SecretCaller::Renderer,
                 app.clone(),
                 scope.clone(),
                 key.clone(),
@@ -642,6 +689,11 @@ mod tests {
             .unwrap_err(),
             expected
         );
-        assert_eq!(delete_secret(app, scope, key).await.unwrap_err(), expected);
+        assert_eq!(
+            delete_secret_for(SecretCaller::Renderer, app, scope, key)
+                .await
+                .unwrap_err(),
+            expected
+        );
     }
 }
