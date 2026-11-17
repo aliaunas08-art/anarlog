@@ -342,6 +342,22 @@ describe("TimelineView", () => {
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
   });
 
+  it("always shows Open calendar and never a Now chip", () => {
+    freezeTime("2024-01-15T12:00:00.000Z");
+    // Only past notes: no future items to scroll back from.
+    mocks.timelineSessionsTable = {
+      earlier: {
+        title: "Kickoff",
+        created_at: "2024-01-10T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView topChromeInset />);
+
+    expect(screen.getByRole("button", { name: "Open calendar" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Go back to now" })).toBeNull();
+  });
+
   it("selects all visible notes with Cmd+A after a sidebar note selection", () => {
     freezeTime("2024-01-15T09:00:00.000Z");
     mocks.currentTab = { type: "sessions", id: "selected-note" };

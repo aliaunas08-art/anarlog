@@ -16,7 +16,7 @@ import { cn } from "@anlg/utils";
 
 import { useAnchor, useAutoScrollToAnchor } from "./anchor";
 import { TimelineBuckets } from "./buckets";
-import { TimelineNowChip, TimelineTopChip, UpcomingMeetingChip } from "./chips";
+import { TimelineTopChip, UpcomingMeetingChip } from "./chips";
 import { getFallbackIndicatorIndex, useTimelineData } from "./data";
 import {
   hasSidebarNoteSelectionContext,
@@ -77,7 +77,6 @@ export const TimelineView = memo(function TimelineView({
   const isDateTimeline = groupBy === "date" && dateFilter === null;
   const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
   const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;
-  const [isScrolledToTop, setIsScrolledToTop] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   const { isIgnored } = useIgnoredEvents();
@@ -94,13 +93,9 @@ export const TimelineView = memo(function TimelineView({
   });
   const openNew = useTabs((state) => state.openNew);
 
-  const showOpenCalendarChip =
-    isDateTimeline &&
-    showOpenCalendarButton &&
-    isScrolledToTop &&
-    hasMoreFutureItems;
-  const reserveOpenCalendarChipSpace =
-    isDateTimeline && showOpenCalendarButton && hasMoreFutureItems;
+  // A permanent way into the full calendar; the notes list scrolls under it.
+  const showOpenCalendarChip = isDateTimeline && showOpenCalendarButton;
+  const reserveOpenCalendarChipSpace = showOpenCalendarChip;
 
   const hasToday = useMemo(
     () => isDateTimeline && buckets.some((bucket) => bucket.label === "Today"),
@@ -226,7 +221,6 @@ export const TimelineView = memo(function TimelineView({
   const {
     containerRef,
     isAnchorVisible: isTodayVisible,
-    isScrolledPastAnchor: isScrolledPastToday,
     scrollToAnchor: scrollToToday,
     registerAnchor: setCurrentTimeIndicatorRef,
     anchorNode: todayAnchorNode,
@@ -235,11 +229,6 @@ export const TimelineView = memo(function TimelineView({
     isDateTimeline &&
     Boolean(upcomingMeetingStatus) &&
     !isUpcomingMeetingVisible;
-  const showTopNowChip =
-    isDateTimeline &&
-    !showUpcomingMeetingChip &&
-    !isTodayVisible &&
-    isScrolledPastToday;
   const topSpacerClassName = topChromeInset
     ? reserveOpenCalendarChipSpace
       ? "h-14"
@@ -299,9 +288,7 @@ export const TimelineView = memo(function TimelineView({
         container.scrollHeight - container.clientHeight,
       );
       const nextScrollTop = container.scrollTop;
-      const scrolledToTop = nextScrollTop <= 12;
 
-      setIsScrolledToTop(scrolledToTop);
       setIsScrolledToBottom(maxScrollTop - nextScrollTop <= 12);
       setIsUpcomingMeetingVisible(
         isTimelineItemVisible(container, upcomingMeetingNodeRef.current),
@@ -515,7 +502,7 @@ export const TimelineView = memo(function TimelineView({
             "scrollbar-hide flex h-full flex-col overflow-y-auto px-2",
           ])}
         >
-          {(topChromeInset || hasMoreFutureItems) && (
+          {(topChromeInset || showOpenCalendarChip || hasMoreFutureItems) && (
             <div
               aria-hidden
               data-sidebar-timeline-top-spacer
@@ -568,9 +555,7 @@ export const TimelineView = memo(function TimelineView({
           />
         )}
 
-        {(showOpenCalendarChip ||
-          showUpcomingMeetingChip ||
-          showTopNowChip) && (
+        {(showOpenCalendarChip || showUpcomingMeetingChip) && (
           <div
             data-sidebar-timeline-top-chip-stack
             className={cn([
@@ -596,34 +581,8 @@ export const TimelineView = memo(function TimelineView({
                 onClick={scrollToUpcomingMeeting}
               />
             )}
-            {showTopNowChip && (
-              <TimelineNowChip
-                ariaLabel={t`Go back to now`}
-                direction="up"
-                onClick={scrollToToday}
-              >
-                <Trans>Now</Trans>
-              </TimelineNowChip>
-            )}
           </div>
         )}
-
-        {isDateTimeline &&
-          !showUpcomingMeetingChip &&
-          !isTodayVisible &&
-          !isScrolledPastToday && (
-            <TimelineNowChip
-              ariaLabel={t`Go back to now`}
-              onClick={scrollToToday}
-              direction="down"
-              className={cn([
-                "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
-                "z-40",
-              ])}
-            >
-              <Trans>Now</Trans>
-            </TimelineNowChip>
-          )}
       </div>
     </ManagedSharedSessionIdsContext.Provider>
   );
