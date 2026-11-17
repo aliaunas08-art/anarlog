@@ -88,7 +88,7 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
       group.calendars.push({
         id: cal.id,
         title: cal.name ?? "Untitled",
-        color: cal.color ?? "#4285f4",
+        color: cal.color || "#4285f4",
         enabled: cal.enabled ?? false,
       });
     }

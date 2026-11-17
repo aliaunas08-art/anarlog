@@ -71,13 +71,37 @@ pub fn convert_outlook_calendars(calendars: Vec<OutlookCalendar>) -> Vec<Calenda
                 id: calendar.id,
                 title: calendar.name.unwrap_or_else(|| "Untitled".to_string()),
                 source,
-                color: calendar.hex_color,
+                // Graph sends `hexColor: ""` for a personal account's default
+                // calendar; an empty colour hid the tick in the calendar list.
+                color: calendar
+                    .hex_color
+                    .filter(|hex| !hex.trim().is_empty())
+                    .or_else(|| calendar.color.as_ref().and_then(outlook_named_color)),
                 is_primary: calendar.is_default_calendar,
                 can_edit: calendar.can_edit,
                 raw,
             }
         })
         .collect()
+}
+
+/// Approximate hex for Graph's named calendar colours. `auto` has no fixed
+/// colour, so the caller's default applies.
+fn outlook_named_color(color: &anlg_outlook_calendar::CalendarColor) -> Option<String> {
+    use anlg_outlook_calendar::CalendarColor::*;
+    let hex = match color {
+        LightBlue => "#4f9fe8",
+        LightGreen => "#5fb85f",
+        LightOrange => "#f0a050",
+        LightGray => "#9a9a9a",
+        LightYellow => "#e3c13b",
+        LightTeal => "#3fb8b0",
+        LightPink => "#e57fb3",
+        LightBrown => "#b08060",
+        LightRed => "#e05a5a",
+        Auto | MaxColor | Unknown => return None,
+    };
+    Some(hex.to_string())
 }
 
 pub fn convert_apple_calendars(calendars: Vec<AppleCalendar>) -> Vec<CalendarListItem> {
@@ -1519,5 +1543,26 @@ mod attendance_tests {
                 },
             })
         );
+    }
+}
+
+#[cfg(test)]
+mod outlook_calendar_color_tests {
+    use super::*;
+
+    fn calendar(json: serde_json::Value) -> OutlookCalendar {
+        serde_json::from_value(json).unwrap()
+    }
+
+    #[test]
+    fn an_empty_hex_colour_falls_back_to_the_named_colour_or_none() {
+        let converted = convert_outlook_calendars(vec![
+            calendar(serde_json::json!({ "id": "a", "name": "Calendar", "color": "lightBlue", "hexColor": "" })),
+            calendar(serde_json::json!({ "id": "b", "name": "Calendar", "color": "auto", "hexColor": "" })),
+            calendar(serde_json::json!({ "id": "c", "name": "Work", "color": "lightRed", "hexColor": "#123456" })),
+        ]);
+        assert_eq!(converted[0].color.as_deref(), Some("#4f9fe8"));
+        assert_eq!(converted[1].color, None);
+        assert_eq!(converted[2].color.as_deref(), Some("#123456"));
     }
 }
