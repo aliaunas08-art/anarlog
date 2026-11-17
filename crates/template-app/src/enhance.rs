@@ -139,7 +139,9 @@ mod tests {
         assert!(!rendered.contains("Structure with # (h1) headings"));
         assert!(rendered.contains("# About Notes"));
         assert!(rendered.contains("# Guidelines"));
-        assert!(rendered.contains("final output MUST be ONLY the markdown summary"));
+        assert!(rendered.contains("output MUST be ONLY the markdown summary"));
+        // C7.5: the one enhance call also returns the title.
+        assert!(rendered.contains("<meeting_title>TITLE</meeting_title>"));
     }
 
     #[test]

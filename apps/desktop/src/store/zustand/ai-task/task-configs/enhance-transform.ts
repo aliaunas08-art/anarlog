@@ -18,6 +18,7 @@ import { sessionEventSchema } from "@anlg/store";
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";
 
+import { ENGINE_MODEL_ID, ENGINE_PROVIDER_ID } from "~/ai/engine";
 import { resolveSummaryLanguage } from "~/services/enhancer/summary-language";
 import {
   loadSessionContentSnapshot,
@@ -26,7 +27,6 @@ import {
 import type { AppliedTemplateSnapshot } from "~/session/queries/types";
 import { formatSessionSourceAppsContext } from "~/session/source-apps";
 import { extractSectionHeadings } from "~/session/title-content";
-import { ENGINE_MODEL_ID, ENGINE_PROVIDER_ID } from "~/ai/engine";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
 import { parseDictionaryTermsJson } from "~/stt/keywords";
