@@ -16577,6 +16577,7 @@ dependencies = [
 name = "tauri-plugin-accounts"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "local-accounts",
  "serde",
  "specta",

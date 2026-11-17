@@ -24,6 +24,17 @@ pub struct Error {
     pub message: String,
 }
 
+/// An ASPC denial (lock, role or window) as a webview error with its stable
+/// `aspc.*` code.
+impl From<anlg_aspc::Denied> for Error {
+    fn from(denied: anlg_aspc::Denied) -> Self {
+        Self {
+            code: denied.code.as_str().to_string(),
+            message: String::from(denied),
+        }
+    }
+}
+
 impl From<anlg_local_accounts::Error> for Error {
     fn from(error: anlg_local_accounts::Error) -> Self {
         Self {

@@ -330,7 +330,14 @@ pub async fn cancel_voice_enrollment<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn delete_voice_enrollment<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
 ) -> Result<VoiceEnrollmentStatus, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )?;
     cancel_voice_enrollment(app.clone()).await?;
     blocking(&app, |store| {
         store.delete()?;

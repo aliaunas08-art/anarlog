@@ -876,7 +876,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::check_embedded_cli::<tauri::Wry>,
             commands::install_embedded_cli::<tauri::Wry>,
             commands::list_skill_agents,
-            commands::install_agent_skill,
+            commands::install_agent_skill::<tauri::Wry>,
             data_protection::get_data_protection_status,
             data_protection::get_data_locations::<tauri::Wry>,
         ])

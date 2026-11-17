@@ -23,8 +23,15 @@ pub(crate) fn list_accounts<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn connect_account<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
     provider: Provider,
 ) -> Result<Account, Error> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )?;
     let manager = app.state::<AccountsState>().inner().clone();
     let opener = app.clone();
     let account = manager
@@ -48,8 +55,15 @@ pub(crate) fn cancel_connect<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
 #[specta::specta]
 pub(crate) async fn disconnect_account<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
     account_id: String,
 ) -> Result<(), Error> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Delete,
+    )?;
     let manager = app.state::<AccountsState>().inner().clone();
     manager.disconnect(&account_id).await?;
     Ok(())

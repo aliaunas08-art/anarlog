@@ -247,8 +247,15 @@ pub(crate) async fn rename_folder<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn delete_folder<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
     folder_path: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )?;
     app.fs_sync()
         .delete_folder(&folder_path)
         .map_err(|e| e.to_string())
@@ -749,9 +756,16 @@ pub(crate) async fn folder_attachment_read<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn folder_attachment_remove<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
     folder_path: String,
     attachment_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )?;
     spawn_blocking!({
         app.fs_sync()
             .folder_attachment_remove(&folder_path, &attachment_id)

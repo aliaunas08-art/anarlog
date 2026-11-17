@@ -177,13 +177,23 @@ session_write_command!(
     attachments::SetAttachmentCloudSyncEnabledRequest,
     ()
 );
-session_write_command!(
-    tombstone_session_audio,
-    attachments,
-    tombstone_session_audio,
-    attachments::SessionAudioRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn tombstone_session_audio<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    request: attachments::SessionAudioRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    attachments::tombstone_session_audio(runtime.pool(), request).await
+}
 session_write_command!(
     mark_session_audio_absent,
     attachments,
@@ -198,13 +208,23 @@ session_write_command!(
     folder_materials::CatalogFolderMaterialRequest,
     ()
 );
-session_write_command!(
-    tombstone_folder_material,
-    folder_materials,
-    tombstone_folder_material,
-    folder_materials::TombstoneFolderMaterialRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn tombstone_folder_material<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    request: folder_materials::TombstoneFolderMaterialRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_materials::tombstone_folder_material(runtime.pool(), request).await
+}
 session_write_command!(
     ensure_folder_catalog,
     folder_catalog,
@@ -219,13 +239,23 @@ session_write_command!(
     folder_catalog::RenameFolderCatalogRequest,
     ()
 );
-session_write_command!(
-    delete_folder_catalog,
-    folder_catalog,
-    delete_folder_catalog,
-    folder_catalog::DeleteFolderCatalogRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn delete_folder_catalog<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    request: folder_catalog::DeleteFolderCatalogRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_catalog::delete_folder_catalog(runtime.pool(), request).await
+}
 session_write_command!(
     update_folder_instructions,
     folder_catalog,
