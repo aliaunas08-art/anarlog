@@ -271,9 +271,11 @@ The rules:
 
 ### D3. Retention
 
-- **D3.1** Settings offers "Keep meetings forever" (the default) or "Delete meetings older than N days". This covers notes, transcripts and audio, not only audio.
-- **D3.2** A job applies it at startup and every 6 hours using the D2.2 delete path, and audit-logs each run with a count.
-- **D3.3** Test: with a fake clock, meetings past N days are deleted and newer ones are kept.
+**Status: BUILT (Phase 4, 2026-11-16).**
+
+- **D3.1** Settings → Privacy offers "Keep meetings forever" (the default) or "Delete meetings older than N days" (1–36 500). This covers notes, transcripts, audio and attachments, not only audio. It is the app setting `meeting_retention_days` (0 = forever); no schema change. A meeting's age is its start time, or its creation time without one; a date SQLite can't parse never counts as old.
+- **D3.2** A Rust job applies it at startup and every 6 hours using the D2.2 delete path (soft delete, then the permanent purge), only in the local workspace, and never deletes a meeting being recorded or finalized (if the capture state can't be read, that run is skipped). Each run with retention on writes `retention.run` to the audit log with the period and the counts. The same job runs the D2.2 sweep.
+- **D3.3** Test: with a fake clock, meetings past N days are deleted and newer ones, and the one being recorded, are kept (`old_meetings_are_deleted_and_newer_or_recording_ones_kept`, `plugins/session/src/retention.rs`).
 
 ### D4. Privacy surfaces
 
@@ -373,6 +375,7 @@ These tests must exist and pass; each item is true or false:
 
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
 
+- **Phase 4 (2026-11-16): retention is a setting.** `meeting_retention_days` in the app settings store (0 = keep forever), applied by a Rust job at startup and every 6 hours through the permanent delete. Retention runs are logged only while retention is on.
 - **Phase 4 (2026-11-16): permanent delete.** After the undo window a meeting is deleted permanently in Rust. A meeting sync has seen keeps a blank tombstone (content columns reset, `deletion_context` cleared so no device restores it), the rest is deleted. A quit during the undo window deletes it on the next launch rather than restoring it. The app database runs with `secure_delete` on.
 - **Phase 4 (2026-11-16): Private is its own flag.** `sessions.private` (migration `20261116120000_session_private`, default 0, synced like `locked`) is separate from the Lock Note flag. Where an action has no "include Private meetings" choice, Private meetings are simply left out; the only explicit includes are a new share of that meeting (a confirmation) and the CLI's `--include-private`. An AI tool can never include them.
 - **Phase 4 (2026-11-16): audit log in its own file.** `audit.db` is a separate SQLite file next to `app.db` with its own crate (`crates/audit-log`), not a table in `app.db`; its chain head is kept in the Keychain. The CLI may append with source `cli` but never reads it.

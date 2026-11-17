@@ -11,6 +11,7 @@ mod move_contents;
 mod participants;
 mod proposals;
 pub mod purge;
+pub mod retention;
 mod transaction_utils;
 
 #[cfg(test)]

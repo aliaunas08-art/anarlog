@@ -3,6 +3,8 @@ import { platform } from "@tauri-apps/plugin-os";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { RetentionSetting } from "./retention";
+
 import { startRustLockSync, useAppLock } from "~/lock/store";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -89,6 +91,10 @@ export function SettingsPrivacy() {
             });
           }}
         />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <RetentionSetting />
       </section>
     </div>
   );
