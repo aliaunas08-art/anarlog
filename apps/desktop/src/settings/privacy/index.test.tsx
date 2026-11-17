@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     telemetry_consent: true,
     crash_reporting_consent: false,
     lock_app: false,
+    meeting_retention_days: 0,
   },
 }));
 
@@ -35,6 +36,7 @@ vi.mock("~/settings/queries", () => ({
         "telemetry_consent",
         "crash_reporting_consent",
         "lock_app",
+        "meeting_retention_days",
       ]),
     },
     isLoading: false,
@@ -62,6 +64,7 @@ describe("SettingsPrivacy", () => {
     mocks.values.telemetry_consent = true;
     mocks.values.crash_reporting_consent = false;
     mocks.values.lock_app = false;
+    mocks.values.meeting_retention_days = 0;
     mocks.available = true;
     mocks.authenticating = false;
     mocks.platform = "macos";
@@ -103,6 +106,28 @@ describe("SettingsPrivacy", () => {
       expect(mocks.setLockEnabled).toHaveBeenCalledWith(true);
     });
     expect(mocks.setSettingValues).not.toHaveBeenCalled();
+  });
+
+  it("keeps meetings forever by default and stores a retention period in days (D3)", () => {
+    const { rerender } = render(<SettingsPrivacy />);
+    expect(
+      screen.queryByRole("spinbutton", { name: "Days to keep meetings" }),
+    ).toBeNull();
+
+    mocks.values.meeting_retention_days = 30;
+    rerender(<SettingsPrivacy />);
+    const days = screen.getByRole("spinbutton", {
+      name: "Days to keep meetings",
+    });
+    expect((days as HTMLInputElement).value).toBe("30");
+    fireEvent.change(days, { target: { value: "45" } });
+    fireEvent.blur(days);
+    expect(mocks.setSettingValues).toHaveBeenCalledWith({
+      meeting_retention_days: 45,
+    });
+    fireEvent.change(days, { target: { value: "0" } });
+    fireEvent.blur(days);
+    expect(mocks.setSettingValues).toHaveBeenCalledTimes(1);
   });
 
   it("shows the lock state reported by Rust", () => {

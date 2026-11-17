@@ -94,7 +94,15 @@ export function SettingsPrivacy() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <RetentionSetting />
+        <RetentionSetting
+          value={resolveConfigValue(
+            "meeting_retention_days",
+            settingsQuery.data,
+          )}
+          onChange={(days) => {
+            setSettingValues({ meeting_retention_days: days });
+          }}
+        />
       </section>
     </div>
   );

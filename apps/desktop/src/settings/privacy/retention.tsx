@@ -10,9 +10,7 @@ import {
   SelectValue,
 } from "@anlg/ui/components/ui/select";
 
-import { useSetSettingValue } from "~/settings/queries";
 import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
-import { useConfigValue } from "~/shared/config";
 
 const DEFAULT_DAYS = 90;
 const MAX_DAYS = 36_500;
@@ -25,12 +23,15 @@ export function normalizeRetentionDays(value: unknown): number {
 // ASPC D3: "Keep meetings forever" (0, the default) or "Delete meetings
 // older than N days". Rust applies it at startup and every 6 hours through
 // the permanent delete, skipping a meeting being recorded.
-export function RetentionSetting() {
+export function RetentionSetting({
+  value,
+  onChange: setDays,
+}: {
+  value: unknown;
+  onChange: (days: number) => void;
+}) {
   const { t } = useLingui();
-  const stored = normalizeRetentionDays(
-    useConfigValue("meeting_retention_days"),
-  );
-  const setDays = useSetSettingValue("meeting_retention_days");
+  const stored = normalizeRetentionDays(value);
   const [draft, setDraft] = useState<string | null>(null);
   const mode = stored > 0 ? "delete" : "forever";
 
