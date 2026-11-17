@@ -363,9 +363,9 @@ These tests must exist and pass; each item is true or false:
 - [ ] Every Tauri command rejects an unauthorised call (A2.2, A2.3)
 - [ ] Two-workspace isolation, including Ask (C1.4, B4.2)
 - [ ] Prompt-injection fixture causes no export, delete or cross-meeting disclosure (B3.4)
-- [ ] Audit log detects tampering, and app code has no update/delete path to it (D1.6, D1.1)
+- [x] Audit log detects tampering, and app code has no update/delete path to it (D1.6, D1.1): `crates/audit-log/src/tests.rs`, `tests/isolation.rs`, `webview_sql_cannot_reach_the_audit_log`
 - [ ] Marker string appears in no log, error or analytics output (C4.2)
-- [ ] Deleting a meeting removes every trace (D2.2)
+- [x] Deleting a meeting removes every trace (D2.2): `a_purged_meeting_leaves_no_marker_in_the_database_wal_vault_or_cache` and `purged_sessions_leave_no_bytes_in_the_index_directory` (two tests; see ASPC_AUDIT Phase 4 gaps)
 - [ ] Backup restores into a clean install (C5.2)
 - [ ] No secret in the repo or a fresh DB: `scripts/check-secrets` runs `git grep` for key patterns and scans a fresh `app.db` (C3.1)
 - [ ] Existing tests and Efficiency Engine tests pass: one call per meeting, model locked, no AI call site outside the Engine (C7.1, C7.2, C7.5)

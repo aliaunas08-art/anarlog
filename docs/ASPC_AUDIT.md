@@ -806,6 +806,11 @@ Nothing below was run in the app; see "Phase 4 runtime check". Approved schema c
 - **Before:** only an audio-only sweep existed (`plugins/transcription/src/audio_retention.rs`); it is unchanged and separate.
 - **Gaps:** a changed setting applies at the next run (startup or within 6 hours), not immediately; with sync on, every device with the setting applies it to the shared library (the tombstones then delete it everywhere), so a short period on one Mac deletes meetings on all of them.
 
+### Phase 4 test results (2026-11-16, this Mac)
+
+- Rust: `audit-log` 15 unit + 2 isolation; `aspc` 24; `db-core --lib` 107 (the `e2e` test needs `SQLITECLOUD_URL` and fails without it, as before); `db-app` 285 before the purge tests, plus `session_purge` 2 and `private_flag_reaches_other_devices`; `agent-access` private test; `tauri-plugin-tantivy` 14; `tauri-plugin-local-api` private test; `tauri-plugin-session` 43; `tauri-plugin-settings` audit test; `tauri-plugin-audit` 2; `anarlog-cli` 44 (CLI contract snapshot updated for `--include-private`). All pass. `cargo clippy --all-targets --no-deps -- -D warnings` is clean for `audit-log`, `db-app`, `db-core`, `agent-access`, `anarlog-cli`. `cargo check -p desktop` passes.
+- Desktop: `tsc --noEmit` passes; `oxlint` 0 errors; vitest in batches covering every folder: all pass except two `settings/general/billing.test.tsx` cases that also fail on the commit before Phase 4 (date-dependent). Some component tests took minutes on this Mac because cold reads of `@hugeicons/core-free-icons` (12 000 files) are slow; they pass once the files are cached.
+
 ### Phase 4 runtime check
 
 1. **Audit log file:** after a launch, `audit.db` sits next to `app.db` (mode `0600`). Keychain Access shows an item `<bundle id>.audit-log` / `audit-chain-head` after the first entry. A Keychain prompt, if any, does not hold up startup.
