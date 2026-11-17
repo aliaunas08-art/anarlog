@@ -946,6 +946,37 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 10. **About:** Settings → Advanced → About shows the MIT licence and the Rust and JavaScript lists; the filter works.
 11. **Guarded commands:** delete a folder, a folder file, a meeting's audio and the voice profile; connect and disconnect a calendar account; all still work from the main window.
 
+## Verification run (2026-11-17)
+
+The ASPC_BASE "Verification" checklist, run on this Mac (branch `prototype`). Every Rust command was run with `CARGO_TARGET_DIR=~/.cache/anarlog-target`. Nothing was run in the app.
+
+| Item | Result | Evidence |
+|---|---|---|
+| Viewer denied edit, delete, export (A1.4) | TRUE | `viewer_reads_content_only` (every DataType × Action; Edit/Delete/Export/Share/Administer → `RoleDenied`), Viewer case of `state::tests::guard_denies_locked_viewer_and_wrong_window` |
+| Every Tauri command rejects an unauthorised call (A2.2, A2.3) | FALSE (partial) | Registry: 477 commands, 186 `Public`, 67 guarded (59 enforced, 8 lock-exempt), **224 `Pending`** (unguarded). The 67 guarded ones: `guarded_commands_call_the_guard`, new `guarded_commands_require_their_registry_permission`, `guard_denies_locked_viewer_and_wrong_window`, `registry_matches_real_commands` |
+| Two-workspace isolation, incl. Ask (C1.4, B4.2) | PARTIAL | Tests pass (below), but see limits |
+| Prompt-injection fixture (B3.4) | TRUE | `injection.test.ts` (2), `enhance-one-call.test.ts` (3, incl. B3.4), `escape.rs` hostile-block tests (4) |
+| Audit tamper / no app path (D1.6, D1.1) | TRUE (re-run) | `audit-log` 15 unit + 2 `tests/isolation.rs`; `webview_sql_cannot_reach_the_audit_log` in `db-core --lib` |
+| C4.2 marker | TRUE (re-run) | `meeting_content_reaches_no_log_or_error`, `provider_errors_never_carry_meeting_content`, `analytics` 4, `tauri-plugin-tracing` 23 + 3, `denials_never_carry_the_statement_text` |
+| D2.2 purge marker | TRUE (re-run) | `a_purged_meeting_leaves_no_marker_in_the_database_wal_vault_or_cache`, `purged_sessions_leave_no_bytes_in_the_index_directory` |
+| C5.2 backup | TRUE (re-run) | `backup_restores_into_a_clean_library`, `hostile_or_foreign_archives_are_refused_and_change_nothing` |
+| No secret in repo or fresh DB (C3.1) | TRUE (re-run) | `scripts/check-secrets` 0 findings; `--fresh-db` 0 findings (exit 0); `check-secrets.test.mjs` 5/5 |
+| Existing + Engine tests (C7.1, C7.2, C7.5) | PARTIAL | Engine parts TRUE; existing suite has the 2 known `billing.test.tsx` failures |
+| `--require-bundle` (C7.7) | NOT RUN | needs a release build; wired in `desktop_cd.yaml` after each of the three `tauri build` steps (lines 249, 456, 665) |
+
+**A2.3 new test.** `guarded_commands_require_their_registry_permission` (`crates/aspc/tests/command_registry.rs`): each guarded command's `aspc::require` / `require_ignoring_lock` call must name the registry's `DataType::X` and `Action::Y`, so the per-entry guard-logic test covers what the command really enforces; the Pending count may not rise above 224. Checked by mutation: changing `export:export` to `(Notes, Read)` in the registry makes it fail. It is still a source-level check plus a guard-logic test, not an end-to-end Tauri IPC call per command.
+
+**C1.4 / B4.2 tests (all pass):** `db-execute --test workspace_guard` 9 (`a_second_workspace_denies_every_content_path`, `webview_writes_cannot_create_another_workspace`, …); `agent-access --test workspace_isolation` 2 (`workspace_one_never_sees_workspace_two`, `no_local_workspace_means_no_scope`); `tauri-plugin-tantivy` `search_returns_only_the_scoped_workspace`, `session_filter_limits_results_to_one_meeting`; `db-reactive` `workspace_guard_keeps_live_queries_working_and_fails_closed`; `db-app` scope tests in the 288; Ask: `injection.test.ts` (meeting-scoped reads only see A; B's marker never in a request or the answer). **Limits (why PARTIAL):** webview raw SQL is isolated by the interim fail-closed single-workspace guard (content denied while a second workspace's rows exist), not by row filtering; options (b)/(c) are open for the user. Rust paths that read by id to change content are not scoped (C1.2 gap), and `tantivy:add_document`/`update_document(s)`/`remove_document`/`reindex` are `Pending`.
+
+**C7 tests (all pass):** `ai-engine` 23 unit (incl. `a_request_for_another_model_is_sent_with_the_pinned_model`, C7.2) + `tests/no_ai_call_sites.rs` 2 (`desktop_frontend_calls_no_provider_directly`, `desktop_rust_dependencies_call_no_provider_outside_the_engine`, C7.1); `enhance-one-call.test.ts` (C7.5); `tauri-plugin-ai-engine` 2.
+
+**Commands and counts:**
+- `cargo test --no-fail-fast -j 4 -p aspc -p audit-log -p db-execute -p db-reactive -p db-app -p ai-engine -p template-app -p agent-access -p tauri-plugin-local-api -p tauri-plugin-session -p tauri-plugin-tantivy -p tauri-plugin-audit -p tauri-plugin-ai-engine -p tauri-plugin-fs2 -p anarlog-cli`: 629 passed, 0 failed, 13 ignored (aspc 23 + 3 + 2; audit-log 15 + 2; db-app 288 + 5 (3 ignored); db-execute 5 + 9 (spike 5 ignored); db-reactive 15 + 6 + 1 + 3 + 9 (1 ignored); ai-engine 23 + 2; template-app 41 + 8 (llm_eval 4 ignored); agent-access 19 + 2; local-api 34; session 46; tantivy 14; audit 2; ai-engine plugin 2; fs2 6; anarlog-cli 44).
+- `cargo test -p db-core --lib`: 108 passed. `cargo test -p analytics -p tauri-plugin-tracing`: 4 + 23 + 3 passed. `cargo test -p desktop --lib`: 35 passed.
+- Desktop `vitest run`: 503 of 504 files, 4422 of 4424 tests; the 2 failures are the known date-dependent `settings/general/billing.test.tsx` cases ("Unable to find an element with the text: Ends Oct 1, 2025", "… /renews Oct 15, 2025/"). Targeted run (`chat/guardrails`, `enhance-one-call`, `enhance-workflow`, `ai/engine`, `content-identity`): 9 files, 128 tests pass.
+- `tsc --noEmit`: pass. `oxlint --type-aware apps/desktop` (from the repo root): 0 errors, 456 warnings (a different invocation from Phase 5's 225-warning count, not compared).
+- Not run: the full `cargo test --workspace`, the `tauri-plugin-db`, `tauri-plugin-fs-sync`, `tauri-plugin-transcription` suites, `db-core` `e2e`, the `ci.yaml` `node --test` list other than `check-secrets.test.mjs`, a release build.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.
