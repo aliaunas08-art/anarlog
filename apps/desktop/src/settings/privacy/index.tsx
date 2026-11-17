@@ -5,6 +5,7 @@ import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { RetentionSetting } from "./retention";
 
+import { DiskEncryptionRow } from "~/data-protection/disk-encryption-row";
 import { startRustLockSync, useAppLock } from "~/lock/store";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -62,6 +63,7 @@ export function SettingsPrivacy() {
       <SettingsPageTitle title={i18n._(privacyMessages.title)} />
 
       <section className="flex flex-col gap-4">
+        <DiskEncryptionRow />
         <SettingSwitchRow
           title={t`Lock app`}
           description={lockAppDescription}

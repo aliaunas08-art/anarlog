@@ -149,6 +149,11 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("app", "check_embedded_cli", BUILD),
     public!("app", "complete_app_exit", FLOW),
     pending!("app", "get_account_full_name", Settings, Read),
+    public!(
+        "app",
+        "get_data_protection_status",
+        "whether FileVault is on (C2.1); a device fact, no user data"
+    ),
     pending!("app", "get_dismissed_toasts", Settings, Read),
     public!(
         "app",

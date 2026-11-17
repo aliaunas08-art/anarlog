@@ -24,6 +24,10 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("~/data-protection/disk-encryption-row", () => ({
+  DiskEncryptionRow: () => null,
+}));
+
 vi.mock("@tauri-apps/plugin-os", () => ({
   platform: () => mocks.platform,
 }));

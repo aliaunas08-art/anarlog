@@ -38,6 +38,9 @@ async setDismissedToasts(v: string[]) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Returns an empty string for any key outside the allowlist.
+ */
 async getEnv(key: string) : Promise<string> {
     return await TAURI_INVOKE("get_env", { key });
 },
@@ -47,6 +50,10 @@ async showDevtool() : Promise<boolean> {
 async isAppStoreBuild() : Promise<boolean> {
     return await TAURI_INVOKE("is_app_store_build");
 },
+/**
+ * Full name of the signed-in macOS account (`id -F`), used to greet the user
+ * on Home when there is no profile name. `None` when unavailable.
+ */
 async getAccountFullName() : Promise<string | null> {
     return await TAURI_INVOKE("get_account_full_name");
 },
@@ -140,6 +147,13 @@ async installAgentSkill(agent: SkillAgent) : Promise<Result<SkillAgentStatus, st
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Whether FileVault is on, for the in-app warning. A device fact; no user
+ * data (registry: `Public`).
+ */
+async getDataProtectionStatus() : Promise<DataProtectionStatus> {
+    return await TAURI_INVOKE("get_data_protection_status");
 }
 }
 
@@ -153,6 +167,11 @@ async installAgentSkill(agent: SkillAgent) : Promise<Result<SkillAgentStatus, st
 
 /** user-defined types **/
 
+export type DataProtectionStatus = { 
+/**
+ * `on`, `off` or `unknown`.
+ */
+filevault: string }
 export type EmbeddedCliState = "installed" | "missing" | "conflict" | "unsupported" | "resource_missing"
 export type EmbeddedCliStatus = { supported: boolean; commandName: string; installPath: string; state: EmbeddedCliState; details: string | null }
 export type SkillAgent = "claude_code" | "codex" | "cursor" | "opencode"

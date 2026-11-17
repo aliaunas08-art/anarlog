@@ -107,7 +107,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### A4. Session and device
 
-- **A4.1** Data lives under the macOS user's own `~/Library`, with directory mode `0700` and file mode `0600`. Test: permissions are checked on startup and corrected.
+- **A4.1** Data lives under the macOS user's own `~/Library`, with directory mode `0700` and file mode `0600`. Test: permissions are checked on startup and corrected. At every launch `anlg_aspc::protection::harden_app_data` makes the app data directory `0700` and its databases (`app.db`, `audit.db` and their `-wal`/`-shm`/`-journal` files) and JSON stores `0600`, only tightening and never following symlinks, and logs only the path and the old and new mode (`apps/desktop/src-tauri/src/data_protection.rs`; test `startup_tightens_the_data_dir_and_its_files`). Subfolders (the vault's `sessions/`, `search_index/`) are covered by the `0700` parent, not changed one by one.
 - **A4.2** The app lock is optional and off by default. When it's on, Rust holds the lock state (`aspc::LockMachine` in `AspcState`): the app starts locked, `AccessContext.unlocked` is false until a `LocalAuthentication` evaluation that Rust runs itself succeeds (`local-auth:unlock_app`; no command unlocks from a value the webview sends), and every guarded data command and the SQL authorizer deny while locked. Turning the lock on or off also needs a device authentication run by Rust (`local-auth:set_app_lock_enabled`), which writes the setting. The webview may always lock. Exceptions, each in the registry with its reason: the lock-screen settings reads (A2.4) and the `LockExempt` commands (A2.3). The lock is not enforced only in the UI.
 - **A4.3** If device authentication is unavailable while the lock is on, the app stays locked and says why. It never opens silently.
 - **A4.4** It relocks after an idle time the user sets, and when the main window is hidden or the Mac sleeps. Relocking waits while a recording is active (capture state not `Inactive`), so capture and its completion writes are never cut off, and gives the webview 5 seconds after a hide to flush pending writes. The idle timeout is not built: there is no idle setting yet.
@@ -168,9 +168,10 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### C2. Encryption
 
-**Status: decision pending.** The options are under "Decisions" at the end.
+**Status: FileVault check BUILT (Phase 5); app-level encryption DEFERRED (gate below).**
 
-- **C2.1** The database and the audio and transcript files are protected at rest by the approved approach. Until then, the app checks that FileVault is on and warns if it isn't.
+- **C2.1** The database and the audio and transcript files are protected at rest by the approved approach. Until then, the app checks that FileVault is on and warns if it isn't. Built: Rust runs `/usr/bin/fdesetup status` (no admin rights) off the main thread at startup (`anlg_aspc::protection::filevault_status`, `app:get_data_protection_status`); when it is off the main window shows a non-blocking warning once per launch (`apps/desktop/src/data-protection/filevault-warning.tsx`) and Settings → Privacy shows the state (`disk-encryption-row.tsx`). Tests: `parses_fdesetup_output`, `filevault-warning.test.tsx`.
+- **C2.3 Deferred gate: SQLCipher.** The local database is not encrypted by the app; it relies on FileVault and the A4.1 permissions. Encrypting `app.db` (and `audit.db`) with SQLCipher, with the key in the Keychain, **must be re-decided before any team or enterprise release**, and before any build where the library may sit on a Mac without FileVault by policy. The decision is recorded here with its date.
 - **C2.2** Every network call is HTTPS. The only exception is loopback to the user's own local model server.
 
 ### C3. Keys
@@ -376,6 +377,7 @@ These tests must exist and pass; each item is true or false:
 
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
 
+- **Phase 5 (2026-11-16): SQLCipher deferred.** At-rest protection for the local app is FileVault (checked and warned about) plus `0700`/`0600` permissions. SQLCipher is a deferred gate (C2.3) that must be re-decided before any team or enterprise release.
 - **Phase 5 (2026-11-16): analytics and session replay are opt-in, for existing installs too.** The old consent (`telemetry_consent`, and the analytics store's `Disabled` key) defaulted to on, so a stored value can't show that the user chose it. Both are ignored; new keys (`analytics_opt_in`, `session_replay_opt_in`, the store's `OptedIn`) default to off. A user who had opted in has to turn analytics on again.
 - **Phase 4 (2026-11-16): retention is a setting.** `meeting_retention_days` in the app settings store (0 = keep forever), applied by a Rust job at startup and every 6 hours through the permanent delete. Retention runs are logged only while retention is on.
 - **Phase 4 (2026-11-16): permanent delete.** After the undo window a meeting is deleted permanently in Rust. A meeting sync has seen keeps a blank tombstone (content columns reset, `deletion_context` cleared so no device restores it), the rest is deleted. A quit during the undo window deletes it on the next launch rather than restoring it. The app database runs with `secure_delete` on.

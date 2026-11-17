@@ -11,6 +11,7 @@ import { buildChatTools } from "~/chat/tools";
 import { CloudApiBackfillLifecycle } from "~/cloud-api/lifecycle";
 import { searchContacts } from "~/contacts/queries";
 import { useRegisterTools } from "~/contexts/tool";
+import { FileVaultWarning } from "~/data-protection/filevault-warning";
 import { DictationLifecycle } from "~/dictation/lifecycle";
 import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
 import { useSearchEngine } from "~/search/contexts/engine";
@@ -68,6 +69,7 @@ export function ClassicMainServices() {
       <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
       <DictationLifecycle />
+      <FileVaultWarning />
       <ToolRegistration />
       <EnhancerInit />
     </>

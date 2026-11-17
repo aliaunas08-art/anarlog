@@ -6,6 +6,7 @@
 
 pub mod commands;
 pub mod lock;
+pub mod protection;
 mod scope;
 mod state;
 #[cfg(feature = "tauri")]

@@ -11,6 +11,7 @@ mod agents;
 mod appearance;
 mod audit;
 mod commands;
+mod data_protection;
 mod db;
 mod embedded_cli;
 mod ext;
@@ -527,6 +528,8 @@ pub fn main() {
             search_index::install_private_session_source(&app_handle, db.clone());
             search_index::spawn(app_handle.clone(), db.clone());
             retention::spawn(app_handle.clone());
+            // ASPC A4.1 / C2.1: permissions and the FileVault check.
+            data_protection::spawn(app_handle.config().identifier.clone());
 
             #[cfg(not(feature = "app-store"))]
             embedded_cli::spawn_auto_install(app_handle);
@@ -874,6 +877,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::install_embedded_cli::<tauri::Wry>,
             commands::list_skill_agents,
             commands::install_agent_skill,
+            data_protection::get_data_protection_status,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

@@ -858,6 +858,15 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 - Test: `scheduled-session-auto-start.test.tsx` (the notification on a scheduled start, none on a manual start).
 - GAP: macOS can still suppress the notification (Focus / Do Not Disturb or notifications denied for the app); the menu-bar icon is then the only signal.
 
+### A4.1 permissions and C2.1 FileVault check: EXISTS (was MISSING)
+
+- **Core** `crates/aspc/src/protection.rs`: `parse_fdesetup_status`, `filevault_status` (`/usr/bin/fdesetup status`), `is_protected_file_name`, `harden_app_data` (dir `0700`, `*.db`/`*.sqlite` with `-wal`/`-shm`/`-journal` and `*.json` directly in the dir `0600`; only clears bits; symlinks skipped).
+- **Startup** `apps/desktop/src-tauri/src/data_protection.rs` (`spawn`, called from the app's `setup` after the retention job): one background thread tightens the data dir and logs `app_data_permissions_tightened` with path and modes only, then logs `filevault_on` / `filevault_off` / `filevault_status_unknown`. The result is cached for `get_data_protection_status` (registry `app`, `Public`: a device fact).
+- **UI:** a warning toast once per launch when FileVault is off (`apps/desktop/src/data-protection/filevault-warning.tsx`, mounted in `main/lifecycle.tsx`), never blocking; Settings → Privacy shows "Disk encryption (FileVault)" On / Off / Unknown (`disk-encryption-row.tsx`).
+- **Observed on this Mac (read-only listing, not changed):** the dev data dir is `drwxr-xr-x` and `app.db*` / `store.json` are `-rw-r--r--`; `audit.db*` is already `0600`. The next launch should log the tightening.
+- **Tests:** `parses_fdesetup_output`, `protected_names_cover_databases_and_stores`, `startup_tightens_the_data_dir_and_its_files` (`crates/aspc`), `filevault-warning.test.tsx`.
+- **Gaps:** the vault can be moved to a custom folder outside the app data dir (`settings` vault base); that folder's mode is not changed. Files created later by SQLite take the database file's mode, so they stay `0600`; other new JSON files are fixed at the next launch. SQLCipher: deferred gate C2.3.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.
