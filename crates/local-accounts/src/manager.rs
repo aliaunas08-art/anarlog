@@ -11,7 +11,7 @@ use crate::pkce::{new_pkce, new_state};
 use crate::provider::{
     ClientConfig, Endpoints, Identity, Provider, grants_required_scope, parse_identity, scopes,
 };
-use crate::store::{INDEX_KEY, SecretStore, refresh_key};
+use crate::store::{INDEX_KEY, SecretStore, last_connected_key, refresh_key};
 
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -33,6 +33,65 @@ pub struct Account {
     /// revoked access): the user has to connect again.
     #[serde(default)]
     pub needs_reconnect: bool,
+    /// Microsoft only: a personal Microsoft account or a work or school
+    /// (Entra) account. One email can have both, and Microsoft's sign-in page
+    /// can pick either, so the app shows which one is connected.
+    #[serde(default)]
+    pub kind: Option<AccountKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum AccountKind {
+    Personal,
+    WorkOrSchool,
+}
+
+/// The tenant every personal Microsoft account signs in through.
+const MICROSOFT_PERSONAL_TENANT: &str = "9188040d-6c67-4c5b-b112-36a304b66dad";
+
+/// Reads the `tid` claim of the ID token Microsoft's token endpoint returned
+/// over TLS (OpenID Connect Core 3.1.3.7 allows TLS in place of the signature
+/// check for a token received directly from the token endpoint). Only used
+/// to label the account, never to grant access.
+fn microsoft_account_kind(id_token: Option<&str>) -> Option<AccountKind> {
+    use base64::Engine as _;
+    let payload = id_token?.split('.').nth(1)?;
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload.trim_end_matches('='))
+        .ok()?;
+    let claims: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    let tid = claims.get("tid")?.as_str()?;
+    Some(if tid.eq_ignore_ascii_case(MICROSOFT_PERSONAL_TENANT) {
+        AccountKind::Personal
+    } else {
+        AccountKind::WorkOrSchool
+    })
+}
+
+/// The account a sign-in replaced, when it looks like the user meant to sign
+/// in to the same account again but got a different one: the last account
+/// connected for this provider has another id, and either it has the same
+/// email or no other account of this provider was connected (a reconnect,
+/// not "add another account").
+pub fn replaced_account(
+    previous: Option<&Account>,
+    connected: &Account,
+    connected_before: &[Account],
+) -> Option<Account> {
+    let previous = previous?;
+    if previous.id == connected.id || previous.provider != connected.provider {
+        return None;
+    }
+    let same_email = matches!(
+        (&previous.email, &connected.email),
+        (Some(a), Some(b)) if a.eq_ignore_ascii_case(b)
+    );
+    let reconnect = !connected_before
+        .iter()
+        .any(|account| account.provider == connected.provider && account.id != connected.id);
+    (same_email || reconnect).then(|| previous.clone())
 }
 
 #[derive(Deserialize)]
@@ -44,6 +103,8 @@ struct TokenResponse {
     refresh_token: Option<String>,
     #[serde(default)]
     scope: Option<String>,
+    #[serde(default)]
+    id_token: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -262,6 +323,10 @@ impl<S: SecretStore> AccountManager<S> {
             picture_url: identity.picture_url,
             connected_at: chrono::Utc::now().to_rfc3339(),
             needs_reconnect: false,
+            kind: match provider {
+                Provider::Microsoft => microsoft_account_kind(tokens.id_token.as_deref()),
+                Provider::Google => None,
+            },
         };
         self.store.set(&refresh_key(&account.id), &refresh_token)?;
         self.update_index(|accounts| {
@@ -276,8 +341,28 @@ impl<S: SecretStore> AccountManager<S> {
                 pending.take();
             }
         }
-        tracing::info!(provider = provider.key(), "local_account_connected");
+        // Remembered after a disconnect too, so a reconnect that lands on a
+        // different account can be pointed out. Not a secret.
+        if let Ok(raw) = serde_json::to_string(&account)
+            && let Err(error) = self.store.set(&last_connected_key(provider), &raw)
+        {
+            tracing::warn!(%error, "local_account_last_connected_save_failed");
+        }
+        // The account id is the provider's opaque id, never the email.
+        tracing::info!(
+            provider = provider.key(),
+            account_id = %account.id,
+            kind = ?account.kind,
+            "local_account_connected"
+        );
         Ok(account)
+    }
+
+    /// The last account connected for this provider on this Mac, kept after
+    /// it is disconnected.
+    pub fn last_connected(&self, provider: Provider) -> Option<Account> {
+        let raw = self.store.get(&last_connected_key(provider)).ok()??;
+        serde_json::from_str(&raw).ok()
     }
 
     /// A current access token for the account, refreshing it when needed.

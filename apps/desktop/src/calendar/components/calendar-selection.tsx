@@ -98,7 +98,7 @@ export function CalendarSelection({
 
         return (
           <div
-            key={group.id ?? group.sourceName}
+            key={`${group.id ?? ""}:${group.sourceName}`}
             className="flex flex-col gap-1"
           >
             {showHeader ? (

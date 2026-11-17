@@ -12,7 +12,7 @@ mod pkce;
 mod provider;
 mod store;
 
-pub use manager::{Account, AccountManager};
+pub use manager::{Account, AccountKind, AccountManager, replaced_account};
 pub use provider::{ClientConfig, Endpoints, Provider};
 pub use store::{KeychainStore, MemoryStore, SecretStore};
 

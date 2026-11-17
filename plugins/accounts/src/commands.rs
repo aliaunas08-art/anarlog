@@ -25,7 +25,7 @@ pub(crate) async fn connect_account<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     window: tauri::Window<R>,
     provider: Provider,
-) -> Result<Account, Error> {
+) -> Result<ConnectedAccount, Error> {
     anlg_aspc::require(
         &app,
         &window,
@@ -33,6 +33,8 @@ pub(crate) async fn connect_account<R: tauri::Runtime>(
         anlg_aspc::Action::Create,
     )?;
     let manager = app.state::<AccountsState>().inner().clone();
+    let previous = manager.last_connected(provider);
+    let connected_before = manager.list().unwrap_or_default();
     let opener = app.clone();
     let account = manager
         .connect(provider, move |url| {
@@ -42,7 +44,28 @@ pub(crate) async fn connect_account<R: tauri::Runtime>(
                 .map_err(|e| e.to_string())
         })
         .await?;
-    Ok(account)
+    let replaced = anlg_local_accounts::replaced_account(
+        previous.as_ref(),
+        &account,
+        &connected_before,
+    );
+    if let Some(replaced) = &replaced {
+        tracing::warn!(
+            provider = provider.key(),
+            previous_account_id = %replaced.id,
+            account_id = %account.id,
+            "local_account_changed_on_reconnect"
+        );
+    }
+    Ok(ConnectedAccount { account, replaced })
+}
+
+/// The account that signed in, plus the one it seems to replace when a
+/// reconnect landed on a different account (see `replaced_account`).
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+pub(crate) struct ConnectedAccount {
+    pub account: Account,
+    pub replaced: Option<Account>,
 }
 
 #[tauri::command]

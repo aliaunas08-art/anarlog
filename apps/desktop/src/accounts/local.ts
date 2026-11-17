@@ -1,6 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 
 import {
   type Account,
@@ -50,6 +50,44 @@ export function useLocalAccounts() {
       if (result.status === "error") throw new Error(result.error.message);
       return result.data;
     },
+  });
+}
+
+/** "Personal account" or "Work or school account" for a Microsoft account. */
+export function accountKindLabel(account: Account): string | null {
+  switch (account.kind) {
+    case "personal":
+      return t`Personal account`;
+    case "work_or_school":
+      return t`Work or school account`;
+    default:
+      return null;
+  }
+}
+
+function accountLabel(account: Account): string {
+  const who = account.email ?? account.name ?? account.id;
+  const kind = accountKindLabel(account);
+  return kind ? `${who} (${kind})` : who;
+}
+
+/**
+ * A reconnect landed on a different account than the last one (one email can
+ * have a personal and a work account, or the browser picked another saved
+ * account). Say so instead of quietly syncing a different calendar.
+ */
+function warnAccountChanged(
+  account: Account,
+  replaced: Account,
+  disconnect: () => void,
+) {
+  const name = providerLabel(account.provider);
+  toast.warning(t`Connected a different ${name} account than last time`, {
+    description: t`Now: ${accountLabel(account)}, id ${account.id}. Before: ${accountLabel(replaced)}, id ${replaced.id}. If this isn't the account you meant, disconnect it and connect again, choosing the other account.`,
+    duration: Infinity,
+    closeButton: true,
+    action: { label: t`Keep`, onClick: () => {} },
+    secondaryAction: { label: t`Disconnect`, onClick: disconnect },
   });
 }
 
@@ -110,6 +148,9 @@ export function useLocalAccountActions(options?: {
   );
   const onConnected = options?.onConnected;
   const onDisconnected = options?.onDisconnected;
+  const disconnectRef = useRef<((account: Account) => Promise<boolean>) | null>(
+    null,
+  );
 
   const connect = useCallback(
     async (provider: Provider) => {
@@ -122,14 +163,21 @@ export function useLocalAccountActions(options?: {
           return null;
         }
         await queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-        const who = result.data.email ?? result.data.name;
-        toast.success(
-          who
-            ? t`Connected ${who}`
-            : t`Connected your ${providerLabel(provider)} account`,
-        );
-        onConnected?.(result.data);
-        return result.data;
+        const { account, replaced } = result.data;
+        if (replaced) {
+          warnAccountChanged(account, replaced, () => {
+            void disconnectRef.current?.(account);
+          });
+        } else {
+          const who = account.email ?? account.name;
+          toast.success(
+            who
+              ? t`Connected ${who}`
+              : t`Connected your ${providerLabel(provider)} account`,
+          );
+        }
+        onConnected?.(account);
+        return account;
       } finally {
         if (connectingProvider === provider) setConnectingProvider(null);
       }
@@ -154,6 +202,7 @@ export function useLocalAccountActions(options?: {
     },
     [onDisconnected, queryClient],
   );
+  disconnectRef.current = disconnect;
 
   return { connect, cancel, disconnect, connecting };
 }

@@ -72,10 +72,18 @@ pub async fn list_calendars<R: tauri::Runtime>(
     connection_id: String,
 ) -> Result<Vec<CalendarListItem>, Error> {
     if let Some(account_id) = anlg_calendar::direct::local_account_id(&connection_id) {
-        return with_local_token(&app, provider, account_id, |token| async move {
+        let calendars = with_local_token(&app, provider, account_id, |token| async move {
             anlg_calendar::direct::list_calendars(provider, &token).await
         })
-        .await;
+        .await?;
+        // Which account's mailbox answered, by opaque id and count only.
+        tracing::info!(
+            ?provider,
+            account_id,
+            calendars = calendars.len(),
+            "local_account_calendars_listed"
+        );
+        return Ok(calendars);
     }
     let config = app.state::<crate::PluginConfig>();
     let token = match provider {

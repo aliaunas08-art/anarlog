@@ -21,7 +21,7 @@ async listAccounts() : Promise<Result<Account[], Error>> {
  * Opens the provider's consent page in the default browser and waits (up to
  * five minutes) for the user to approve.
  */
-async connectAccount(provider: Provider) : Promise<Result<Account, Error>> {
+async connectAccount(provider: Provider) : Promise<Result<ConnectedAccount, Error>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:accounts|connect_account", { provider }) };
 } catch (e) {
@@ -65,7 +65,19 @@ connected_at: string;
  * The provider refused the stored refresh token (password change,
  * revoked access): the user has to connect again.
  */
-needs_reconnect?: boolean }
+needs_reconnect?: boolean; 
+/**
+ * Microsoft only: a personal Microsoft account or a work or school
+ * (Entra) account. One email can have both, and Microsoft's sign-in page
+ * can pick either, so the app shows which one is connected.
+ */
+kind?: AccountKind | null }
+export type AccountKind = "personal" | "work_or_school"
+/**
+ * The account that signed in, plus the one it seems to replace when a
+ * reconnect landed on a different account (see `replaced_account`).
+ */
+export type ConnectedAccount = { account: Account; replaced: Account | null }
 /**
  * Error sent to the webview: a stable `code` for the UI, plus the message.
  */

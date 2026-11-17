@@ -11,6 +11,7 @@ import {
 import { ReconnectRequiredIndicator } from "./status";
 
 import {
+  accountKindLabel,
   type LocalAccount,
   localConnectionId,
   type LocalAccountProvider,
@@ -184,6 +185,7 @@ function LocalConnectedCalendars({
         return [
           {
             ...group,
+            account,
             menuItems: [
               {
                 id: `reconnect-${account.id}`,
@@ -210,12 +212,43 @@ function LocalConnectedCalendars({
     );
   }
 
+  // One block per account, headed by which account it is: one email can
+  // have a personal and a work Microsoft account.
+  const byAccount = accounts.flatMap((account) => {
+    const accountGroups = localGroups.filter(
+      (group) => group.account.id === account.id,
+    );
+    return accountGroups.length > 0 ? [{ account, groups: accountGroups }] : [];
+  });
+
   return (
-    <OAuthCalendarSelection
-      groups={localGroups}
-      onToggle={handleToggle}
-      onRefresh={handleRefresh}
-      isLoading={isLoading}
-    />
+    <div className="flex flex-col gap-3">
+      {byAccount.map(({ account, groups: accountGroups }) => {
+        const kind = accountKindLabel(account);
+        const who = account.email ?? account.name ?? account.id;
+        // Google lists the email as the calendar owner already.
+        const showHeader =
+          kind !== null ||
+          !accountGroups.some((group) => group.sourceName === who);
+        return (
+          <div key={account.id} className="flex flex-col gap-1">
+            {showHeader ? (
+              <p
+                className="text-muted-foreground truncate text-xs"
+                title={account.id}
+              >
+                {kind ? `${who} · ${kind}` : who}
+              </p>
+            ) : null}
+            <OAuthCalendarSelection
+              groups={accountGroups}
+              onToggle={handleToggle}
+              onRefresh={handleRefresh}
+              isLoading={isLoading}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }

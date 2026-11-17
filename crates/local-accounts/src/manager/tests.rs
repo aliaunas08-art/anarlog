@@ -265,3 +265,86 @@ async fn an_account_without_calendar_access_is_not_saved() {
     assert!(manager.list().unwrap().is_empty());
     assert!(manager.store.get("refresh/google-1234").unwrap().is_none());
 }
+
+fn id_token(claims: serde_json::Value) -> String {
+    use base64::Engine as _;
+    let encode = |value: &serde_json::Value| {
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(value.to_string())
+    };
+    format!(
+        "{}.{}.signature",
+        encode(&serde_json::json!({"alg": "RS256"})),
+        encode(&claims)
+    )
+}
+
+#[test]
+fn the_id_token_tenant_says_personal_or_work() {
+    let personal = id_token(serde_json::json!({"tid": "9188040d-6c67-4c5b-b112-36a304b66dad"}));
+    let work = id_token(serde_json::json!({"tid": "6baa4f8a-0000-0000-0000-000000000000"}));
+    assert_eq!(
+        microsoft_account_kind(Some(&personal)),
+        Some(AccountKind::Personal)
+    );
+    assert_eq!(
+        microsoft_account_kind(Some(&work)),
+        Some(AccountKind::WorkOrSchool)
+    );
+    assert_eq!(microsoft_account_kind(Some("not-a-jwt")), None);
+    assert_eq!(microsoft_account_kind(None), None);
+}
+
+fn microsoft_account(id: &str, email: &str) -> Account {
+    Account {
+        id: id.into(),
+        provider: Provider::Microsoft,
+        email: Some(email.into()),
+        name: None,
+        picture_url: None,
+        connected_at: "2026-11-17T00:00:00Z".into(),
+        needs_reconnect: false,
+        kind: Some(AccountKind::Personal),
+    }
+}
+
+#[test]
+fn a_reconnect_that_lands_on_another_account_is_reported() {
+    let first = microsoft_account("microsoft-8557", "ali@outlook.com");
+    let other = microsoft_account("microsoft-6cd1", "ali@outlook.com");
+    // Reconnect after a disconnect: nothing else connected.
+    assert_eq!(replaced_account(Some(&first), &other, &[]), Some(first.clone()));
+    // Same account again: nothing to report.
+    assert_eq!(replaced_account(Some(&first), &first, &[]), None);
+    // No earlier account: nothing to report.
+    assert_eq!(replaced_account(None, &other, &[]), None);
+    // "Add another account" with a different email while the first is connected.
+    let colleague = microsoft_account("microsoft-aaaa", "work@contoso.com");
+    assert_eq!(
+        replaced_account(Some(&first), &colleague, std::slice::from_ref(&first)),
+        None
+    );
+    // Same email but a different account, even with another one connected.
+    assert_eq!(
+        replaced_account(Some(&first), &other, std::slice::from_ref(&first)),
+        Some(first)
+    );
+}
+
+#[tokio::test]
+async fn the_last_connected_account_is_kept_after_a_disconnect() {
+    let server = MockServer::start().await;
+    mount_sign_in(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/revoke"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    let manager = AccountManager::with_overrides(MemoryStore::default(), overrides(&server));
+    let account = manager
+        .connect(Provider::Google, browser("the-code"))
+        .await
+        .unwrap();
+    manager.disconnect(&account.id).await.unwrap();
+    assert_eq!(manager.last_connected(Provider::Google), Some(account));
+    assert_eq!(manager.last_connected(Provider::Microsoft), None);
+}

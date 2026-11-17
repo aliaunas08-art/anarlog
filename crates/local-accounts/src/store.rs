@@ -81,6 +81,10 @@ impl SecretStore for MemoryStore {
 
 pub(crate) const INDEX_KEY: &str = "accounts";
 
+pub(crate) fn last_connected_key(provider: crate::Provider) -> String {
+    format!("last-connected/{}", provider.key())
+}
+
 pub(crate) fn refresh_key(account_id: &str) -> String {
     format!("refresh/{account_id}")
 }

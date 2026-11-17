@@ -39,8 +39,13 @@ const selectionMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@anlg/plugin-accounts", () => ({ commands: accountsMock }));
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+}));
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: toastMock,
 }));
 vi.mock("./status", () => ({ ReconnectRequiredIndicator: () => null }));
 vi.mock("../context", () => ({ useSync: () => syncMock }));
@@ -114,7 +119,7 @@ describe("LocalProviderContent", () => {
   it("connects through the browser, then syncs calendars", async () => {
     accountsMock.connectAccount.mockResolvedValue({
       status: "ok",
-      data: account,
+      data: { account, replaced: null },
     });
     render(wrap(<LocalProviderContent config={google} provider="google" />));
 
@@ -174,5 +179,56 @@ describe("LocalProviderContent", () => {
     expect(
       await screen.findByText("Reconnect sam@example.com to keep syncing"),
     ).toBeTruthy();
+  });
+
+  it("names the Microsoft account and its type above its calendars", async () => {
+    const outlook = {
+      id: "outlook",
+      displayName: "Outlook",
+      nangoIntegrationId: "outlook",
+    } as CalendarProvider;
+    accountsMock.listAccounts.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          ...account,
+          id: "microsoft-8557",
+          provider: "microsoft" as const,
+          email: "ali@outlook.com",
+          name: "Ali",
+          kind: "personal" as const,
+        },
+      ],
+    });
+    selectionMock.groups = [
+      { id: "local:microsoft-8557", sourceName: "Ali", calendars: [] },
+      { id: "local:microsoft-8557", sourceName: "Your family", calendars: [] },
+    ];
+    render(
+      wrap(<LocalProviderContent config={outlook} provider="microsoft" />),
+    );
+    expect(
+      await screen.findByText("ali@outlook.com · Personal account"),
+    ).toBeTruthy();
+    expect(screen.getByText("Your family")).toBeTruthy();
+  });
+
+  it("warns when a reconnect lands on a different account", async () => {
+    const replaced = { ...account, id: "google-0001" };
+    accountsMock.connectAccount.mockResolvedValue({
+      status: "ok",
+      data: { account, replaced },
+    });
+    render(wrap(<LocalProviderContent config={google} provider="google" />));
+    fireEvent.click(await screen.findByText("Connect Google Calendar"));
+    await waitFor(() =>
+      expect(toastMock.warning).toHaveBeenCalledWith(
+        "Connected a different Google account than last time",
+        expect.objectContaining({
+          description: expect.stringContaining("google-0001"),
+        }),
+      ),
+    );
+    expect(toastMock.success).not.toHaveBeenCalled();
   });
 });
