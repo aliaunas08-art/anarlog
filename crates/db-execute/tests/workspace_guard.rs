@@ -15,6 +15,7 @@ use sqlx::Connection;
 struct Fixture {
     _dir: tempfile::TempDir,
     db: Arc<Db>,
+    authorizer: Arc<WebviewSqlAuthorizer>,
     webview: DbExecutor,
 }
 
@@ -65,10 +66,11 @@ async fn fixture(binding: Option<&str>) -> Fixture {
     let db = Arc::new(db);
     let authorizer = WebviewSqlAuthorizer::new();
     authorizer.enable_workspace_guard();
-    let webview = DbExecutor::for_webview(Arc::clone(&db), authorizer);
+    let webview = DbExecutor::for_webview(Arc::clone(&db), Arc::clone(&authorizer));
     Fixture {
         _dir: dir,
         db,
+        authorizer,
         webview,
     }
 }
@@ -152,6 +154,50 @@ async fn single_workspace_reads_and_writes_work() {
 }
 
 /// Every way of reaching the second workspace's rows is denied.
+/// A read that reaches a content table it doesn't name (a view, a table
+/// without `workspace_id`) is denied on its first, partial-census attempt and
+/// then retried after a full census. Only a denial that survives the retry is
+/// reported to the denial sink (the audit log's `permission.denied`).
+#[tokio::test]
+async fn only_final_denials_reach_the_denial_sink() {
+    let f = fixture(Some("local-ws")).await;
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = Arc::clone(&seen);
+    f.authorizer
+        .set_denial_sink(move |denial| sink.lock().unwrap().push(denial));
+
+    select(&f.webview, "SELECT title FROM session_titles")
+        .await
+        .unwrap();
+    select(&f.webview, "SELECT words FROM transcript_live_state")
+        .await
+        .unwrap();
+    select(
+        &f.webview,
+        "SELECT value FROM json_each('[1,2]') JOIN sessions ON 1 = 1",
+    )
+    .await
+    .unwrap();
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "retried reads reported denials: {:?}",
+        seen.lock().unwrap()
+    );
+
+    // A real denial (another workspace present) still reaches the sink.
+    add_foreign_rows(&f.db).await;
+    assert!(denied(
+        select(&f.webview, "SELECT title FROM session_titles").await
+    ));
+    assert!(denied(select(&f.webview, "SELECT id FROM sessions").await));
+    let seen = seen.lock().unwrap();
+    assert!(
+        seen.iter()
+            .any(|d| d.code == "sql.workspace" && d.table.as_deref() == Some("sessions")),
+        "{seen:?}"
+    );
+}
+
 #[tokio::test]
 async fn a_second_workspace_denies_every_content_path() {
     let f = fixture(Some("local-ws")).await;

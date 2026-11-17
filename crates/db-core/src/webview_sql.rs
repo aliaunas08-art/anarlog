@@ -267,21 +267,39 @@ impl WebviewSqlAuthorizer {
     fn decide(&self, request: &AuthRequest<'_>, connection: &ConnectionState) -> Decision {
         let (decision, code) = self.decide_with_code(request, connection);
         if decision == Decision::Deny {
-            let sink = self
-                .denial_sink
-                .0
-                .read()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone();
-            if let Some(sink) = sink {
-                sink(SqlDenial {
-                    code,
-                    table: request.arg1.map(str::to_owned),
-                    access: data_access(request),
-                });
+            let denial = SqlDenial {
+                code,
+                table: request.arg1.map(str::to_owned),
+                access: data_access(request),
+            };
+            // During a read's first, partial-census attempt a denial is only
+            // provisional: the caller retries after a full census. It reaches
+            // the sink only if no retry clears it (see `WorkspaceGuard`).
+            let mut deferred = connection
+                .deferred_denials
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            match deferred.as_mut() {
+                Some(buffer) => buffer.push(denial),
+                None => {
+                    drop(deferred);
+                    self.report_denial(denial);
+                }
             }
         }
         decision
+    }
+
+    fn report_denial(&self, denial: SqlDenial) {
+        let sink = self
+            .denial_sink
+            .0
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        if let Some(sink) = sink {
+            sink(denial);
+        }
     }
 
     fn decide_with_code(
@@ -486,9 +504,41 @@ pub struct ConnectionState {
     /// (every other content table is denied). `None`: all, after a full
     /// census.
     allowed_only: std::sync::Mutex<Option<Vec<&'static str>>>,
+    /// `Some` while a read runs its first attempt after a partial census:
+    /// denials are held here instead of reaching the denial sink. A full
+    /// census before the retry discards them (the retry reports its own);
+    /// anything still held when the connection is released is reported.
+    deferred_denials: std::sync::Mutex<Option<Vec<SqlDenial>>>,
 }
 
 impl ConnectionState {
+    fn defer_denials(&self) {
+        *self
+            .deferred_denials
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(Vec::new());
+    }
+
+    fn discard_deferred_denials(&self) {
+        *self
+            .deferred_denials
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    /// Reports the denials still held (a first attempt that was never
+    /// retried) and stops deferring.
+    fn flush_deferred_denials(&self) {
+        let held = self
+            .deferred_denials
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        for denial in held.into_iter().flatten() {
+            self.policy.report_denial(denial);
+        }
+    }
+
     fn allows_content(&self, table: Option<&str>) -> bool {
         if self.content_denied.load(Ordering::SeqCst) {
             return false;
@@ -592,7 +642,12 @@ impl WorkspaceGuard {
     /// Runs the census and allows content tables only if every content row
     /// is in the local workspace (or unassigned). Never fails: an error
     /// leaves content denied.
+    ///
+    /// Called before the retry of a read whose partial-census attempt was
+    /// denied: that attempt's denials are dropped, so only the retry's own
+    /// (final) denials reach the denial sink.
     pub async fn check(&self, connection: &mut SqliteConnection) {
+        self.state.discard_deferred_denials();
         let foreign = self.foreign_workspace_present(connection).await;
         self.state.content_denied.store(foreign, Ordering::SeqCst);
     }
@@ -603,6 +658,9 @@ impl WorkspaceGuard {
     /// table without `workspace_id`), the caller runs [`Self::check`] in the
     /// same transaction and retries.
     pub async fn check_read(&self, connection: &mut SqliteConnection, sql: &str) {
+        // The first attempt's denials are provisional until the caller either
+        // retries (`check` drops them) or releases the connection (reported).
+        self.state.defer_denials();
         let tables = referenced_scoped_tables(sql);
         if tables.is_empty() {
             self.state.content_denied.store(true, Ordering::SeqCst);
@@ -670,6 +728,7 @@ impl AuthorizedConnection {
                 content_denied: AtomicBool::new(guarded),
                 transaction_control: AtomicBool::new(false),
                 allowed_only: std::sync::Mutex::new(None),
+                deferred_denials: std::sync::Mutex::new(None),
             }),
             installed: false,
         };
@@ -709,6 +768,7 @@ impl AuthorizedConnection {
 
     /// Remove the authorizer and return the connection to the pool.
     pub async fn release(mut self) -> Result<(), sqlx::Error> {
+        self.state.flush_deferred_denials();
         let connection = self.connection.as_mut().expect("connection present");
         clear_authorizer(connection).await?;
         self.installed = false;
@@ -735,6 +795,7 @@ impl Drop for AuthorizedConnection {
         if !self.installed {
             return;
         }
+        self.state.flush_deferred_denials();
         let Some(mut connection) = self.connection.take() else {
             return;
         };
