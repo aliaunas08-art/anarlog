@@ -6734,7 +6734,7 @@ msgid "Starts in {minutesUntil} min"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
-msgid "Stay current with updates installed the next time {APP_NAME}opens."
+msgid "Stay current with updates installed the next time {APP_NAME} opens."
 msgstr ""
 
 #: src/settings/automations/index.tsx

@@ -64,8 +64,8 @@ export function AppSettingsView({
                 title={<Trans>Automatically install updates</Trans>}
                 description={
                   <Trans>
-                    Stay current with updates installed the next time {APP_NAME}
-                    opens.
+                    Stay current with updates installed the next time{" "}
+                    {APP_NAME} opens.
                   </Trans>
                 }
                 checked={automaticUpdates.value}
