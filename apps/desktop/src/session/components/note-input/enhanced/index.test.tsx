@@ -125,7 +125,9 @@ vi.mock("./editor", () => ({
 }));
 
 vi.mock("./enhance-error", () => ({
-  EnhanceError: () => <div>Enhance error</div>,
+  EnhanceError: ({ compact }: { compact?: boolean }) => (
+    <div>{compact ? "Enhance error notice" : "Enhance error"}</div>
+  ),
 }));
 
 function Enhanced({
@@ -433,5 +435,35 @@ describe("Enhanced", () => {
     view.rerender(element());
     expect(screen.getByText("Generated summary")).not.toBeNull();
     client.clear();
+  });
+
+  it("keeps a saved summary on screen when a regenerate fails", () => {
+    hoisted.content = "Stored summary";
+    hoisted.enhanceTask = {
+      status: "error",
+      error: new Error("AI paused: no API key is set"),
+      streamedText: "",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Enhance error notice")).toBeTruthy();
+    expect(screen.getByText("Stored summary")).toBeTruthy();
+    expect(screen.queryByText("Enhance error")).toBeNull();
+  });
+
+  it("shows the full error when there is no saved summary", () => {
+    hoisted.enhanceTask = {
+      status: "error",
+      error: new Error("AI paused: no API key is set"),
+      streamedText: "",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Enhance error")).toBeTruthy();
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
   });
 });

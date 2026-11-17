@@ -713,6 +713,14 @@ msgstr "Agent skills"
 msgid "AI"
 msgstr "AI"
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "AI is paused"
+msgstr "AI is paused"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "AI is paused. Showing the last saved summary."
+msgstr "AI is paused. Showing the last saved summary."
+
 #: src/settings/automations/index.tsx
 msgid "AI step"
 msgstr "AI step"
@@ -2235,6 +2243,10 @@ msgstr "Couldn't reach {name}. Check your connection and try again."
 #: src/calendar/components/oauth/local-provider-content.tsx
 msgid "Couldn't read your connected accounts from the Keychain"
 msgstr "Couldn't read your connected accounts from the Keychain"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Couldn't regenerate the summary. Showing the last saved one."
+msgstr "Couldn't regenerate the summary. Showing the last saved one."
 
 #: src/accounts/local.ts
 msgid "Couldn't save the {name} account to the Keychain."

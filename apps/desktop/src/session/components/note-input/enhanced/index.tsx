@@ -58,7 +58,20 @@ export const Enhanced = forwardRef<
     const showStreaming = status === "generating" || isAwaitingPersistedContent;
     const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
-    if (status === "error") {
+    // A failed regenerate never hides a saved summary: show it with a
+    // notice. The full-page error is only for a summary that doesn't exist.
+    const failedNotice =
+      status === "error" && hasContent ? (
+        <EnhanceError
+          sessionId={sessionId}
+          enhancedNoteId={enhancedNoteId}
+          error={error}
+          isUnauthenticated={false}
+          compact
+        />
+      ) : null;
+
+    if (status === "error" && !hasContent) {
       return (
         <EnhanceError
           sessionId={sessionId}
@@ -100,16 +113,19 @@ export const Enhanced = forwardRef<
     }
 
     return (
-      <EnhancedEditor
-        ref={ref}
-        sessionId={sessionId}
-        sessionTitle={sessionTitle}
-        enhancedNoteId={enhancedNoteId}
-        content={enhancedNote.content}
-        onNavigateToTitle={onNavigateToTitle}
-        onViewReady={onViewReady}
-        onViewDisposed={onViewDisposed}
-      />
+      <>
+        {failedNotice}
+        <EnhancedEditor
+          ref={ref}
+          sessionId={sessionId}
+          sessionTitle={sessionTitle}
+          enhancedNoteId={enhancedNoteId}
+          content={enhancedNote.content}
+          onNavigateToTitle={onNavigateToTitle}
+          onViewReady={onViewReady}
+          onViewDisposed={onViewDisposed}
+        />
+      </>
     );
   },
 );
