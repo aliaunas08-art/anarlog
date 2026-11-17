@@ -13,7 +13,7 @@ import { useTabs } from "~/store/zustand/tabs";
 export const privacyMessages = {
   title: msg`Privacy`,
   posthogTitle: msg`Share usage data`,
-  posthogDescription: msg`Help improve ${APP_NAME} with anonymous usage data.`,
+  posthogDescription: msg`Help improve ${APP_NAME} with anonymous usage data: event names, app version and counts, never meeting content. Off by default.`,
 };
 
 interface SettingItem {
@@ -102,7 +102,10 @@ export function AppSettingsView({
             title={<Trans>Show tray icon</Trans>}
             description={
               isMacos ? (
-                <Trans>Open {APP_NAME} from the menu bar.</Trans>
+                <Trans>
+                  Open {APP_NAME} from the menu bar. While recording, the
+                  menu-bar icon is always shown.
+                </Trans>
               ) : undefined
             }
             checked={showTrayIcon.value}

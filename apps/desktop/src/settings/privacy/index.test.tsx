@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => ({
   authenticating: false,
   platform: "macos" as string,
   values: {
-    telemetry_consent: true,
+    analytics_opt_in: true,
+    session_replay_opt_in: false,
     crash_reporting_consent: false,
     lock_app: false,
     meeting_retention_days: 0,
@@ -33,7 +34,8 @@ vi.mock("~/settings/queries", () => ({
     data: {
       values: mocks.values,
       hasValues: new Set([
-        "telemetry_consent",
+        "analytics_opt_in",
+        "session_replay_opt_in",
         "crash_reporting_consent",
         "lock_app",
         "meeting_retention_days",
@@ -61,7 +63,8 @@ import { SettingsPrivacy } from ".";
 describe("SettingsPrivacy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.values.telemetry_consent = true;
+    mocks.values.analytics_opt_in = true;
+    mocks.values.session_replay_opt_in = false;
     mocks.values.crash_reporting_consent = false;
     mocks.values.lock_app = false;
     mocks.values.meeting_retention_days = 0;
@@ -90,7 +93,7 @@ describe("SettingsPrivacy", () => {
     fireEvent.click(errorReporting);
 
     expect(mocks.setSettingValues).toHaveBeenNthCalledWith(1, {
-      telemetry_consent: false,
+      analytics_opt_in: false,
     });
     expect(mocks.setSettingValues).toHaveBeenNthCalledWith(2, {
       crash_reporting_consent: true,

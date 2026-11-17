@@ -246,15 +246,32 @@ export const SETTING_DEFINITIONS = {
     path: ["notification", "bounce_transcript"],
     default: true as boolean,
   },
+  // Legacy. It defaulted to on, so a stored value can't show the user opted
+  // in; it no longer turns analytics on (ASPC D6). Kept only for the crash
+  // reporting migration in `initializeApplicationSettings`.
   telemetry_consent: {
     type: "boolean",
     path: ["general", "telemetry_consent"],
-    default: true as boolean,
+    default: false as boolean,
   },
+  // ASPC D6 / C4.3: usage analytics and session replay are opt-in. Both are
+  // off for new and existing installs until the user turns them on.
+  analytics_opt_in: {
+    type: "boolean",
+    path: ["general", "analytics_opt_in"],
+    default: false as boolean,
+  },
+  session_replay_opt_in: {
+    type: "boolean",
+    path: ["general", "session_replay_opt_in"],
+    default: false as boolean,
+  },
+  // Rust treats a missing row as off (`crash_reporting_consent_from_rows`);
+  // the UI default matches it.
   crash_reporting_consent: {
     type: "boolean",
     path: ["general", "crash_reporting_consent"],
-    default: true as boolean,
+    default: false as boolean,
   },
   // ASPC D3: 0 keeps meetings forever; N > 0 deletes meetings older than
   // N days (applied in Rust at startup and every 6 hours).

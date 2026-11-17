@@ -9,6 +9,7 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { readDueScheduledSessionMeeting } from "~/stt/scheduled-auto-start";
+import { notifyScheduledRecordingStarted } from "~/stt/scheduled-auto-start-notice";
 import {
   beginScheduledAutoStart,
   finishScheduledAutoStart,
@@ -146,9 +147,19 @@ function StartScheduledSessionAutoStart({
         }
 
         beginScheduledAutoStart(sessionId);
-        return startListeningRef.current().finally(() => {
-          finishScheduledAutoStart(sessionId);
-        });
+        return startListeningRef
+          .current()
+          .then(() => {
+            // C6.5: an automatic start always tells the user.
+            void notifyScheduledRecordingStarted(sessionId).catch(() => {
+              console.error(
+                "[listener] failed to show the auto-start notification",
+              );
+            });
+          })
+          .finally(() => {
+            finishScheduledAutoStart(sessionId);
+          });
       })
       .catch((error) => {
         if (cancelled) return;

@@ -189,7 +189,8 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 - **C4.1** Logs, crash reports and analytics never contain transcript text, note content, meeting titles, attendee emails or keys.
 - **C4.2** Test: a fixture meeting whose transcript, note and title contain a marker string is run through capture, enhance, Ask, export and an induced error. The marker must not appear in `app.log`, stderr, captured Sentry events or captured analytics events.
-- **C4.3** Session replay is off. Turning it on needs a change to this file.
+- **C4.3** Session replay is off by default. It runs only when the user has turned on both error reports and the separate "Session replay" switch in Settings → Privacy (`session_replay_opt_in`, default false), and then masks all text and inputs, blocks media and captures no network bodies (`apps/desktop/src/error-reporting.ts`). Test: `stays off with error reporting on until the user opts in, then masks everything` (`error-reporting.test.ts`). Changing these defaults needs a change to this file.
+- **C4.4** Usage analytics (PostHog) is opt-in: the app setting `analytics_opt_in` (default false) and, in Rust, the analytics store's `OptedIn` flag, which is off when missing (`plugins/analytics/src/ext.rs`, test `analytics_is_off_unless_the_user_opted_in`). The legacy `telemetry_consent` setting and the old `Disabled` store key, which defaulted to on, are ignored, so every install that hasn't opted in since this change is off. Event properties pass the sink's redaction (`crates/analytics`: content-shaped keys dropped, string values only if identifier-like). Crash reporting is also off until the user turns it on (Rust and the UI agree).
 
 ### C5. Backup and recovery
 
@@ -199,7 +200,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### C6. Recording
 
-- **C6.1** Recording can't start unless an indicator the user can see is shown for the whole recording: the floating bar, or the menu-bar icon if the bar is off. While recording, the indicator can't be turned off.
+- **C6.1** Recording can't start unless an indicator the user can see is shown for the whole recording. The menu-bar icon is that indicator: while a recording is active it is shown and animated whatever the "Show tray icon" setting says (the setting applies again when the recording ends), so no setting can hide it (`tray_icon_visible`, `plugins/tray/src/ext.rs`; test `the_recording_indicator_ignores_the_hide_setting`). The floating bar is an extra indicator the user may turn off.
 - **C6.2** Microphone and system-audio permission go through macOS TCC. The Info.plist strings and the in-app screen say, in plain words, what's recorded and where it's kept.
 - **C6.3** The first recording shows a one-time notice that other people are being recorded and that consent laws vary.
 - **C6.4** A meeting can be marked **Private** (`sessions.private`, a flag separate from the Lock Note `locked` flag; it syncs to other devices). Private meetings are left out of all-meetings Ask, export-all and bulk exports, and sharing, unless the user includes them for that one action. "This meeting" Ask on the Private meeting itself still works for its owner. Where the exclusion lives:
@@ -207,7 +208,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - bulk exports: `agent_access::list_meetings` (MCP, the local API, the CLI, Ask) leaves them out; only `list_meetings_including_private` includes them, used by the CLI's `meetings list --include-private`; the Markdown export automation and webhooks skip Private meetings;
   - sharing: a new share of a Private meeting asks the user to include it for that share; folder default sharing and folder (resource) sharing never include Private meetings.
     Tests: `list_sessions_excludes_private_meetings_unless_included`, `private_meetings_are_left_out_of_listings`, `excluded_sessions_drop_out_unless_scoped_to_them`, `private_meetings_are_not_dispatched_or_auto_exported`, `private_flag_reaches_other_devices`, `chat/guardrails/private.test.ts`, `session-sharing/source.test.ts`.
-- **C6.5** A recording started automatically from the calendar shows the same indicator and a notification. It never starts while the app is hidden without a notification.
+- **C6.5** A recording started automatically from the calendar shows the same indicator and a notification. It never starts while the app is hidden without a notification. The notification is shown on every calendar auto-start, whatever the notification settings, and names no meeting (`apps/desktop/src/stt/scheduled-auto-start-notice.ts`, called from `scheduled-session-auto-start.tsx`; test in `scheduled-session-auto-start.test.tsx`).
 
 ### C7. Cost protection (Efficiency Engine)
 
@@ -375,6 +376,7 @@ These tests must exist and pass; each item is true or false:
 
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
 
+- **Phase 5 (2026-11-16): analytics and session replay are opt-in, for existing installs too.** The old consent (`telemetry_consent`, and the analytics store's `Disabled` key) defaulted to on, so a stored value can't show that the user chose it. Both are ignored; new keys (`analytics_opt_in`, `session_replay_opt_in`, the store's `OptedIn`) default to off. A user who had opted in has to turn analytics on again.
 - **Phase 4 (2026-11-16): retention is a setting.** `meeting_retention_days` in the app settings store (0 = keep forever), applied by a Rust job at startup and every 6 hours through the permanent delete. Retention runs are logged only while retention is on.
 - **Phase 4 (2026-11-16): permanent delete.** After the undo window a meeting is deleted permanently in Rust. A meeting sync has seen keeps a blank tombstone (content columns reset, `deletion_context` cleared so no device restores it), the rest is deleted. A quit during the undo window deletes it on the next launch rather than restoring it. The app database runs with `secure_delete` on.
 - **Phase 4 (2026-11-16): Private is its own flag.** `sessions.private` (migration `20261116120000_session_private`, default 0, synced like `locked`) is separate from the Lock Note flag. Where an action has no "include Private meetings" choice, Private meetings are simply left out; the only explicit includes are a new share of that meeting (a confirmation) and the CLI's `--include-private`. An AI tool can never include them.

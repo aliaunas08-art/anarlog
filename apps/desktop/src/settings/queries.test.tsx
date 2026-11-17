@@ -334,11 +334,26 @@ describe("SQLite settings", () => {
       }),
     );
 
-    await setSettingValues({ telemetry_consent: false });
+    await setSettingValues({ analytics_opt_in: false });
 
     expect(mocks.setDisabled).toHaveBeenCalledWith(true);
 
     resolveDisabled({ status: "ok", data: null });
+  });
+
+  it("enables PostHog only on an explicit opt-in", async () => {
+    await setSettingValues({ analytics_opt_in: true });
+    expect(mocks.setDisabled).toHaveBeenCalledWith(false);
+  });
+
+  it("never turns analytics on from the legacy telemetry setting", async () => {
+    mocks.execute.mockResolvedValue([
+      { id: "telemetry_consent", value_json: JSON.stringify(true) },
+    ]);
+
+    await initializeApplicationSettings();
+
+    expect(mocks.setDisabled).not.toHaveBeenCalledWith(false);
   });
 
   it("updates Sentry independently from PostHog", async () => {

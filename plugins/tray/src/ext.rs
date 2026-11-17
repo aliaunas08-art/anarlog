@@ -34,6 +34,9 @@ use tauri_plugin_store2::Store2PluginExt;
 const TRAY_ID: &str = "anlg-tray";
 
 static IS_RECORDING: AtomicBool = AtomicBool::new(false);
+/// The `show_tray_icon` preference. The icon is shown when this is on or
+/// while recording (ASPC C6.1, see [`tray_icon_visible`]).
+static USER_WANTS_VISIBLE: AtomicBool = AtomicBool::new(true);
 static IS_DEGRADED: AtomicBool = AtomicBool::new(false);
 static IS_PAUSED: AtomicBool = AtomicBool::new(false);
 static IS_UPDATE_AVAILABLE: AtomicBool = AtomicBool::new(false);
@@ -234,8 +237,20 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         Ok(())
     }
 
+    /// Applies the user's `show_tray_icon` preference. While recording the
+    /// icon stays visible whatever the preference (ASPC C6.1); the preference
+    /// takes effect when the recording ends.
     pub fn set_visible(&self, visible: bool) -> Result<()> {
+        USER_WANTS_VISIBLE.store(visible, Ordering::SeqCst);
+        self.apply_visibility()
+    }
+
+    fn apply_visibility(&self) -> Result<()> {
         on_main_thread(self.manager.app_handle(), move |app| {
+            let visible = tray_icon_visible(
+                USER_WANTS_VISIBLE.load(Ordering::SeqCst),
+                IS_RECORDING.load(Ordering::SeqCst),
+            );
             app.tray().set_visible_on_main_thread(visible)
         })
     }
@@ -524,6 +539,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             *RECORDING_TITLE.lock().unwrap() = None;
         }
 
+        // The recording indicator can't be hidden by any setting (C6.1).
+        self.apply_visibility()?;
         let app = self.manager.app_handle();
         Self::refresh_menu_bar_title(app)?;
         Self::refresh_icon(app)?;
@@ -615,6 +632,12 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         START_DISABLED.store(disabled, Ordering::SeqCst);
         Self::rebuild_menu(self.manager.app_handle())
     }
+}
+
+/// ASPC C6.1: the menu-bar icon is the recording indicator that no setting
+/// can hide. It is shown when the user wants it, and always while recording.
+pub(crate) fn tray_icon_visible(user_wants_visible: bool, recording: bool) -> bool {
+    user_wants_visible || recording
 }
 
 // Tauri's TrayIcon is Send, but cloning/dropping it touches tray-icon's Rc.
@@ -719,5 +742,19 @@ mod thread_tests {
         )
         .unwrap_err();
         assert!(matches!(error, tauri::Error::FailedToReceiveMessage));
+    }
+}
+
+#[cfg(test)]
+mod indicator_tests {
+    use super::tray_icon_visible;
+
+    /// ASPC C6.1: no setting hides the recording indicator.
+    #[test]
+    fn the_recording_indicator_ignores_the_hide_setting() {
+        assert!(tray_icon_visible(false, true));
+        assert!(tray_icon_visible(true, true));
+        assert!(tray_icon_visible(true, false));
+        assert!(!tray_icon_visible(false, false));
     }
 }

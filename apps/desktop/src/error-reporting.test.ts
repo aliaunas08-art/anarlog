@@ -322,6 +322,30 @@ describe("archived operational noise", () => {
 });
 
 describe("session replay consent", () => {
+  it("stays off with error reporting on until the user opts in, then masks everything", async () => {
+    vi.resetModules();
+    const { initializeErrorReporting, setSessionReplayAnalyticsEnabled } =
+      await import("./error-reporting");
+
+    initializeErrorReporting();
+    await vi.waitFor(() =>
+      expect(mocks.isCrashReportingEnabled).toHaveBeenCalledOnce(),
+    );
+    await Promise.resolve();
+    expect(mocks.addIntegration).not.toHaveBeenCalled();
+
+    setSessionReplayAnalyticsEnabled(true);
+    await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
+    expect(mocks.replayIntegration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maskAllText: true,
+        maskAllInputs: true,
+        blockAllMedia: true,
+        networkCaptureBodies: false,
+      }),
+    );
+  });
+
   it("broadcasts revocation and stops the local replay", async () => {
     vi.resetModules();
     const {

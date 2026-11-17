@@ -196,18 +196,22 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         });
     }
 
+    /// Analytics is opt-in (ASPC D6): only `set_disabled(false)`, sent when
+    /// the user turns it on in Settings, enables it.
     pub fn set_disabled(&self, disabled: bool) -> Result<(), crate::Error> {
         {
             let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
-            store.set(crate::StoreKey::Disabled, disabled)?;
+            store.set(crate::StoreKey::OptedIn, !disabled)?;
         }
         Ok(())
     }
 
+    /// Disabled unless the user opted in. The old `Disabled` key is ignored,
+    /// so an install that never opted in is off after the upgrade too.
     pub fn is_disabled(&self) -> Result<bool, crate::Error> {
         let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
-        let v = store.get(crate::StoreKey::Disabled)?.unwrap_or(false);
-        Ok(v)
+        let opted_in: Option<bool> = store.get(crate::StoreKey::OptedIn)?;
+        Ok(analytics_disabled(opted_in))
     }
 
     pub async fn set_properties(
@@ -282,5 +286,22 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AnalyticsPluginExt<R> for T {
             manager: self,
             _runtime: std::marker::PhantomData,
         }
+    }
+}
+
+/// Off unless the user explicitly opted in.
+pub(crate) fn analytics_disabled(opted_in: Option<bool>) -> bool {
+    opted_in != Some(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::analytics_disabled;
+
+    #[test]
+    fn analytics_is_off_unless_the_user_opted_in() {
+        assert!(analytics_disabled(None));
+        assert!(analytics_disabled(Some(false)));
+        assert!(!analytics_disabled(Some(true)));
     }
 }

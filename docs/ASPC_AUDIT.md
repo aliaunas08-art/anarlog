@@ -832,6 +832,32 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 - **Fix** `crates/db-core/src/webview_sql.rs`: `WorkspaceGuard::check_read` starts holding denials in `ConnectionState.deferred_denials`; `WorkspaceGuard::check` (the full census before the retry) drops them, so the retry reports its own; `AuthorizedConnection::release` and its `Drop` report any still held (a first attempt that was never retried). The allow/deny decisions are unchanged (fail closed as before). Both retry sites are covered: `crates/db-execute/src/lib.rs` (`guarded`) and `crates/db-reactive/src/schema.rs` (`resolve_query`).
 - **Test:** `only_final_denials_reach_the_denial_sink` (`crates/db-execute/tests/workspace_guard.rs`): a view read, a read of a table without `workspace_id` and a `json_each` join report nothing in single-workspace mode; with a second workspace present the denials reach the sink. It fails on the Phase 4 code (three spurious denials).
 
+### C4.3 / C4.4 / D6 analytics and session replay defaults: EXISTS (was MISSING: analytics on by default, replay with telemetry)
+
+- **Before:** `telemetry_consent` defaulted to true (UI), PostHog's Rust store treated a missing `Disabled` key as enabled, Session Replay ran (10% / 100% on error) whenever telemetry and crash consent were both on, and the UI showed crash reporting on by default while Rust treated it as off.
+- **Now:**
+  - `apps/desktop/src/settings/schema.ts`: `analytics_opt_in` and `session_replay_opt_in` (default false); `telemetry_consent` kept only for the crash-reporting split migration, default false; `crash_reporting_consent` default false (matches `crash_reporting_consent_from_rows`, `apps/desktop/src-tauri/src/lib.rs:75`).
+  - `apps/desktop/src/settings/queries.ts` (`applySettingSideEffects`): `analytics_opt_in` drives `analytics:set_disabled`; `session_replay_opt_in` drives replay. The legacy key no longer touches either.
+  - `plugins/analytics/src/ext.rs` (`set_disabled`, `is_disabled`, `analytics_disabled`): stored as `OptedIn` (`store.rs`), missing = off; the old `Disabled` key is ignored.
+  - `apps/desktop/src/error-reporting.ts`: replay integration with `maskAllText`, `maskAllInputs`, `blockAllMedia`, no network detail or bodies; starts only with crash consent and the replay opt-in.
+  - Settings → Privacy (`apps/desktop/src/settings/privacy/index.tsx`): "Share usage data" (opt-in), "Error", and a new "Session replay" switch, each off by default.
+- **Migration choice:** reset to off for everyone. A stored `telemetry_consent = true` may be a default written by an older build, so it can't count as an opt-in. Cost: a user who had explicitly opted in must opt in again. No database migration.
+- **Redaction when on:** unchanged and already central in `crates/analytics/src/lib.rs` (`sanitized_properties`, `is_safe_analytics_string`): content-like keys dropped, strings with spaces or longer than 96 characters dropped. GAP: a one-word value under an innocuous key would pass the sink's filter; call sites never pass content (C4.2 marker test below).
+- **Tests:** `analytics_is_off_unless_the_user_opted_in` (`plugins/analytics/src/ext.rs`), `enables PostHog only on an explicit opt-in` and `never turns analytics on from the legacy telemetry setting` (`settings/queries.test.tsx`), `stays off with error reporting on until the user opts in, then masks everything` (`error-reporting.test.ts`), `settings/privacy/index.test.tsx`.
+
+### C6.1 recording indicator: EXISTS (was PARTIAL)
+
+- `plugins/tray/src/ext.rs`: `set_visible` stores the `show_tray_icon` preference (`USER_WANTS_VISIBLE`) and `apply_visibility` shows the icon when `tray_icon_visible(preference, recording)`; `set_recording` reapplies it, so the animated menu-bar icon appears for every recording even with "Show tray icon" off and hides again afterwards. The settings copy says so (`settings/general/app-settings.tsx`).
+- The floating bar (`floating_bar_enabled`) stays optional; it is an extra indicator.
+- Test: `the_recording_indicator_ignores_the_hide_setting`.
+- GUESS: `set_recording(true)` is called on the listener's `Active` lifecycle event (`plugins/transcription/src/listener/runtime.rs:51`); if audio capture can begin before that event, the icon appears a moment after capture starts. Not measured.
+
+### C6.5 calendar auto-start: EXISTS (was GUESS)
+
+- `apps/desktop/src/stt/scheduled-auto-start-notice.ts`: `notifyScheduledRecordingStarted` shows a system notification ("Recording started automatically"), no meeting title, ignoring the in-app notification preferences; called after the scheduled `startListening` resolves (`scheduled-session-auto-start.tsx`). The menu-bar indicator comes from C6.1.
+- Test: `scheduled-session-auto-start.test.tsx` (the notification on a scheduled start, none on a manual start).
+- GAP: macOS can still suppress the notification (Focus / Do Not Disturb or notifications denied for the app); the menu-bar icon is then the only signal.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

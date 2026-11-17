@@ -39,7 +39,11 @@ export function SettingsPrivacy() {
   }
 
   const posthogEnabled = resolveConfigValue(
-    "telemetry_consent",
+    "analytics_opt_in",
+    settingsQuery.data,
+  );
+  const sessionReplayEnabled = resolveConfigValue(
+    "session_replay_opt_in",
     settingsQuery.data,
   );
   const sentryEnabled = resolveConfigValue(
@@ -77,8 +81,8 @@ export function SettingsPrivacy() {
           title={i18n._(privacyMessages.posthogTitle)}
           description={i18n._(privacyMessages.posthogDescription)}
           checked={posthogEnabled}
-          onChange={(telemetryConsent) => {
-            setSettingValues({ telemetry_consent: telemetryConsent });
+          onChange={(analyticsOptIn) => {
+            setSettingValues({ analytics_opt_in: analyticsOptIn });
           }}
         />
         <SettingSwitchRow
@@ -89,6 +93,14 @@ export function SettingsPrivacy() {
             setSettingValues({
               crash_reporting_consent: crashReportingConsent,
             });
+          }}
+        />
+        <SettingSwitchRow
+          title={t`Session replay`}
+          description={t`With error reports on, also send a replay of the app's screens with all text and inputs masked and media blocked. Off by default.`}
+          checked={sessionReplayEnabled}
+          onChange={(sessionReplayOptIn) => {
+            setSettingValues({ session_replay_opt_in: sessionReplayOptIn });
           }}
         />
       </section>
