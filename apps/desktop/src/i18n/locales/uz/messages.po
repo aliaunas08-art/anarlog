@@ -1057,6 +1057,10 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
+#: src/sidebar/settings.tsx
+msgid "Back to home"
+msgstr ""
+
 #: src/settings/privacy/backup.tsx
 msgid "Back up library…"
 msgstr ""

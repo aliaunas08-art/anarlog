@@ -1057,6 +1057,10 @@ msgstr "Average across the capture days counted above."
 msgid "Back"
 msgstr "Back"
 
+#: src/sidebar/settings.tsx
+msgid "Back to home"
+msgstr "Back to home"
+
 #: src/settings/privacy/backup.tsx
 msgid "Back up library…"
 msgstr "Back up library…"
