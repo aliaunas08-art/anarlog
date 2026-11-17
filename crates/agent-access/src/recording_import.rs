@@ -321,6 +321,10 @@ pub async fn import_recording(
 mod tests {
     use super::*;
 
+    fn test_scope() -> crate::WorkspaceScope {
+        crate::WorkspaceScope::local("test-workspace").unwrap()
+    }
+
     #[tokio::test]
     async fn concurrent_retries_create_one_meeting_and_keep_a_private_copy() {
         let dir = tempfile::tempdir().unwrap();
@@ -328,6 +332,12 @@ mod tests {
             .await
             .unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}' WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         sqlx::query("INSERT INTO local_recording_import_worker (id, vault_path, updated_at) VALUES ('desktop', ?, unixepoch())")
             .bind(dir.path().to_string_lossy().as_ref())
             .execute(db.pool())
@@ -354,6 +364,7 @@ mod tests {
         assert_eq!(a.processing_status, "queued");
         let meeting = crate::get_meeting(
             db.pool(),
+            &test_scope(),
             crate::GetMeetingInput {
                 meeting_id: a.meeting_id.clone(),
             },
@@ -429,6 +440,12 @@ mod tests {
                 .await
                 .unwrap();
             anlg_db_app::prepare_schema(&db).await.unwrap();
+            sqlx::query(
+                "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}' WHERE id = 'cloudsync_workspace_binding'",
+            )
+            .execute(db.pool())
+            .await
+            .unwrap();
             let vault = dir.path().to_string_lossy().into_owned();
             sqlx::query("INSERT INTO local_recording_import_worker (id, vault_path, updated_at) VALUES ('desktop', ?, unixepoch())")
                 .bind(&vault).execute(db.pool()).await.unwrap();
@@ -520,6 +537,12 @@ mod tests {
                 .await
                 .unwrap();
             anlg_db_app::prepare_schema(&other_db).await.unwrap();
+            sqlx::query(
+                "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}' WHERE id = 'cloudsync_workspace_binding'",
+            )
+            .execute(other_db.pool())
+            .await
+            .unwrap();
             cleanup_recording_imports(other_db.pool(), &vault)
                 .await
                 .unwrap();
@@ -560,6 +583,12 @@ mod tests {
             .await
             .unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}' WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         let file = dir.path().join("empty.wav");
         tokio::fs::write(&file, b"").await.unwrap();
         let input = ImportRecordingInput {

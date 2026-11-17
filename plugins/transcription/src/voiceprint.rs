@@ -883,7 +883,13 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
     .await
     .map_err(|error| error.to_string())?;
 
-    let participants = anlg_db_app::list_session_participants(pool, session_id)
+    let Some(scope) = anlg_db_app::local_workspace_scope(pool)
+        .await
+        .map_err(|error| error.to_string())?
+    else {
+        return Ok(());
+    };
+    let participants = anlg_db_app::list_session_participants(pool, &scope, session_id)
         .await
         .map_err(|error| error.to_string())?;
     let remote_human_ids = remote_participant_human_ids(

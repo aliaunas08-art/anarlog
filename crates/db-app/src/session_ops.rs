@@ -1,3 +1,4 @@
+use anlg_aspc::WorkspaceScope;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use crate::{
@@ -6,6 +7,22 @@ use crate::{
 };
 
 pub const MAX_SESSION_LIST_LIMIT: u32 = 500;
+
+/// Appends ` AND {column} IN (?, ?)` for a workspace scope (ASPC C1.2).
+pub fn push_workspace_scope(
+    query: &mut QueryBuilder<Sqlite>,
+    column: &str,
+    scope: &WorkspaceScope,
+) {
+    let [workspace, unassigned] = scope.sql_values();
+    query.push(" AND ");
+    query.push(column);
+    query.push(" IN (");
+    query.push_bind(workspace.to_string());
+    query.push(", ");
+    query.push_bind(unassigned.to_string());
+    query.push(")");
+}
 
 const SESSION_LIST_COLUMNS: &str = "
     SELECT id, title, kind, status, created_at, updated_at, started_at, ended_at, series_id,
@@ -52,9 +69,6 @@ const SESSION_PARTICIPANT_COLUMNS: &str = "
            participant.created_at, participant.updated_at
     FROM session_participants AS participant
     JOIN sessions AS session ON session.id = participant.session_id AND session.deleted_at IS NULL
-    LEFT JOIN humans AS human ON human.id = participant.human_id AND human.deleted_at IS NULL
-    LEFT JOIN organizations AS organization
-      ON organization.id = human.organization_id AND organization.deleted_at IS NULL
 ";
 
 const SESSION_ACTION_ITEM_COLUMNS: &str = "
@@ -74,6 +88,7 @@ pub async fn list_sessions(
 ) -> Result<Vec<SessionListItem>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_LIST_COLUMNS);
     query.push(" WHERE deleted_at IS NULL");
+    push_workspace_scope(&mut query, "workspace_id", input.scope);
 
     if let Some(search) = input.query.map(str::trim).filter(|query| !query.is_empty()) {
         query.push(" AND (instr(lower(title), lower(");
@@ -112,26 +127,37 @@ pub async fn list_sessions(
         .await
 }
 
-pub async fn list_folder_paths(pool: &SqlitePool) -> Result<Vec<String>, sqlx::Error> {
+pub async fn list_folder_paths(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+) -> Result<Vec<String>, sqlx::Error> {
+    let [workspace, unassigned] = scope.sql_values();
     sqlx::query_scalar(
-        "SELECT folder_path FROM sessions WHERE deleted_at IS NULL AND folder_path != ''
+        "SELECT folder_path FROM sessions
+         WHERE deleted_at IS NULL AND folder_path != '' AND workspace_id IN (?1, ?2)
          UNION
-         SELECT folder_path FROM folder_attachments WHERE deleted_at IS NULL AND folder_path != ''
+         SELECT folder_path FROM folder_attachments
+         WHERE deleted_at IS NULL AND folder_path != '' AND workspace_id IN (?1, ?2)
          UNION
-         SELECT path FROM folders WHERE deleted_at IS NULL AND path != ''
+         SELECT path FROM folders
+         WHERE deleted_at IS NULL AND path != '' AND workspace_id IN (?1, ?2)
          ORDER BY 1",
     )
+    .bind(workspace)
+    .bind(unassigned)
     .fetch_all(pool)
     .await
 }
 
 pub async fn get_session(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
 ) -> Result<Option<SessionRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_COLUMNS);
     query.push(" WHERE id = ");
     query.push_bind(session_id);
+    push_workspace_scope(&mut query, "workspace_id", scope);
     query.push(" AND deleted_at IS NULL LIMIT 1");
     query
         .build_query_as::<SessionRow>()
@@ -141,11 +167,14 @@ pub async fn get_session(
 
 pub async fn list_session_documents(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
 ) -> Result<Vec<SessionDocumentRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_DOCUMENT_COLUMNS);
     query.push(" WHERE document.session_id = ");
     query.push_bind(session_id);
+    push_workspace_scope(&mut query, "document.workspace_id", scope);
+    push_workspace_scope(&mut query, "session.workspace_id", scope);
     query.push(
         " AND document.deleted_at IS NULL
           ORDER BY document.sort_order, document.created_at, document.id",
@@ -158,11 +187,14 @@ pub async fn list_session_documents(
 
 pub async fn get_session_note(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
 ) -> Result<Option<SessionDocumentRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_DOCUMENT_COLUMNS);
     query.push(" WHERE document.session_id = ");
     query.push_bind(session_id);
+    push_workspace_scope(&mut query, "document.workspace_id", scope);
+    push_workspace_scope(&mut query, "session.workspace_id", scope);
     query.push(
         " AND document.kind = 'note' AND document.deleted_at IS NULL
           ORDER BY CASE WHEN document.id = ",
@@ -177,11 +209,14 @@ pub async fn get_session_note(
 
 pub async fn list_session_transcripts(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
 ) -> Result<Vec<SessionTranscriptRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_TRANSCRIPT_COLUMNS);
     query.push(" WHERE transcript.session_id = ");
     query.push_bind(session_id);
+    push_workspace_scope(&mut query, "transcript.workspace_id", scope);
+    push_workspace_scope(&mut query, "session.workspace_id", scope);
     query.push(
         " AND transcript.deleted_at IS NULL
           ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id",
@@ -194,11 +229,23 @@ pub async fn list_session_transcripts(
 
 pub async fn list_session_participants(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
 ) -> Result<Vec<SessionParticipantRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_PARTICIPANT_COLUMNS);
+    // Contact details come only from the same workspace's humans and
+    // organizations.
+    query.push(" LEFT JOIN humans AS human ON human.id = participant.human_id AND human.deleted_at IS NULL");
+    push_workspace_scope(&mut query, "human.workspace_id", scope);
+    query.push(
+        " LEFT JOIN organizations AS organization
+          ON organization.id = human.organization_id AND organization.deleted_at IS NULL",
+    );
+    push_workspace_scope(&mut query, "organization.workspace_id", scope);
     query.push(" WHERE participant.session_id = ");
     query.push_bind(session_id);
+    push_workspace_scope(&mut query, "participant.workspace_id", scope);
+    push_workspace_scope(&mut query, "session.workspace_id", scope);
     query.push(
         " AND participant.deleted_at IS NULL AND participant.source <> 'excluded'
           ORDER BY participant.created_at, participant.id",
@@ -211,11 +258,14 @@ pub async fn list_session_participants(
 
 pub async fn list_session_action_items(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
 ) -> Result<Vec<SessionActionItemRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_ACTION_ITEM_COLUMNS);
     query.push(" WHERE action_item.session_id = ");
     query.push_bind(session_id);
+    push_workspace_scope(&mut query, "action_item.workspace_id", scope);
+    push_workspace_scope(&mut query, "session.workspace_id", scope);
     query.push(
         " AND action_item.deleted_at IS NULL
           ORDER BY action_item.source_order, action_item.created_at, action_item.id",
@@ -228,16 +278,19 @@ pub async fn list_session_action_items(
 
 pub async fn list_recurring_sessions(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: &str,
     limit: u32,
 ) -> Result<Vec<SessionListItem>, sqlx::Error> {
     let series_id: Option<String> = sqlx::query_scalar(
         "SELECT NULLIF(trim(series_id), '')
          FROM sessions
-         WHERE id = ? AND deleted_at IS NULL
+         WHERE id = ? AND deleted_at IS NULL AND workspace_id IN (?, ?)
          LIMIT 1",
     )
     .bind(session_id)
+    .bind(scope.sql_values()[0])
+    .bind(scope.sql_values()[1])
     .fetch_optional(pool)
     .await?
     .flatten();
@@ -249,6 +302,7 @@ pub async fn list_recurring_sessions(
     list_sessions(
         pool,
         ListSessions {
+            scope,
             query: None,
             series_id: Some(&series_id),
             folder_path: None,
@@ -299,18 +353,26 @@ pub async fn insert_session_proposal(
     .execute(pool)
     .await?;
 
-    get_session_proposal(pool, input.id)
+    let mut query = QueryBuilder::<Sqlite>::new(SESSION_PROPOSAL_COLUMNS);
+    query.push(" WHERE id = ");
+    query.push_bind(input.id);
+    query.push(" LIMIT 1");
+    query
+        .build_query_as::<SessionProposalRow>()
+        .fetch_optional(pool)
         .await?
         .ok_or(sqlx::Error::RowNotFound)
 }
 
 pub async fn get_session_proposal(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     proposal_id: &str,
 ) -> Result<Option<SessionProposalRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_PROPOSAL_COLUMNS);
     query.push(" WHERE id = ");
     query.push_bind(proposal_id);
+    push_workspace_scope(&mut query, "workspace_id", scope);
     query.push(" LIMIT 1");
     query
         .build_query_as::<SessionProposalRow>()
@@ -320,6 +382,7 @@ pub async fn get_session_proposal(
 
 pub async fn list_session_proposals(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     session_id: Option<&str>,
     status: Option<&str>,
     limit: u32,
@@ -327,6 +390,7 @@ pub async fn list_session_proposals(
 ) -> Result<Vec<SessionProposalRow>, sqlx::Error> {
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_PROPOSAL_COLUMNS);
     query.push(" WHERE 1 = 1");
+    push_workspace_scope(&mut query, "workspace_id", scope);
     if let Some(session_id) = session_id {
         query.push(" AND session_id = ");
         query.push_bind(session_id);
@@ -347,6 +411,7 @@ pub async fn list_session_proposals(
 
 pub async fn update_session_proposal_status(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     proposal_id: &str,
     expected_status: &str,
     next_status: &str,
@@ -354,19 +419,21 @@ pub async fn update_session_proposal_status(
     let updated = sqlx::query(
         "UPDATE session_proposals
          SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE id = ? AND status = ?",
+         WHERE id = ? AND status = ? AND workspace_id IN (?, ?)",
     )
     .bind(next_status)
     .bind(proposal_id)
     .bind(expected_status)
+    .bind(scope.sql_values()[0])
+    .bind(scope.sql_values()[1])
     .execute(pool)
     .await?
     .rows_affected();
 
     if updated == 0 {
-        return get_session_proposal(pool, proposal_id).await;
+        return get_session_proposal(pool, scope, proposal_id).await;
     }
-    get_session_proposal(pool, proposal_id).await
+    get_session_proposal(pool, scope, proposal_id).await
 }
 
 #[cfg(test)]
@@ -375,9 +442,21 @@ mod tests {
 
     use super::*;
 
+    fn scope() -> WorkspaceScope {
+        WorkspaceScope::local("test-workspace").unwrap()
+    }
+
     async fn test_db() -> Db {
         let db = Db::connect_memory_plain().await.unwrap();
         crate::prepare_schema(&db).await.unwrap();
+        // New rows take the binding's workspace; make it the tests' scope.
+        sqlx::query(
+            "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}'
+             WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         db
     }
 
@@ -430,6 +509,7 @@ mod tests {
         let first = list_sessions(
             db.pool(),
             ListSessions {
+                scope: &scope(),
                 query: Some(" alpha "),
                 series_id: Some("series-a"),
                 folder_path: None,
@@ -442,6 +522,7 @@ mod tests {
         let second = list_sessions(
             db.pool(),
             ListSessions {
+                scope: &scope(),
                 query: Some("alpha"),
                 series_id: Some("series-a"),
                 folder_path: None,
@@ -454,6 +535,7 @@ mod tests {
         let by_id = list_sessions(
             db.pool(),
             ListSessions {
+                scope: &scope(),
                 query: Some("old"),
                 series_id: None,
                 folder_path: None,
@@ -494,6 +576,7 @@ mod tests {
         let listed = list_sessions(
             db.pool(),
             ListSessions {
+                scope: &scope(),
                 query: None,
                 series_id: None,
                 folder_path: Some("Projects/Launch"),
@@ -544,7 +627,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            list_folder_paths(db.pool()).await.unwrap(),
+            list_folder_paths(db.pool(), &scope()).await.unwrap(),
             vec!["Clients/ACME", "Courses/Math", "Projects/Empty"]
         );
     }
@@ -612,21 +695,24 @@ mod tests {
         .await
         .unwrap();
 
-        let session = get_session(db.pool(), "session-1").await.unwrap().unwrap();
-        let documents = list_session_documents(db.pool(), "session-1")
-            .await
-            .unwrap();
-        let note = get_session_note(db.pool(), "session-1")
+        let session = get_session(db.pool(), &scope(), "session-1")
             .await
             .unwrap()
             .unwrap();
-        let transcripts = list_session_transcripts(db.pool(), "session-1")
+        let documents = list_session_documents(db.pool(), &scope(), "session-1")
             .await
             .unwrap();
-        let participants = list_session_participants(db.pool(), "session-1")
+        let note = get_session_note(db.pool(), &scope(), "session-1")
+            .await
+            .unwrap()
+            .unwrap();
+        let transcripts = list_session_transcripts(db.pool(), &scope(), "session-1")
             .await
             .unwrap();
-        let action_items = list_session_action_items(db.pool(), "session-1")
+        let participants = list_session_participants(db.pool(), &scope(), "session-1")
+            .await
+            .unwrap();
+        let action_items = list_session_action_items(db.pool(), &scope(), "session-1")
             .await
             .unwrap();
 
@@ -674,7 +760,7 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        let fallback = get_session_note(db.pool(), "session-1")
+        let fallback = get_session_note(db.pool(), &scope(), "session-1")
             .await
             .unwrap()
             .unwrap();
@@ -685,25 +771,25 @@ mod tests {
             .await
             .unwrap();
         assert!(
-            list_session_documents(db.pool(), "session-1")
+            list_session_documents(db.pool(), &scope(), "session-1")
                 .await
                 .unwrap()
                 .is_empty()
         );
         assert!(
-            list_session_transcripts(db.pool(), "session-1")
+            list_session_transcripts(db.pool(), &scope(), "session-1")
                 .await
                 .unwrap()
                 .is_empty()
         );
         assert!(
-            list_session_participants(db.pool(), "session-1")
+            list_session_participants(db.pool(), &scope(), "session-1")
                 .await
                 .unwrap()
                 .is_empty()
         );
         assert!(
-            list_session_action_items(db.pool(), "session-1")
+            list_session_action_items(db.pool(), &scope(), "session-1")
                 .await
                 .unwrap()
                 .is_empty()
@@ -718,13 +804,13 @@ mod tests {
         insert_session(db.pool(), "new", "Weekly", "2026-03-01", "series-a").await;
         insert_session(db.pool(), "standalone", "One-off", "2026-04-01", "").await;
 
-        let recurring = list_recurring_sessions(db.pool(), "current", 2)
+        let recurring = list_recurring_sessions(db.pool(), &scope(), "current", 2)
             .await
             .unwrap();
-        let standalone = list_recurring_sessions(db.pool(), "standalone", 10)
+        let standalone = list_recurring_sessions(db.pool(), &scope(), "standalone", 10)
             .await
             .unwrap();
-        let missing = list_recurring_sessions(db.pool(), "missing", 10)
+        let missing = list_recurring_sessions(db.pool(), &scope(), "missing", 10)
             .await
             .unwrap();
 
@@ -747,7 +833,7 @@ mod tests {
             db.pool(),
             InsertSessionProposal {
                 id: "proposal-1",
-                workspace_id: "workspace-1",
+                workspace_id: "test-workspace",
                 session_id: "session-1",
                 kind: "summary_replace",
                 target_id: "summary-1",
@@ -763,22 +849,35 @@ mod tests {
         assert_eq!(created.status, "pending");
         assert_eq!(created.proposed_markdown, "new");
 
-        let pending = list_session_proposals(db.pool(), Some("session-1"), Some("pending"), 10, 0)
-            .await
-            .unwrap();
+        let pending = list_session_proposals(
+            db.pool(),
+            &scope(),
+            Some("session-1"),
+            Some("pending"),
+            10,
+            0,
+        )
+        .await
+        .unwrap();
         assert_eq!(pending.len(), 1);
 
-        let applied = update_session_proposal_status(db.pool(), "proposal-1", "pending", "applied")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(applied.status, "applied");
-
-        let unchanged =
-            update_session_proposal_status(db.pool(), "proposal-1", "pending", "declined")
+        let applied =
+            update_session_proposal_status(db.pool(), &scope(), "proposal-1", "pending", "applied")
                 .await
                 .unwrap()
                 .unwrap();
+        assert_eq!(applied.status, "applied");
+
+        let unchanged = update_session_proposal_status(
+            db.pool(),
+            &scope(),
+            "proposal-1",
+            "pending",
+            "declined",
+        )
+        .await
+        .unwrap()
+        .unwrap();
         assert_eq!(unchanged.status, "applied");
     }
 }

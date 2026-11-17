@@ -222,6 +222,7 @@ dependencies = [
 name = "agent-access"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "db-app",
  "db-core",
  "schemars 1.2.1",

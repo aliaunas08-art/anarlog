@@ -121,7 +121,7 @@ fn envelope(event: &str, data: serde_json::Value) -> String {
 }
 
 async fn meeting_payload(pool: &SqlitePool, meeting_id: &str) -> Result<serde_json::Value, String> {
-    let export = anlg_agent_access::get_meeting_export(pool, meeting_id.to_string())
+    let export = crate::commands::scoped_meeting_export(pool, meeting_id.to_string())
         .await
         .map_err(|error| error.to_string())?;
     let transcript_text = export

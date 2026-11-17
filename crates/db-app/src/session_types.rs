@@ -2,6 +2,8 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ListSessions<'a> {
+    /// ASPC C1.2: only sessions in this workspace.
+    pub scope: &'a anlg_aspc::WorkspaceScope,
     /// Case-insensitive substring matched against the session title or id.
     pub query: Option<&'a str>,
     /// Exact recurring-series id match.

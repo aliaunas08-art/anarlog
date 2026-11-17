@@ -77,7 +77,10 @@ pub(crate) async fn list_meetings<R: tauri::Runtime>(
         anlg_aspc::Action::Read,
     )
     .map_err(|denied| denied.to_string())?;
-    anlg_agent_access::list_meetings(state.pool(), input)
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::list_meetings(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -96,7 +99,10 @@ pub(crate) async fn get_meeting<R: tauri::Runtime>(
         anlg_aspc::Action::Read,
     )
     .map_err(|denied| denied.to_string())?;
-    anlg_agent_access::get_meeting(state.pool(), input)
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_meeting(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -115,7 +121,10 @@ pub(crate) async fn get_meeting_transcript<R: tauri::Runtime>(
         anlg_aspc::Action::Read,
     )
     .map_err(|denied| denied.to_string())?;
-    anlg_agent_access::get_meeting_transcript(state.pool(), input)
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_meeting_transcript(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
@@ -134,7 +143,10 @@ pub(crate) async fn get_recurring_meeting_history<R: tauri::Runtime>(
         anlg_aspc::Action::Read,
     )
     .map_err(|denied| denied.to_string())?;
-    anlg_agent_access::get_recurring_meeting_history(state.pool(), input)
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_recurring_meeting_history(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }

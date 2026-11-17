@@ -88,9 +88,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ListMeetingsInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::list_meetings(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let page = access::list_meetings(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -109,9 +115,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ListFoldersInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::list_folders(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let page = access::list_folders(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -130,9 +142,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let meeting = access::get_meeting(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let meeting = access::get_meeting(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         let meeting = access::local_meeting(self.db.pool(), meeting)
             .await
             .map_err(command_error)?;
@@ -154,9 +172,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetMeetingTranscriptInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::get_meeting_transcript(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let page = access::get_meeting_transcript(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -175,9 +199,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetRecurringMeetingHistoryInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::get_recurring_meeting_history(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let page = access::get_recurring_meeting_history(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -196,9 +226,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let export = access::get_meeting_export(self.db.pool(), input.meeting_id)
-            .await
-            .map_err(command_error)?;
+        let export = access::get_meeting_export(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input.meeting_id,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&export)
     }
 
@@ -219,6 +255,9 @@ impl AnarlogMcpServer {
     ) -> std::result::Result<CallToolResult, McpError> {
         let proposal = access::create_proposal(
             self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
             access::CreateProposalInput {
                 meeting_id: input.meeting_id,
                 kind: "summary_replace".to_string(),
@@ -249,6 +288,9 @@ impl AnarlogMcpServer {
     ) -> std::result::Result<CallToolResult, McpError> {
         let proposal = access::create_proposal(
             self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
             access::CreateProposalInput {
                 meeting_id: input.meeting_id,
                 kind: "memo_replace".to_string(),
@@ -277,9 +319,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ListProposalsInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::list_proposals(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let page = access::list_proposals(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -298,9 +346,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetProposalInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let proposal = access::get_proposal(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let proposal = access::get_proposal(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&proposal)
     }
 
@@ -319,9 +373,15 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::DeclineProposalInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let proposal = access::decline_proposal(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        let proposal = access::decline_proposal(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&proposal)
     }
 }
@@ -373,6 +433,9 @@ impl ServerHandler for AnarlogMcpServer {
             .unwrap_or(0);
         let page = access::list_meetings(
             self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
             access::ListMeetingsInput {
                 query: None,
                 series_id: None,
@@ -433,10 +496,15 @@ impl ServerHandler for AnarlogMcpServer {
         let request = parse_resource_uri(&params.uri)?;
         let contents = match request {
             ResourceRequest::Meeting { meeting_id } => {
-                let meeting =
-                    access::get_meeting(self.db.pool(), access::GetMeetingInput { meeting_id })
+                let meeting = access::get_meeting(
+                    self.db.pool(),
+                    &access::local_scope(self.db.pool())
                         .await
-                        .map_err(command_error)?;
+                        .map_err(command_error)?,
+                    access::GetMeetingInput { meeting_id },
+                )
+                .await
+                .map_err(command_error)?;
                 ResourceContents::text(meeting.to_markdown(), params.uri)
                     .with_mime_type("text/markdown")
             }
@@ -447,6 +515,9 @@ impl ServerHandler for AnarlogMcpServer {
             } => {
                 let page = access::get_meeting_transcript(
                     self.db.pool(),
+                    &access::local_scope(self.db.pool())
+                        .await
+                        .map_err(command_error)?,
                     access::GetMeetingTranscriptInput {
                         meeting_id,
                         offset: Some(offset),
@@ -460,6 +531,9 @@ impl ServerHandler for AnarlogMcpServer {
             ResourceRequest::Series { series_id } => {
                 let page = access::list_meetings(
                     self.db.pool(),
+                    &access::local_scope(self.db.pool())
+                        .await
+                        .map_err(command_error)?,
                     access::ListMeetingsInput {
                         query: None,
                         series_id: Some(series_id),

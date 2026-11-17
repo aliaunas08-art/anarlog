@@ -172,7 +172,11 @@ pub async fn render_session_transcript<R: tauri::Runtime>(
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())
         .ok_or_else(|| "database is not ready yet".to_string())?;
-    crate::session_transcript::render_session_transcript(runtime.pool(), request).await
+    let scope = anlg_db_app::local_workspace_scope(runtime.pool())
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "aspc.no_context: no local workspace".to_string())?;
+    crate::session_transcript::render_session_transcript(runtime.pool(), &scope, request).await
 }
 
 #[tauri::command]

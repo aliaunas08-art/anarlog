@@ -158,7 +158,7 @@ pub(crate) async fn run_markdown_export_automation(pool: &sqlx::SqlitePool, meet
         return;
     }
 
-    let result = match anlg_agent_access::get_meeting_export(pool, meeting_id.to_string()).await {
+    let result = match scoped_meeting_export(pool, meeting_id.to_string()).await {
         Ok(export) => write_markdown_export(std::path::Path::new(&directory), &export),
         Err(error) => Err(error.to_string()),
     };
@@ -230,7 +230,7 @@ pub async fn export_meeting_markdown<R: tauri::Runtime>(
         return Err("export directory is not set".to_string());
     }
     let pool = pool(&app)?;
-    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
+    let export = scoped_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
     let path = write_markdown_export_with_options(
@@ -520,7 +520,7 @@ pub async fn get_cloud_snapshot<R: tauri::Runtime>(
     )
     .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
-    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
+    let export = scoped_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
     prepare_cloud_snapshot(export)
@@ -604,11 +604,15 @@ pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
     )
     .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
+    let scope = anlg_agent_access::local_scope(&pool)
+        .await
+        .map_err(|error| error.to_string())?;
     let mut offset = 0;
     let mut ids = Vec::new();
     loop {
         let page = anlg_agent_access::list_meetings(
             &pool,
+            &scope,
             anlg_agent_access::ListMeetingsInput {
                 query: None,
                 series_id: None,
@@ -642,7 +646,7 @@ pub async fn prepare_drive_markdown<R: tauri::Runtime>(
         anlg_aspc::Action::Export,
     )
     .map_err(|denied| denied.to_string())?;
-    let export = anlg_agent_access::get_meeting_export(&pool(&app)?, meeting_id)
+    let export = scoped_meeting_export(&pool(&app)?, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
     drive_markdown(export)
@@ -674,4 +678,18 @@ pub(crate) fn drive_markdown(
     }
     markdown.push('\n');
     Ok(crate::types::DriveMarkdownExport { filename, markdown })
+}
+
+/// A meeting export limited to the local workspace (ASPC C1.2): a meeting
+/// of another workspace is "not found".
+pub(crate) async fn scoped_meeting_export(
+    pool: &sqlx::SqlitePool,
+    meeting_id: String,
+) -> Result<anlg_agent_access::MeetingExport, String> {
+    let scope = anlg_agent_access::local_scope(pool)
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_meeting_export(pool, &scope, meeting_id)
+        .await
+        .map_err(|error| error.to_string())
 }

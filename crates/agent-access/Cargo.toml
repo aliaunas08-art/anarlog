@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-aspc = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-tiptap = { workspace = true }
 anlg-transcript = { workspace = true }
