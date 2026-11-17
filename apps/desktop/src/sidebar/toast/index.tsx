@@ -14,6 +14,7 @@ import {
 import type { ToastType } from "./types";
 import { useDismissedToasts } from "./useDismissedToasts";
 
+import { useEngineKeyStatus } from "~/ai/engine";
 import { useAuth } from "~/auth";
 import { useNotifications } from "~/contexts/notifications";
 import { useDesktopUpdateControl } from "~/main/update-banner";
@@ -74,18 +75,14 @@ export function ToastNotifications() {
 
   const isAuthenticated = !!auth?.session;
   const isAuthLoading = auth.session === undefined;
-  const {
-    current_llm_provider,
-    current_llm_model,
-    current_stt_provider,
-    current_stt_model,
-  } = useConfigValues([
-    "current_llm_provider",
-    "current_llm_model",
+  const { current_stt_provider, current_stt_model } = useConfigValues([
     "current_stt_provider",
     "current_stt_model",
   ] as const);
-  const hasLLMConfigured = !!(current_llm_provider && current_llm_model);
+  // Every LLM feature uses the Efficiency Engine; it is configured once a
+  // key is saved.
+  const engineKey = useEngineKeyStatus();
+  const hasLLMConfigured = engineKey.data?.present !== false;
   const hasSttConfigured = isConfiguredSttModel(
     current_stt_provider,
     current_stt_model,
@@ -94,7 +91,7 @@ export function ToastNotifications() {
     current_stt_provider,
     current_stt_model,
   );
-  const hasProLlmConfigured = current_llm_provider === "anarlog";
+  const hasProLlmConfigured = false;
 
   const currentTab = useTabs((state) => state.currentTab);
   const devtoolsPreview = useDevtoolsToastPreview((state) => state.preview);

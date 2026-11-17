@@ -9,7 +9,7 @@ import {
 } from "./general";
 import { SettingsTodo } from "./todo";
 
-import { LLM } from "~/settings/ai/llm";
+import { AiEngineSettings } from "~/settings/ai/engine";
 import { STT } from "~/settings/ai/stt";
 import { SettingsAppearance } from "~/settings/appearance";
 import { SettingsCrm } from "~/settings/crm";
@@ -92,7 +92,7 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
       case "transcription":
         return <STT />;
       case "intelligence":
-        return <LLM />;
+        return <AiEngineSettings />;
       case "todo":
         return <SettingsTodo />;
       default:

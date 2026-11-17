@@ -37,18 +37,4 @@ describe("modelSupportsImageInput", () => {
     expect(modelSupportsImageInput("custom", "llama-3.1-8b")).toBe(false);
   });
 
-  it("uses Workers AI model metadata for image input support", () => {
-    expect(
-      modelSupportsImageInput(
-        "cloudflare_workers_ai",
-        "@cf/moonshotai/kimi-k2.7-code",
-      ),
-    ).toBe(true);
-    expect(
-      modelSupportsImageInput(
-        "cloudflare_workers_ai",
-        "@cf/openai/gpt-oss-120b",
-      ),
-    ).toBe(false);
-  });
 });

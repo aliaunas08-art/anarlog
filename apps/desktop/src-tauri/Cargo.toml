@@ -30,7 +30,6 @@ tauri-plugin-attachment-sync = { workspace = true }
 tauri-plugin-audio-priority = { workspace = true }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-autostart = { workspace = true }
-tauri-plugin-bedrock = { workspace = true }
 tauri-plugin-calendar = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-db = { workspace = true }
@@ -49,7 +48,6 @@ tauri-plugin-importer = { workspace = true }
 tauri-plugin-js = { workspace = true }
 tauri-plugin-local-api = { workspace = true }
 tauri-plugin-local-auth = { workspace = true }
-tauri-plugin-local-llm = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
 tauri-plugin-mcp = { workspace = true }
 tauri-plugin-messenger = { workspace = true }

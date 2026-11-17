@@ -88,7 +88,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
           icon: Microphone,
           requiresPro: true,
         },
-        { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
+        { id: "intelligence", label: t`AI`, icon: Sparkle },
         {
           id: "dictionary",
           label: t`Dictionary`,

@@ -25,9 +25,8 @@ const mocks = vi.hoisted(() => ({
     id?: string;
     state?: { tab?: string; view?: { type: string } };
   },
+  engineKeyPresent: true,
   config: {
-    current_llm_provider: "local" as string | null,
-    current_llm_model: "model" as string | null,
     current_stt_provider: "local" as string | null,
     current_stt_model: "model" as string | null,
   },
@@ -72,6 +71,10 @@ vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
 
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: null, signIn: mocks.signIn }),
+}));
+
+vi.mock("~/ai/engine", () => ({
+  useEngineKeyStatus: () => ({ data: { present: mocks.engineKeyPresent } }),
 }));
 
 vi.mock("~/auth/cloudsync-progress", () => ({
@@ -165,8 +168,7 @@ describe("ToastNotifications", () => {
     mocks.openNew.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.currentTab = { type: "empty" };
-    mocks.config.current_llm_provider = "local";
-    mocks.config.current_llm_model = "model";
+    mocks.engineKeyPresent = true;
     mocks.config.current_stt_provider = "local";
     mocks.config.current_stt_model = "model";
     mocks.notifications.hasActiveDownload = false;
@@ -365,8 +367,7 @@ describe("ToastNotifications", () => {
 
   it("uses the latest registry action while a toast remains visible", () => {
     mocks.dismissedToastIds.add("auth-promotion");
-    mocks.config.current_llm_provider = null;
-    mocks.config.current_llm_model = null;
+    mocks.engineKeyPresent = false;
 
     const view = render(<ToastNotifications />);
 

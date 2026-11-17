@@ -134,18 +134,6 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^3.0.69
         version: 3.0.69(zod@4.6.6)
-      '@ai-sdk/azure':
-        specifier: ^3.0.53
-        version: 3.0.53(zod@4.6.6)
-      '@ai-sdk/google':
-        specifier: ^3.0.62
-        version: 3.0.62(zod@4.6.6)
-      '@ai-sdk/openai':
-        specifier: ^3.0.52
-        version: 3.0.52(zod@4.6.6)
-      '@ai-sdk/openai-compatible':
-        specifier: ^2.0.41
-        version: 2.0.41(zod@4.6.6)
       '@ai-sdk/react':
         specifier: ^3.0.160
         version: 3.0.160(react@19.2.5)(zod@4.6.6)
@@ -170,6 +158,9 @@ importers:
       '@anlg/plugin-accounts':
         specifier: workspace:*
         version: link:../../plugins/accounts
+      '@anlg/plugin-ai-engine':
+        specifier: workspace:*
+        version: link:../../plugins/ai-engine
       '@anlg/plugin-analytics':
         specifier: workspace:*
         version: link:../../plugins/analytics
@@ -215,9 +206,6 @@ importers:
       '@anlg/plugin-local-auth':
         specifier: workspace:*
         version: link:../../plugins/local-auth
-      '@anlg/plugin-local-llm':
-        specifier: workspace:*
-        version: link:../../plugins/local-llm
       '@anlg/plugin-local-stt':
         specifier: workspace:*
         version: link:../../plugins/local-stt
@@ -317,9 +305,6 @@ importers:
       '@lobehub/icons':
         specifier: ^3.0.2
         version: 3.0.2(@lobehub/ui@3.4.0(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(antd@6.1.1(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(micromark-util-types@2.0.3)(micromark@4.0.3)(motion@11.18.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@types/react@19.2.14)(antd@6.1.1(date-fns@4.1.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@openrouter/ai-sdk-provider':
-        specifier: ^2.5.1
-        version: 2.5.1(ai@6.0.158(zod@4.6.6))(zod@4.6.6)
       '@pierre/diffs':
         specifier: ^1.1.15
         version: 1.1.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -401,9 +386,6 @@ importers:
       nlcst-to-string:
         specifier: ^4.0.0
         version: 4.0.0
-      ollama:
-        specifier: ^0.6.3
-        version: 0.6.3
       prosemirror-model:
         specifier: 1.25.12
         version: 1.25.12

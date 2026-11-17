@@ -26,6 +26,7 @@ import {
 import type { AppliedTemplateSnapshot } from "~/session/queries/types";
 import { formatSessionSourceAppsContext } from "~/session/source-apps";
 import { extractSectionHeadings } from "~/session/title-content";
+import { ENGINE_MODEL_ID, ENGINE_PROVIDER_ID } from "~/ai/engine";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
 import { parseDictionaryTermsJson } from "~/stt/keywords";
@@ -124,8 +125,8 @@ async function transformArgs(
   }
 
   const imageContext = modelSupportsImageInput(
-    getOptionalSettingsValue(settingsValues, "current_llm_provider"),
-    getOptionalSettingsValue(settingsValues, "current_llm_model"),
+    ENGINE_PROVIDER_ID,
+    ENGINE_MODEL_ID,
   )
     ? await collectEnhanceImageContext(sessionId, [
         sessionContext.preMeetingMemo,
@@ -668,14 +669,6 @@ function getFormatOverride(
 
   const value = settingsValues.auto_summary_prompt;
   return typeof value === "string" && value.trim() ? value : "";
-}
-
-function getOptionalSettingsValue(
-  settingsValues: SettingValues,
-  valueId: "current_llm_provider" | "current_llm_model",
-): string | undefined {
-  const value = settingsValues[valueId];
-  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function getSessionContext(

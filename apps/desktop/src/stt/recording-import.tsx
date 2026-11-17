@@ -98,7 +98,6 @@ function ReadyImport({ job }: { job: ImportJob }) {
   const session = useSession(job.meeting_id);
   const settingsReady = useSettingsReady();
   const stt = useAiProvidersState("stt");
-  const llm = useAiProvidersState("llm");
   const billing = useBillingAccess();
   const auth = useAuth();
   // Signed-out users have no billing claims to load; local providers still run.
@@ -106,7 +105,6 @@ function ReadyImport({ job }: { job: ImportJob }) {
   return session &&
     settingsReady &&
     stt.isReady &&
-    llm.isReady &&
     billingSettled ? (
     <RunImport job={job} />
   ) : null;

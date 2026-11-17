@@ -301,8 +301,7 @@ pub fn main() {
         .plugin(tauri_plugin_db::init_with_cloudsync(
             db.clone(),
             cloudsync_config,
-        ))
-        .plugin(tauri_plugin_bedrock::init());
+        ));
 
     builder = builder
         .plugin(tauri_plugin_importer::init())
@@ -371,7 +370,6 @@ pub fn main() {
         .plugin(tauri_plugin_transcription::init())
         .plugin(tauri_plugin_tantivy::init())
         .plugin(tauri_plugin_audio_priority::init())
-        .plugin(tauri_plugin_local_llm::init())
         .plugin(tauri_plugin_local_stt::init(
             tauri_plugin_local_stt::InitOptions {
                 parent_supervisor: root_supervisor_ctx
@@ -504,13 +502,6 @@ pub fn main() {
 
             if let (Some(ctx), Some(handle)) = (&root_supervisor_ctx, root_supervisor_handle) {
                 supervisor::monitor_supervisor(handle, ctx.is_exiting.clone(), app_handle.clone());
-            }
-
-            {
-                use tauri_plugin_local_llm::LocalLlmPluginExt;
-                if false {
-                    app_handle.local_llm().start_server();
-                }
             }
 
             search_index::spawn(app_handle.clone(), db.clone());
