@@ -1,4 +1,3 @@
-import { Apple } from "@lobehub/icons";
 import type { ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
@@ -34,7 +33,7 @@ function getLocalModelIcon(model: string): ModelIconSpec | null {
   if (value === "apple-speech") {
     return {
       title: "Apple Speech",
-      node: <ProviderLobeIcon icon={Apple} />,
+      node: <ProviderLobeIcon icon="Apple" />,
     };
   }
 

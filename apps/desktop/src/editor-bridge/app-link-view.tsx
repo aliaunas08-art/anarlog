@@ -2,7 +2,6 @@ import {
   type NodeViewComponentProps,
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
-import { Figma, Github, Google, Notion } from "@lobehub/icons";
 import { useQuery } from "@tanstack/react-query";
 import { forwardRef } from "react";
 
@@ -18,6 +17,7 @@ import { commands as todoCommands } from "@anlg/plugin-todo";
 import { Check } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
+import { BrandIcon as BrandMark } from "~/shared/brand-icons";
 import { collectSiblingResources, openTaskTab } from "~/task/open-task-tab";
 
 function SlackIcon({ className }: { className?: string }) {
@@ -185,12 +185,12 @@ function BrandIcon({ attrs }: { attrs: AppLinkAttrs }) {
       return <LinearIcon className="text-muted-foreground size-3.5 shrink-0" />;
     case "notion":
       return (
-        <Notion className="text-muted-foreground size-3.5 shrink-0" size={14} />
+        <BrandMark name="Notion" className="size-3.5 opacity-70" size={14} />
       );
     case "google":
-      return <Google className="size-3.5 shrink-0" size={14} />;
+      return <BrandMark name="Google" className="size-3.5" size={14} />;
     case "figma":
-      return <Figma className="size-3.5 shrink-0" size={14} />;
+      return <BrandMark name="Figma" className="size-3.5" size={14} />;
     case "atlassian":
       return <AtlassianIcon className="size-3.5 shrink-0" />;
     case "asana":
@@ -211,7 +211,7 @@ function BrandIcon({ attrs }: { attrs: AppLinkAttrs }) {
       return <CalendlyIcon className="size-3.5 shrink-0" />;
     case "github":
       return (
-        <Github className="text-muted-foreground size-3.5 shrink-0" size={14} />
+        <BrandMark name="Github" className="size-3.5 opacity-70" size={14} />
       );
   }
 }

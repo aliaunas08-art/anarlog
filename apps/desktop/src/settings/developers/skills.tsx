@@ -1,6 +1,5 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { Claude, Cursor, OpenAI } from "@lobehub/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { CaretDown, Check, CircleNotch } from "@anlg/ui/components/icons";
@@ -17,6 +16,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { APP_NAME } from "~/shared/app-name";
+import { BrandIcon } from "~/shared/brand-icons";
 import { commands, type SkillAgent } from "~/types/tauri.gen";
 
 const SKILL_AGENTS_QUERY_KEY = ["skill-agents"] as const;
@@ -43,13 +43,13 @@ function SkillAgentIcon({ agent }: { agent: SkillAgent }) {
   let icon;
   switch (agent) {
     case "claude_code":
-      icon = <Claude.Color size={16} />;
+      icon = <BrandIcon name="Claude" size={16} />;
       break;
     case "codex":
-      icon = <OpenAI size={16} />;
+      icon = <BrandIcon name="OpenAI" size={16} />;
       break;
     case "cursor":
-      icon = <Cursor size={16} />;
+      icon = <BrandIcon name="Cursor" size={16} />;
       break;
     case "opencode":
       icon = <OpenCodeIcon />;

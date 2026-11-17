@@ -528,14 +528,14 @@ describe("SettingsDevelopers", () => {
     const cursorItem = await screen.findByRole("button", { name: "Cursor" });
     expect(cursorItem.hasAttribute("disabled")).toBe(true);
     expect(
-      screen.getByRole("button", { name: /Claude Code/ }).querySelector("svg"),
+      screen.getByRole("button", { name: /Claude Code/ }).querySelector("svg, img"),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Codex" }).querySelector("svg"),
+      screen.getByRole("button", { name: "Codex" }).querySelector("svg, img"),
     ).toBeTruthy();
-    expect(cursorItem.querySelector("svg")).toBeTruthy();
+    expect(cursorItem.querySelector("svg, img")).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "OpenCode" }).querySelector("svg"),
+      screen.getByRole("button", { name: "OpenCode" }).querySelector("svg, img"),
     ).toBeTruthy();
     const installedIcon = screen.getByLabelText("Skill installed");
     expect(installedIcon.closest("button")?.textContent).toContain(
