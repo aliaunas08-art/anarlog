@@ -401,14 +401,20 @@ async fn read_capped(response: reqwest::Response, cap: usize) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// Maps a provider error to a code and a fixed message. The provider's own
+/// message is not kept: it can quote the request, i.e. meeting content (ASPC
+/// C4.1). Only its error type is kept, when it is a plain identifier.
 fn map_status(status: u16, body: &str, secret: &str) -> EngineError {
-    let provider_message = serde_json::from_str::<serde_json::Value>(body)
+    let provider_type = serde_json::from_str::<serde_json::Value>(body)
         .ok()
-        .and_then(|v| v["error"]["message"].as_str().map(str::to_string))
-        .map(|m| {
-            let mut m = redact::redact(&m, &[secret]);
-            m.truncate(300);
-            m
+        .and_then(|v| v["error"]["type"].as_str().map(str::to_string))
+        .map(|kind| redact::redact(&kind, &[secret]))
+        .filter(|kind| {
+            !kind.is_empty()
+                && kind.len() <= 64
+                && kind
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
         });
     match status {
         429 => EngineError::new(
@@ -419,8 +425,10 @@ fn map_status(status: u16, body: &str, secret: &str) -> EngineError {
         500..=599 => EngineError::new(codes::UNAVAILABLE, "the AI service is unavailable"),
         _ => EngineError::new(
             codes::BAD_REQUEST,
-            provider_message
-                .unwrap_or_else(|| format!("the AI service rejected the request ({status})")),
+            match provider_type {
+                Some(kind) => format!("the AI service rejected the request ({status}, {kind})"),
+                None => format!("the AI service rejected the request ({status})"),
+            },
         ),
     }
 }

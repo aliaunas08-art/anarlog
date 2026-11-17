@@ -902,6 +902,15 @@ Nothing below was run in the app; see "Phase 5 runtime check".
   - **No licence in the package metadata (npm):** `@giscus/react` 3.1.0, `@splinetool/runtime` 0.9.526, `khroma` 2.1.0. GUESS: `khroma` and `@giscus/react` are MIT in their repositories, but the shipped package doesn't say so; `@splinetool/runtime` is a proprietary runtime as far as I know (not verified). **Needs a decision.**
 - **Gaps:** licence names only, not the full notice texts (Apache-2.0 `NOTICE` files are not collected); the generator covers macOS dependencies only.
 
+### C4.2 marker test: EXISTS (partial coverage); two leaks fixed
+
+- **Tests** (marker `zqxcontentmarker4417`): `meeting_content_reaches_no_log_or_error` (`plugins/session/src/content_marker_tests.rs`; a global `tracing` subscriber at `info`, like `plugins/tracing`, captures every thread; retention deletes the old marked meeting, the purge removes both, a backup is written, a missing and a hostile archive fail, an audit entry with the title is refused; asserts on logs, errors and the `audit.db` bytes), `provider_errors_never_carry_meeting_content` (`crates/ai-engine/src/tests.rs`, statuses 400/404/413/422/429/500), `meeting_content_markers_never_reach_analytics` (`crates/analytics/src/lib.rs`), `denials_never_carry_the_statement_text` (`crates/db-core/src/webview_sql.rs`), `webview_console_content_never_reaches_the_log` (`plugins/tracing/src/ext.rs`), `content marker` in `apps/desktop/src/error-reporting.test.ts`, `apps/desktop/src/ai/engine/errors.test.ts`.
+- **Leaks found and fixed:**
+  - the Engine kept the provider's error message for 4xx errors other than 401/403/429 (`map_status`, `crates/ai-engine/src/lib.rs`); a provider message can quote the request. It now keeps only the provider's error type when it is an identifier.
+  - the analytics sink kept a one-word string under a key such as `meeting_title` (only exact sensitive keys and `_id`/`_email`/`_url`/`_path` suffixes were dropped). `is_content_property_key` now drops string values under any key containing a content word (`title`, `transcript`, `note`, `content`, `prompt`, `summary`, `message`, `query`, `text`, `body`, …); numbers and flags such as `word_count` or `had_query` stay.
+- **Observed, not changed:** `sqlx` logs full statement text at `debug` (and slow statements at `warn`); Rust code binds values, so content appears only if a statement embeds a literal. The app logs at `info` unless `RUST_LOG` is set. The `[cloudsync]` console allowlist keeps the first argument up to 200 characters, so `console.error("[cloudsync] … " + content)` would be logged (no such call was looked for).
+- **Not covered yet:** live capture and transcription, Tantivy search errors, PDF/Markdown export failures, Ask tool errors, and the real `app.log` writer (the test uses an equivalent subscriber, not `plugins/tracing`'s file layer and redaction).
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

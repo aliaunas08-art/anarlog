@@ -18,6 +18,8 @@ mod transaction_utils;
 #[cfg(test)]
 mod attachment_folder_tests;
 #[cfg(test)]
+mod content_marker_tests;
+#[cfg(test)]
 mod tests;
 
 const PLUGIN_NAME: &str = "session";

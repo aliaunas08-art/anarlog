@@ -981,6 +981,40 @@ mod tests {
         );
     }
 
+    /// C4.2: a denied webview statement that carries meeting content (a
+    /// marker in a literal) leaves it out of the error and the audit denial.
+    #[tokio::test]
+    async fn denials_never_carry_the_statement_text() {
+        const MARKER: &str = "zqxcontentmarker4417";
+        let pool = test_pool().await;
+        let policy = WebviewSqlAuthorizer::new();
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = Arc::clone(&seen);
+        policy.set_denial_sink(move |denial| sink.lock().unwrap().push(denial));
+        policy.set_locked(true);
+        let locked = run(
+            &pool,
+            &policy,
+            &format!("UPDATE notes SET body = '{MARKER} notes' WHERE id = 'x'"),
+        )
+        .await;
+        policy.set_locked(false);
+        let audit = run(
+            &pool,
+            &policy,
+            &format!("INSERT INTO audit_x (entry) VALUES ('{MARKER} title')"),
+        )
+        .await;
+        for result in [locked, audit] {
+            let error = result.unwrap_err().to_string();
+            assert!(error.contains("not authorized"), "{error}");
+            assert!(!error.contains(MARKER), "{error}");
+        }
+        let seen = seen.lock().unwrap();
+        assert!(!seen.is_empty());
+        assert!(!format!("{seen:?}").contains(MARKER));
+    }
+
     #[tokio::test]
     async fn denials_reach_the_denial_sink() {
         let pool = test_pool().await;

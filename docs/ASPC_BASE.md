@@ -189,9 +189,16 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 ### C4. Logs, crash reports and analytics
 
 - **C4.1** Logs, crash reports and analytics never contain transcript text, note content, meeting titles, attendee emails or keys.
-- **C4.2** Test: a fixture meeting whose transcript, note and title contain a marker string is run through capture, enhance, Ask, export and an induced error. The marker must not appear in `app.log`, stderr, captured Sentry events or captured analytics events.
+- **C4.2** Test: a fixture meeting whose transcript, note and title contain a marker string is run through capture, enhance, Ask, export and an induced error. The marker must not appear in `app.log`, stderr, captured Sentry events or captured analytics events. Built (Phase 5) as one marker, `zqxcontentmarker4417`, through these paths:
+  - `meeting_content_reaches_no_log_or_error` (`plugins/session/src/content_marker_tests.rs`): every log line at the app's level from every thread, and every error, while a marked meeting goes through retention, the permanent delete, a backup, two failed restores and a refused audit entry;
+  - `provider_errors_never_carry_meeting_content` (`crates/ai-engine`): an AI provider error that quotes the meeting (the enhance and Ask error path);
+  - `meeting_content_markers_never_reach_analytics` (`crates/analytics`): the analytics sink, for content under content keys, sentences under any key and nested objects;
+  - `denials_never_carry_the_statement_text` (`crates/db-core`): denied webview SQL and its audit denial;
+  - `webview_console_content_never_reaches_the_log` (`plugins/tracing`): webview `console.*` forwarding;
+  - `content marker` (`apps/desktop/src/error-reporting.test.ts`) and `errors.test.ts` (`src/ai/engine`): Sentry events, operational errors and AI pause messages.
+    Capture, search and export failures are not in it yet (ASPC_AUDIT.md).
 - **C4.3** Session replay is off by default. It runs only when the user has turned on both error reports and the separate "Session replay" switch in Settings → Privacy (`session_replay_opt_in`, default false), and then masks all text and inputs, blocks media and captures no network bodies (`apps/desktop/src/error-reporting.ts`). Test: `stays off with error reporting on until the user opts in, then masks everything` (`error-reporting.test.ts`). Changing these defaults needs a change to this file.
-- **C4.4** Usage analytics (PostHog) is opt-in: the app setting `analytics_opt_in` (default false) and, in Rust, the analytics store's `OptedIn` flag, which is off when missing (`plugins/analytics/src/ext.rs`, test `analytics_is_off_unless_the_user_opted_in`). The legacy `telemetry_consent` setting and the old `Disabled` store key, which defaulted to on, are ignored, so every install that hasn't opted in since this change is off. Event properties pass the sink's redaction (`crates/analytics`: content-shaped keys dropped, string values only if identifier-like). Crash reporting is also off until the user turns it on (Rust and the UI agree).
+- **C4.4** Usage analytics (PostHog) is opt-in: the app setting `analytics_opt_in` (default false) and, in Rust, the analytics store's `OptedIn` flag, which is off when missing (`plugins/analytics/src/ext.rs`, test `analytics_is_off_unless_the_user_opted_in`). The legacy `telemetry_consent` setting and the old `Disabled` store key, which defaulted to on, are ignored, so every install that hasn't opted in since this change is off. Event properties pass the sink's redaction (`crates/analytics`: sensitive keys dropped; string values under any key naming content, such as `meeting_title` or `note_text`, dropped while numbers and flags stay; other strings only if identifier-like). Crash reporting is also off until the user turns it on (Rust and the UI agree).
 
 ### C5. Backup and recovery
 
@@ -368,7 +375,7 @@ These tests must exist and pass; each item is true or false:
 - [ ] Two-workspace isolation, including Ask (C1.4, B4.2)
 - [ ] Prompt-injection fixture causes no export, delete or cross-meeting disclosure (B3.4)
 - [x] Audit log detects tampering, and app code has no update/delete path to it (D1.6, D1.1): `crates/audit-log/src/tests.rs`, `tests/isolation.rs`, `webview_sql_cannot_reach_the_audit_log`
-- [ ] Marker string appears in no log, error or analytics output (C4.2)
+- [x] Marker string appears in no log, error or analytics output (C4.2): the C4.2 tests listed there (capture, search and export failures not yet covered)
 - [x] Deleting a meeting removes every trace (D2.2): `a_purged_meeting_leaves_no_marker_in_the_database_wal_vault_or_cache` and `purged_sessions_leave_no_bytes_in_the_index_directory` (two tests; see ASPC_AUDIT Phase 4 gaps)
 - [x] Backup restores into a clean install (C5.2): `backup_restores_into_a_clean_library` (`plugins/session`; a library wiped and recreated in place, not a separate install)
 - [ ] No secret in the repo or a fresh DB: `scripts/check-secrets` runs `git grep` for key patterns and scans a fresh `app.db` (C3.1)

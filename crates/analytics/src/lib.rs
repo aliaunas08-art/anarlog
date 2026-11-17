@@ -74,12 +74,47 @@ fn is_sensitive_property_key(key: &str) -> bool {
         || key.ends_with("_path")
 }
 
+/// Keys that name meeting content anywhere in them (`meeting_title`,
+/// `note_text`, …). Their string values are dropped (ASPC C4.1, D6.2);
+/// numbers and flags (`word_count`, `had_query`) are kept.
+fn is_content_property_key(key: &str) -> bool {
+    const CONTENT_WORDS: &[&str] = &[
+        "title",
+        "transcript",
+        "note",
+        "content",
+        "prompt",
+        "summary",
+        "attendee",
+        "participant",
+        "speaker",
+        "message",
+        "query",
+        "text",
+        "body",
+        "comment",
+        "memo",
+        "words",
+        "email",
+    ];
+    let key = key.to_ascii_lowercase();
+    CONTENT_WORDS.iter().any(|word| key.contains(word))
+}
+
+fn is_scalar_metadata(value: &serde_json::Value) -> bool {
+    matches!(
+        value,
+        serde_json::Value::Null | serde_json::Value::Bool(_) | serde_json::Value::Number(_)
+    )
+}
+
 fn sanitized_properties(
     properties: &HashMap<String, serde_json::Value>,
 ) -> HashMap<String, serde_json::Value> {
     properties
         .iter()
         .filter(|(key, _)| !is_sensitive_property_key(key))
+        .filter(|(key, value)| !is_content_property_key(key) || is_scalar_metadata(value))
         .filter_map(|(key, value)| {
             let value = if key == "serving_revision" {
                 value
@@ -114,6 +149,7 @@ fn sanitized_value(value: &serde_json::Value) -> Option<serde_json::Value> {
             values
                 .iter()
                 .filter(|(key, _)| !is_sensitive_property_key(key))
+                .filter(|(key, value)| !is_content_property_key(key) || is_scalar_metadata(value))
                 .filter_map(|(key, value)| sanitized_value(value).map(|value| (key.clone(), value)))
                 .collect(),
         )),
@@ -620,6 +656,55 @@ mod tests {
                 "$set".to_string(),
                 serde_json::json!({ "platform": "desktop" })
             )])
+        );
+    }
+
+    /// C4.2: a meeting's marker (in its title, notes and transcript) passed
+    /// in any of the shapes call sites could use never reaches the sink.
+    #[test]
+    fn meeting_content_markers_never_reach_analytics() {
+        const MARKER: &str = "zqxcontentmarker4417";
+        let properties = HashMap::from([
+            ("title".to_string(), serde_json::json!(MARKER)),
+            ("meeting_title".to_string(), serde_json::json!(MARKER)),
+            (
+                "note".to_string(),
+                serde_json::json!(format!("{MARKER} quarterly plan")),
+            ),
+            (
+                "transcript".to_string(),
+                serde_json::json!(format!("{MARKER} said hello")),
+            ),
+            (
+                "error".to_string(),
+                serde_json::json!(format!("failed to enhance {MARKER}")),
+            ),
+            (
+                "detail".to_string(),
+                serde_json::json!(format!("Notes: {MARKER} and more")),
+            ),
+            (
+                "words".to_string(),
+                serde_json::json!([format!("{MARKER} one"), "two words"]),
+            ),
+            (
+                "nested".to_string(),
+                serde_json::json!({ "content": MARKER, "body": MARKER }),
+            ),
+            ("count".to_string(), serde_json::json!(3)),
+        ]);
+        let sanitized = serde_json::to_string(&sanitized_properties(&properties)).unwrap();
+        assert!(!sanitized.contains(MARKER), "{sanitized}");
+        assert!(sanitized.contains("\"count\":3"));
+        // Flags and counts under content-sounding keys are metadata, kept.
+        let flags = HashMap::from([
+            ("had_query".to_string(), serde_json::json!(true)),
+            ("word_count".to_string(), serde_json::json!(12)),
+        ]);
+        assert_eq!(sanitized_properties(&flags), flags);
+        assert_eq!(
+            safe_event_name(&format!("{MARKER} enhanced")),
+            "analytics_event"
         );
     }
 }

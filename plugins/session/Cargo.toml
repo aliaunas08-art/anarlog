@@ -14,6 +14,7 @@ tauri-plugin = { workspace = true, features = ["build"] }
 anlg-db-core = { workspace = true }
 specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
+tracing-subscriber = { workspace = true, features = ["fmt"] }
 
 [dependencies]
 anlg-aspc = { workspace = true, features = ["tauri"] }

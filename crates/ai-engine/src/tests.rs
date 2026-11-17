@@ -162,6 +162,35 @@ async fn provider_errors_map_to_pause_codes_and_never_leak_the_key() {
     }
 }
 
+/// C4.2: a provider error that quotes the meeting (a marker in the title,
+/// notes and transcript sent in the request) never reaches the error the
+/// webview gets.
+#[tokio::test]
+async fn provider_errors_never_carry_meeting_content() {
+    const MARKER: &str = "zqxcontentmarker4417";
+    for status in [400, 404, 413, 422, 429, 500] {
+        let server = MockServer::start().await;
+        let body = format!(
+            r#"{{"type":"error","error":{{"type":"invalid_request_error","message":"messages.0.content: '{MARKER} quarterly plan' is invalid"}}}}"#
+        );
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(status).set_body_string(body))
+            .mount(&server)
+            .await;
+        let engine = engine_at(&server, Some(FAKE_KEY));
+        let request = format!(
+            r#"{{"messages":[{{"role":"user","content":"<meeting_title>{MARKER}</meeting_title><transcript>{MARKER} said hi</transcript>"}}]}}"#
+        );
+        let (result, _) = run(&engine, messages(&request)).await;
+        let error = result.unwrap_err();
+        assert!(
+            !format!("{error:?} {}", error.message).contains(MARKER),
+            "status {status}: {}",
+            error.message
+        );
+    }
+}
+
 #[tokio::test]
 async fn network_error_is_ai_unavailable() {
     // wiremock pools servers, so use a port nothing listens on.

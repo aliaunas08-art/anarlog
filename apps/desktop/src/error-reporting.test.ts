@@ -427,3 +427,55 @@ describe("session replay consent", () => {
     expect(mocks.addIntegration).not.toHaveBeenCalled();
   });
 });
+
+// ASPC C4.2: a meeting marker in every field an error can carry never
+// reaches a Sentry event or a normalized operational error.
+describe("content marker", () => {
+  const MARKER = "zqxcontentmarker4417";
+
+  it("leaves no meeting content in a sanitized error event", async () => {
+    const { sanitizeErrorEvent, normalizeOperationalError } =
+      await import("./error-reporting");
+    const event = sanitizeErrorEvent({
+      type: undefined,
+      message: `Enhance failed for ${MARKER}`,
+      logentry: { message: `Title ${MARKER}` },
+      extra: { transcript: `${MARKER} said hi` },
+      contexts: { meeting: { title: MARKER } },
+      tags: { title: MARKER, "anarlog.operation": "enhance" },
+      transaction: `/note/${MARKER}`,
+      breadcrumbs: [
+        { category: "ui", message: `Notes ${MARKER}`, data: { q: MARKER } },
+      ],
+      exception: {
+        values: [
+          {
+            type: "EnhanceError",
+            value: `could not summarize "${MARKER} quarterly plan"`,
+            mechanism: { type: "generic", data: { note: MARKER } },
+            stacktrace: {
+              frames: [
+                {
+                  filename: `/Users/me/${MARKER}.md`,
+                  function: `render ${MARKER}`,
+                  lineno: 1,
+                  vars: { title: MARKER },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(event)).not.toContain(MARKER);
+
+    const normalized = normalizeOperationalError(
+      Object.assign(new Error(`search failed: ${MARKER}`), {
+        code: "search_failed",
+        stage: `export ${MARKER}`,
+      }),
+      "search",
+    );
+    expect(`${normalized.name} ${normalized.message}`).not.toContain(MARKER);
+  });
+});
