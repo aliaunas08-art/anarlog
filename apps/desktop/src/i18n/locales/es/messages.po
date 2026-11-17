@@ -67,6 +67,13 @@ msgstr ""
 msgid "{0} of {1} used"
 msgstr ""
 
+#. placeholder {0}: counts.calls
+#. placeholder {1}: used.toLocaleString()
+#. placeholder {2}: tokens.toLocaleString()
+#: src/settings/ai/engine/index.tsx
+msgid "{0} of {calls} calls, {1} of {2} tokens"
+msgstr ""
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -664,6 +671,11 @@ msgstr ""
 msgid "Agent skills"
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "AI"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "AI step"
 msgstr ""
@@ -735,6 +747,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Animals & Nature"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Anthropic API key"
 msgstr ""
 
 #: src/sidebar/date-filter.tsx
@@ -1083,6 +1099,18 @@ msgstr ""
 msgid "Calendar-scheduled capture jobs. Canceling stops the bot from joining."
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+msgid "Calls per day"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Calls per minute"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Calls per month"
+msgstr ""
+
 #: src/session-sharing/access-management.tsx
 msgid "Can comment"
 msgstr ""
@@ -1105,7 +1133,6 @@ msgstr ""
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
-#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/crm/index.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
@@ -1289,10 +1316,6 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Choose a Google Drive folder first."
-msgstr ""
-
-#: src/settings/ai/llm/select.tsx
-msgid "Choose a language model for summaries and chat."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1640,7 +1663,6 @@ msgstr ""
 msgid "Configure a chat model to use the quick composer."
 msgstr ""
 
-#: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/stt/configure.tsx
 msgid "Configure Providers"
 msgstr ""
@@ -1651,7 +1673,6 @@ msgid "Confirm"
 msgstr ""
 
 #: src/imports/screen.tsx
-#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr ""
@@ -1661,7 +1682,6 @@ msgstr ""
 #. placeholder {0}: provider.displayName
 #: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
-#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
@@ -1844,7 +1864,6 @@ msgstr ""
 
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
-#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Copy"
@@ -2278,7 +2297,6 @@ msgstr ""
 msgid "Decline"
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
 #: src/settings/appearance/app-icon.tsx
 msgid "Default"
 msgstr ""
@@ -2402,6 +2420,10 @@ msgstr ""
 msgid "Developers"
 msgstr ""
 
+#: src/lock/gate.tsx
+msgid "Device authentication is not available on this computer, so {APP_NAME} stays locked. Set a login password or Touch ID in System Settings, then try again."
+msgstr ""
+
 #: src/settings/privacy/index.tsx
 msgid "Device authentication is not available on this computer."
 msgstr ""
@@ -2437,6 +2459,10 @@ msgstr ""
 #: src/sidebar/settings-nav-groups.ts
 msgid "Dictionary"
 msgstr "Diccionario"
+
+#: src/settings/ai/engine/index.tsx
+msgid "Direct"
+msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Disable"
@@ -2703,6 +2729,10 @@ msgstr ""
 msgid "Event notifications"
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+msgid "Every AI feature uses this one model. Meeting text is sent to the AI provider only when you enhance a note or ask a question."
+msgstr ""
+
 #: src/settings/stats/index.tsx
 msgid "Every conversation adds to your story."
 msgstr ""
@@ -2873,10 +2903,6 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Finish sign-in"
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Finishing connection…"
 msgstr ""
 
 #: src/meeting-float/overlay/bar.tsx
@@ -3091,10 +3117,6 @@ msgstr ""
 msgid "Having trouble?"
 msgstr ""
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Having trouble? Paste the redirect URL"
-msgstr ""
-
 #: src/settings/stats/badge-collection.tsx
 msgid "Hello, {APP_NAME}"
 msgstr ""
@@ -3147,10 +3169,6 @@ msgstr ""
 msgid "Hide sync log"
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
-msgid "High"
-msgstr ""
-
 #: src/session/components/note-conflict-banner.tsx
 msgid "History"
 msgstr ""
@@ -3171,14 +3189,6 @@ msgstr ""
 
 #: src/settings/stats/index.tsx
 msgid "Hours transcribed"
-msgstr ""
-
-#: src/settings/ai/llm/select.tsx
-msgid "How much the model thinks before answering. Default leaves it to the provider."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "How to get a Kimi Code key"
 msgstr ""
 
 #: src/contacts/humans.tsx
@@ -3307,11 +3317,6 @@ msgstr ""
 
 #: src/settings/developers/cli.tsx
 msgid "Installed"
-msgstr ""
-
-#: src/settings/ai/llm/index.tsx
-#: src/sidebar/settings-nav-groups.ts
-msgid "Intelligence"
 msgstr ""
 
 #: src/session-sharing/access-management.tsx
@@ -3473,8 +3478,8 @@ msgstr ""
 msgid "Key name (e.g. Claude Code)"
 msgstr ""
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Kimi Code API key"
+#: src/settings/ai/engine/index.tsx
+msgid "Key:"
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -3569,6 +3574,10 @@ msgstr ""
 
 #: src/settings/appearance/theme.tsx
 msgid "Light"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Limits"
 msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx
@@ -3707,10 +3716,6 @@ msgstr ""
 msgid "Locked note"
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
-msgid "Low"
-msgstr ""
-
 #: src/settings/appearance/theme.tsx
 msgid "Low-light canvas"
 msgstr ""
@@ -3812,10 +3817,6 @@ msgstr ""
 #. placeholder {0}: number.format(stats.timedConversations)
 #: src/settings/stats/insights.tsx
 msgid "Median transcribed time. Conversations with timing: {0}."
-msgstr ""
-
-#: src/settings/ai/llm/select.tsx
-msgid "Medium"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -3961,11 +3962,18 @@ msgstr ""
 msgid "Minutes"
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+msgid "missing"
+msgstr ""
+
 #: src/settings/referrals.tsx
 msgid "Missing a referral reward?"
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
+#: src/settings/ai/engine/index.tsx
+msgid "Mode:"
+msgstr ""
+
 #: src/settings/ai/stt/select.tsx
 msgid "Model being used"
 msgstr ""
@@ -3980,6 +3988,10 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Model is thinking..."
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Model:"
 msgstr ""
 
 #: src/settings/general/week-start.tsx
@@ -4282,8 +4294,6 @@ msgstr ""
 msgid "No projects yet. Create one to group notes and materials."
 msgstr ""
 
-#: src/settings/ai/llm/configure.tsx
-#: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/configure.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "No providers found."
@@ -4611,10 +4621,6 @@ msgstr ""
 msgid "Open…"
 msgstr ""
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Opening sign-in…"
-msgstr ""
-
 #: src/imports/screen.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -4708,20 +4714,8 @@ msgstr ""
 msgid "Paste a past summary you like..."
 msgstr ""
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Paste an API key from your Kimi Code membership."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Paste the authorization code"
-msgstr ""
-
 #: src/instruction/index.tsx
 msgid "Paste the browser URL here if the browser button did not reopen{APP_NAME}."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Paste the localhost redirect URL"
 msgstr ""
 
 #: src/settings/developers/webhooks.tsx
@@ -4993,6 +4987,10 @@ msgstr ""
 msgid "Protect cloud sync"
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+msgid "Proxy"
+msgstr ""
+
 #: src/session-sharing/general-access.tsx
 msgid "Public on the web"
 msgstr ""
@@ -5039,10 +5037,6 @@ msgstr ""
 
 #: src/main/home.tsx
 msgid "Ready when you are."
-msgstr ""
-
-#: src/settings/ai/llm/select.tsx
-msgid "Reasoning effort"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
@@ -5236,6 +5230,7 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/access-management.tsx
+#: src/settings/ai/engine/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Remove"
 msgstr ""
@@ -5351,6 +5346,10 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Replace the saved key"
 msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
@@ -5531,6 +5530,7 @@ msgstr ""
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
@@ -5551,6 +5551,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Save draft"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Save limits"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -5600,6 +5604,10 @@ msgstr ""
 #: src/settings/ai/shared/index.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saved"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "saved in Keychain"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -5744,7 +5752,6 @@ msgstr ""
 msgid "Select a person to view details"
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Select a provider"
 msgstr ""
@@ -6188,26 +6195,6 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Sign in to your account"
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with ChatGPT Plus or Pro. We'll open {APP_NAME} and finish connecting."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with GitHub Copilot and enter the code below."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with SuperGrok or X Premium+ and enter the code below."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with your Claude account. After you authorize, copy the code and we'll finish connecting."
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -6729,6 +6716,10 @@ msgstr ""
 msgid "Test runs are not available yet."
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+msgid "The key is stored in the macOS Keychain and used only by the app's Rust core. It is never shown again or sent anywhere except the AI provider."
+msgstr ""
+
 #: src/shared-notes/index.tsx
 msgid "The link may have expired or its access may have changed."
 msgstr ""
@@ -6810,6 +6801,10 @@ msgstr ""
 msgid "This meeting · separate thread. Answers use only this meeting."
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
+msgid "This month:"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "This name is synced to your other devices signed in to this account."
 msgstr ""
@@ -6868,8 +6863,16 @@ msgstr ""
 msgid "Today"
 msgstr ""
 
-#: src/settings/ai/llm/usage-line.tsx
-msgid "Today: {questions} Ask questions, {calls} AI calls, {redirects} redirects."
+#: src/settings/ai/engine/index.tsx
+msgid "Today:"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Tokens per day"
+msgstr ""
+
+#: src/settings/ai/engine/index.tsx
+msgid "Tokens per month"
 msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
@@ -7145,7 +7148,6 @@ msgstr ""
 msgid "Upgrade to Pro to invite people and share this note with them."
 msgstr ""
 
-#: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Upgrade to Pro to use this provider."
 msgstr ""
@@ -7176,6 +7178,7 @@ msgstr ""
 msgid "Uploads meeting content for remote access while {APP_NAME} is closed."
 msgstr ""
 
+#: src/settings/ai/engine/index.tsx
 #: src/settings/team/index.tsx
 msgid "Usage"
 msgstr ""
@@ -7330,10 +7333,6 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Waiting for an existing device"
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Waiting for authorization in your browser…"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
