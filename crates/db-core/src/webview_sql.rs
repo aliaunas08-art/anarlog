@@ -181,10 +181,35 @@ pub fn table_data_type(table: &str) -> DataType {
     }
 }
 
+/// One denied webview statement step, reported to the denial sink (the
+/// desktop app writes it to the audit log as `permission.denied`, D1.4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SqlDenial {
+    /// `aspc.*` code for role and lock denials, or `sql.policy` /
+    /// `sql.workspace` for the static policy and the C1 guard.
+    pub code: &'static str,
+    pub table: Option<String>,
+    pub access: Option<(DataType, Action)>,
+}
+
+type DenialSink = Arc<dyn Fn(SqlDenial) + Send + Sync>;
+
+#[derive(Default)]
+struct DenialSinkSlot(RwLock<Option<DenialSink>>);
+
+impl std::fmt::Debug for DenialSinkSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DenialSinkSlot")
+    }
+}
+
 /// Policy, access context and lock state for webview SQL. One instance is
 /// shared by every webview execution path of a database.
 #[derive(Debug, Default)]
 pub struct WebviewSqlAuthorizer {
+    /// Called for every denial. Runs inside the SQLite authorizer callback,
+    /// so it must only queue (the audit writer's `submit`), never block.
+    denial_sink: DenialSinkSlot,
     locked: AtomicBool,
     /// Set by the app at startup. Until then (and in tests that never set
     /// it) only the static policy applies, which is the Phase 1 behaviour.
@@ -230,12 +255,45 @@ impl WebviewSqlAuthorizer {
         self.workspace_guard.load(Ordering::SeqCst)
     }
 
+    /// Installs the denial sink (see [`SqlDenial`]).
+    pub fn set_denial_sink(&self, sink: impl Fn(SqlDenial) + Send + Sync + 'static) {
+        *self
+            .denial_sink
+            .0
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = Some(Arc::new(sink));
+    }
+
     fn decide(&self, request: &AuthRequest<'_>, connection: &ConnectionState) -> Decision {
+        let (decision, code) = self.decide_with_code(request, connection);
+        if decision == Decision::Deny {
+            let sink = self
+                .denial_sink
+                .0
+                .read()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            if let Some(sink) = sink {
+                sink(SqlDenial {
+                    code,
+                    table: request.arg1.map(str::to_owned),
+                    access: data_access(request),
+                });
+            }
+        }
+        decision
+    }
+
+    fn decide_with_code(
+        &self,
+        request: &AuthRequest<'_>,
+        connection: &ConnectionState,
+    ) -> (Decision, &'static str) {
         if self.is_locked() {
-            return decide_locked(request);
+            return (decide_locked(request), aspc::DenyCode::Locked.as_str());
         }
         if decide(request) == Decision::Deny {
-            return Decision::Deny;
+            return (Decision::Deny, "sql.policy");
         }
         if connection.guarded {
             // Only Rust opens and ends the guard's transaction, so the census
@@ -243,7 +301,7 @@ impl WebviewSqlAuthorizer {
             if request.action == ffi::SQLITE_TRANSACTION
                 && !connection.transaction_control.load(Ordering::SeqCst)
             {
-                return Decision::Deny;
+                return (Decision::Deny, "sql.policy");
             }
             if matches!(
                 request.action,
@@ -251,21 +309,21 @@ impl WebviewSqlAuthorizer {
             ) && denied_while_multi_workspace(request.arg1)
                 && !connection.allows_content(request.arg1)
             {
-                return Decision::Deny;
+                return (Decision::Deny, "sql.workspace");
             }
         }
         let Some((data, action)) = data_access(request) else {
-            return Decision::Allow;
+            return (Decision::Allow, "");
         };
         let guard = self.context.read().unwrap_or_else(|e| e.into_inner());
         let Some(context) = guard.as_ref() else {
-            return Decision::Allow;
+            return (Decision::Allow, "");
         };
         let mut context = context.clone();
         context.unlocked = true;
         match aspc::authorize(&context, &context.workspace_id, data, action) {
-            Ok(_) => Decision::Allow,
-            Err(_) => Decision::Deny,
+            Ok(_) => (Decision::Allow, ""),
+            Err(denied) => (Decision::Deny, denied.code.as_str()),
         }
     }
 }
@@ -815,6 +873,78 @@ mod tests {
             arg2: Some("sql"),
         };
         assert_eq!(decide(&internal), Decision::Deny);
+    }
+
+    /// D1.1: the db plugin's webview connection cannot reach `audit.db`,
+    /// even when the file sits next to `app.db` and the statement names it.
+    #[tokio::test]
+    async fn webview_sql_cannot_reach_the_audit_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let audit_path = dir.path().join("audit.db");
+        let audit = SqlitePool::connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(&audit_path)
+                .create_if_missing(true),
+        )
+        .await
+        .unwrap();
+        sqlx::query("CREATE TABLE audit_entries (seq INTEGER PRIMARY KEY, object_id TEXT)")
+            .execute(&audit)
+            .await
+            .unwrap();
+        audit.close().await;
+
+        let pool = test_pool().await;
+        let policy = WebviewSqlAuthorizer::new();
+        let path = audit_path.display().to_string().replace('\'', "''");
+        for sql in [
+            format!("ATTACH DATABASE '{path}' AS audit"),
+            format!("ATTACH DATABASE 'file:{path}?mode=ro' AS a"),
+            "SELECT * FROM audit_entries".to_string(),
+            "DELETE FROM audit_entries".to_string(),
+        ] {
+            assert!(
+                run(&pool, &policy, &sql).await.is_err(),
+                "{sql} reached the audit log"
+            );
+        }
+        // No second database is attached to the connection.
+        let databases: Vec<String> = sqlx::query_scalar("SELECT name FROM pragma_database_list")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert!(
+            databases
+                .iter()
+                .all(|name| name == "main" || name == "temp")
+        );
+    }
+
+    #[tokio::test]
+    async fn denials_reach_the_denial_sink() {
+        let pool = test_pool().await;
+        let policy = WebviewSqlAuthorizer::new();
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = Arc::clone(&seen);
+        policy.set_denial_sink(move |denial| sink.lock().unwrap().push(denial));
+        policy.set_locked(true);
+        assert!(is_not_authorized(
+            run(&pool, &policy, "SELECT * FROM notes").await
+        ));
+        policy.set_locked(false);
+        assert!(is_not_authorized(
+            run(&pool, &policy, "SELECT * FROM audit_x").await
+        ));
+        run(&pool, &policy, "SELECT * FROM notes").await.unwrap();
+        let seen = seen.lock().unwrap();
+        assert!(
+            seen.iter()
+                .any(|d| d.code == "aspc.locked" && d.table.as_deref() == Some("notes"))
+        );
+        assert!(
+            seen.iter()
+                .any(|d| d.code == "sql.policy" && d.table.as_deref() == Some("audit_x"))
+        );
     }
 
     #[tokio::test]

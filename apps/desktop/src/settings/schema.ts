@@ -256,6 +256,13 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "crash_reporting_consent"],
     default: true as boolean,
   },
+  // ASPC D3: 0 keeps meetings forever; N > 0 deletes meetings older than
+  // N days (applied in Rust at startup and every 6 hours).
+  meeting_retention_days: {
+    type: "number",
+    path: ["general", "meeting_retention_days"],
+    default: 0 as number,
+  },
   lock_app: {
     type: "boolean",
     path: ["general", "lock_app"],

@@ -9,6 +9,7 @@ import {
   type ToolSet,
 } from "ai";
 
+import { commands as auditCommands } from "@anlg/plugin-audit";
 import {
   type SessionContext,
   commands as templateCommands,
@@ -484,6 +485,14 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       });
     }
     recordAskQuery({ providerId, askScope: scope });
+    recordAskAudit(
+      scope,
+      scope === "meeting"
+        ? meetingId
+          ? [meetingId]
+          : []
+        : (excerpts ?? []).map((excerpt) => excerpt.meetingId),
+    );
 
     classification = await applyModelFallback(
       classification,
@@ -626,6 +635,7 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       scope: "library",
       explicitEdit: false,
     });
+    recordAskAudit("unscoped", []);
 
     const currentSessionId = getCurrentSessionIdFromMessages(options.messages);
     const effectiveContextRefs = orderPromptContextRefs(
@@ -738,4 +748,15 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
     async () => {
       return null;
     };
+}
+
+// ASPC D1.4: an Ask query's scope and the meeting ids it may read, never the
+// query text. Best effort: logging never blocks or fails the answer.
+function recordAskAudit(
+  scope: AskScope | "unscoped",
+  meetingIds: string[],
+): void {
+  void auditCommands
+    .recordAsk(scope, [...new Set(meetingIds)].slice(0, 200), false)
+    .catch(() => undefined);
 }

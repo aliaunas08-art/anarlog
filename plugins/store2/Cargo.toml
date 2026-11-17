@@ -23,6 +23,7 @@ security-framework = { workspace = true }
 
 [dependencies]
 anlg-aspc = { workspace = true, features = ["tauri"] }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-settings = { workspace = true }
 tauri-plugin-store = { workspace = true }

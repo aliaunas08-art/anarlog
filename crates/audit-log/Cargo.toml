@@ -1,0 +1,30 @@
+[package]
+name = "audit-log"
+version = "0.1.0"
+edition = "2024"
+description = "ASPC D1 audit log: a separate, append-only, hash-chained audit.db whose chain head is kept in the Keychain."
+
+[features]
+default = []
+specta = ["dep:specta"]
+# `record(&app, event)` for Tauri plugins: reads the writer and the access
+# context from Tauri state.
+tauri = ["dep:tauri", "dep:anlg-aspc"]
+
+[dependencies]
+anlg-aspc = { workspace = true, optional = true }
+anlg-local-accounts = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true, features = ["derive"], optional = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
+tauri = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

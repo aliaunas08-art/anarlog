@@ -5,6 +5,7 @@ use crate::{AccessContext, Role};
 
 type LockListener = Box<dyn Fn(LockSnapshot) + Send + Sync>;
 type IdentityListener = Box<dyn Fn(&AccessContext) + Send + Sync>;
+type DenialListener = Box<dyn Fn(&AccessContext, &crate::Denied) + Send + Sync>;
 
 /// The process-wide access state: who the local actor is and the lock.
 /// The desktop app manages one `Arc<AspcState>` as Tauri state.
@@ -13,6 +14,7 @@ pub struct AspcState {
     lock: Mutex<LockMachine>,
     listeners: Mutex<Vec<LockListener>>,
     identity_listeners: Mutex<Vec<IdentityListener>>,
+    denial_listeners: Mutex<Vec<DenialListener>>,
 }
 
 impl AspcState {
@@ -26,6 +28,7 @@ impl AspcState {
             lock: Mutex::new(LockMachine::new(lock_enabled)),
             listeners: Mutex::new(Vec::new()),
             identity_listeners: Mutex::new(Vec::new()),
+            denial_listeners: Mutex::new(Vec::new()),
         }
     }
 
@@ -98,6 +101,30 @@ impl AspcState {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .push(Box::new(listener));
+    }
+
+    /// Registers a callback run for every denial of the command guard
+    /// ([`crate::require`]); the desktop app writes it to the audit log
+    /// (D1.4, rate-limited there). The context carries the calling window.
+    pub fn on_denial(
+        &self,
+        listener: impl Fn(&AccessContext, &crate::Denied) + Send + Sync + 'static,
+    ) {
+        self.denial_listeners
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Box::new(listener));
+    }
+
+    pub(crate) fn notify_denial(&self, ctx: &AccessContext, denied: &crate::Denied) {
+        for listener in self
+            .denial_listeners
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+        {
+            listener(ctx, denied);
+        }
     }
 
     pub fn lock_snapshot(&self) -> LockSnapshot {
@@ -179,7 +206,11 @@ pub(crate) fn check(
     if !check_lock {
         ctx.unlocked = true;
     }
-    crate::authorize(&ctx, &ctx.workspace_id, data, action)
+    let result = crate::authorize(&ctx, &ctx.workspace_id, data, action);
+    if let Err(denied) = &result {
+        state.notify_denial(&ctx, denied);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -292,6 +323,22 @@ mod tests {
         }
         // The SQL commands skip only the lock check.
         assert!(check(Some(&locked), "main", DataType::Notes, Action::Read, false).is_ok());
+    }
+
+    #[test]
+    fn denials_reach_the_denial_listeners_with_the_window() {
+        let state = AspcState::local_owner("a".into(), "w".into(), "d".into(), true);
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = Arc::clone(&seen);
+        state.on_denial(move |ctx, denied| {
+            sink.lock().unwrap().push((ctx.window.clone(), denied.code));
+        });
+        assert!(check(Some(&state), "main", DataType::Notes, Action::Read, true).is_err());
+        assert!(check(Some(&state), "main", DataType::Notes, Action::Read, false).is_ok());
+        assert_eq!(
+            *seen.lock().unwrap(),
+            vec![(Some("main".to_string()), DenyCode::Locked)]
+        );
     }
 
     #[test]

@@ -124,6 +124,7 @@ pub(crate) async fn get_meeting_transcript<R: tauri::Runtime>(
     let scope = anlg_agent_access::local_scope(state.pool())
         .await
         .map_err(|error| error.to_string())?;
+    state.observe_content_access("transcript", &input.meeting_id);
     anlg_agent_access::get_meeting_transcript(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())

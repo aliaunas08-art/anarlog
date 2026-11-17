@@ -51,6 +51,7 @@
     "attachment-sync:default",
     "agent:default",
     "ai-engine:default",
+    "audit:default",
     "updater:default",
     "updater2:default",
     "deeplink2:default",

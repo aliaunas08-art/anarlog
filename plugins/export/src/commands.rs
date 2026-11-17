@@ -26,5 +26,11 @@ pub(crate) async fn export<R: tauri::Runtime>(
         .map_err(|e| e.to_string())?;
     app.export()
         .export_pdf(&path, input)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(anlg_audit_log::actions::MEETING_EXPORTED, "meeting", "")
+            .id("format", "pdf"),
+    );
+    Ok(())
 }

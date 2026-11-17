@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { commands as auditCommands } from "@anlg/plugin-audit";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { computeCurrentNoteTab } from "@anlg/utils/session";
 
@@ -76,6 +77,13 @@ function LockedNoteGate({
   const revealed = useAppLock((state) =>
     Boolean(state.revealedNoteIds[tab.id]),
   );
+  const visible = Boolean(session) && (!locked || revealed);
+  // ASPC D1.4 "meeting viewed": once the content is on screen. Rust
+  // debounces repeats per meeting.
+  useEffect(() => {
+    if (!visible) return;
+    void auditCommands.recordMeetingView(tab.id).catch(() => undefined);
+  }, [visible, tab.id]);
   const authenticating = useAppLock((state) => state.authenticating);
   const lockOverlay =
     session && locked && !revealed ? (

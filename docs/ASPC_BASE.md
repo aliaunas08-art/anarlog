@@ -28,7 +28,8 @@ Controls that only make sense on a server are marked **[hosted]**. They don't ap
 
 - BUILT: `crates/aspc` (roles, data types, actions, the A1 matrix, `AccessContext`, `authorize`), the local context in Tauri state, the Rust-held app lock, the command registry and guard (A2.1–A2.3, with the coverage listed in ASPC_AUDIT.md), and the per-table SQL authorizer (A2.4).
 - BUILT (Phase 2b): C1 local identity, backfill and create paths; workspace-scoped Rust reads; Tantivy workspace and session filters; the single-workspace guard on webview SQL (an interim that fails closed, see C1).
-- NOT BUILT: row-level workspace filtering of webview SQL (C1 decision in ASPC_AUDIT.md) and the `permission.denied` audit entry (D1).
+- BUILT (Phase 4): the `permission.denied` audit entry for guard and SQL authorizer denials (D1).
+- NOT BUILT: row-level workspace filtering of webview SQL (C1 decision in ASPC_AUDIT.md).
 
 ### Trust boundary
 
@@ -50,7 +51,7 @@ authorize(ctx: &AccessContext, workspace_id, data: DataType, action: Action) -> 
 - `Action` is one of: `Create`, `Read`, `Edit`, `Export`, `Share`, `Delete`, `Administer`.
 - `authorize` checks, in order: the lock, the workspace (empty or different → denied), the role (unknown → denied), the matrix, then the window policy (A2.5).
 - `Member` rules need the row's owner. Callers that know it use `authorize_resource(…, Ownership::OwnedBy(owner))`; command-level checks don't know which row they will touch and pass `Ownership::Unknown`, which allows a `Member` only `Create`.
-- A denial returns an error with a stable code (`aspc.locked`, `aspc.wrong_workspace`, `aspc.unknown_role`, `aspc.role_denied`, `aspc.not_owner`, `aspc.window_denied`, `aspc.presence_only`, `aspc.no_context`). Every denial writes a `permission.denied` entry to the audit log (§D1; not built yet).
+- A denial returns an error with a stable code (`aspc.locked`, `aspc.wrong_workspace`, `aspc.unknown_role`, `aspc.role_denied`, `aspc.not_owner`, `aspc.window_denied`, `aspc.presence_only`, `aspc.no_context`). Every denial writes a `permission.denied` entry to the audit log (§D1): the guard through `AspcState::on_denial`, the SQL authorizer through its denial sink. Identical denials (same source, code, data type and action) are written at most once a minute with a `suppressed` count, and at most 30 denial entries a minute are written in all, so a denial loop can't flood the log.
 
 ## A. Access
 
@@ -229,26 +230,30 @@ The rules:
 
 ### D1. Audit log
 
-- **D1.1** The audit log is stored in its own SQLite file, `audit.db`, not in `app.db`. The app's normal data code (`db-app`, the `db` plugin, the CLI) has no handle to it. The webview SQL authorizer denies it.
-- **D1.2** It is append-only. The writer exposes only `append`. The table has triggers that make UPDATE and DELETE fail.
+**Status: BUILT (Phase 4, 2026-11-16).** Core `crates/audit-log`, commands `plugins/audit`.
+
+- **D1.1** The audit log is stored in its own SQLite file, `audit.db`, next to `app.db`, not in `app.db`. The app's normal data code (`db-app`, `db-core`, the `db` plugin) has no handle to it, and the CLI can only append (`open_append_only`: no read, no verify, no Keychain). The webview SQL authorizer denies `audit*` names and `ATTACH`. Tests: `crates/audit-log/tests/isolation.rs`, `webview_sql_cannot_reach_the_audit_log` (`crates/db-core/src/webview_sql.rs`). Inside the app the reader is held only by the audit plugin (a state type private to it); other plugins get the append-only `AuditWriter`.
+- **D1.2** It is append-only. The writer exposes only `append` (and queued variants of it). The table has triggers that make UPDATE and DELETE fail. There is no webview command that writes arbitrary entries, edits or deletes; the webview may only report three fixed events (`audit:record_meeting_view`, `record_ask`, `record_settings_change`), each validated in Rust.
 - **D1.3** Each entry holds:
   - `seq`, `ts`, `actor_id`, `role`, `workspace_id`;
   - `action`, `object_type`, `object_id`;
   - `source` (`app`, `cli` or `job`) and `device_id`;
-  - `prev_hash` and `hash`, where `hash = SHA-256(prev_hash ‖ canonical entry)`.
-    The chain's latest hash is also kept in the Keychain, so truncating the log is detected too.
+  - `detail`: a JSON object of ids, counts and flags only;
+  - `prev_hash` and `hash`, where `hash = SHA-256(prev_hash ‖ canonical entry)` and the canonical entry is the JSON array of every other field in a fixed order.
+    The chain's latest `seq:hash` is also kept in the Keychain (`<bundle id>.audit-log` / `audit-chain-head`), so truncating the log is detected too. A head behind the log is accepted (the last write was lost, or the CLI appended); a head ahead of it, or one whose hash differs from the entry at its seq, is reported. Such a head is never overwritten (it stays as evidence). The Keychain is read and written on its own thread with a timeout: a missing head (first run) is stored, and a Keychain that doesn't answer leaves the head unverified without blocking startup or appends.
 - **D1.4** The log records:
-  - app unlock;
-  - meeting viewed, exported, shared or deleted;
-  - transcript accessed;
+  - app unlock (`local-auth`);
+  - meeting viewed (on open, debounced per meeting for 5 minutes), exported (PDF, VTT, Markdown, CLI), shared or deleted;
+  - transcript accessed (Rust transcript reads, debounced);
   - Ask query run (its scope and meeting ids, never the query text);
-  - settings and key changes;
-  - permission denials;
+  - settings changes (key names only: `settings:save`, app settings writes, the lock, Engine quotas) and key changes (`ai-engine` key set/clear, `store2` secrets; the name only);
+  - permission denials (rate-limited, see §0);
   - data deletion;
   - retention runs;
-  - backups and restores.
-- **D1.5** It never contains meeting content.
-- **D1.6** Settings → Audit shows the entries and runs "Verify". Test: editing, deleting or reordering a row directly in `audit.db` makes Verify fail and points to the first bad entry.
+  - backups and restores (the API exists: `actions::BACKUP_CREATED` / `BACKUP_RESTORED`; nothing calls it until C5 is built);
+  - CLI actions with source `cli` (meeting delete, local export).
+- **D1.5** It never contains meeting content. Enforced in code: action names are lower-case dotted names, and every id or detail value must be an identifier (no whitespace, at most 160 characters), so a title, query or transcript line is refused (`content_shaped_values_are_refused`, `content_is_refused_and_nothing_is_written`).
+- **D1.6** Settings → Audit shows the entries (paged, newest first) and runs "Verify". Reading the log is `(Settings, Administer)`. Test: editing, deleting or reordering a row directly in `audit.db`, or truncating it, makes Verify fail and points to the first bad entry (`crates/audit-log/src/tests.rs`).
 
 ### D2. Data rights
 
@@ -364,6 +369,7 @@ These tests must exist and pass; each item is true or false:
 
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
 
+- **Phase 4 (2026-11-16): audit log in its own file.** `audit.db` is a separate SQLite file next to `app.db` with its own crate (`crates/audit-log`), not a table in `app.db`; its chain head is kept in the Keychain. The CLI may append with source `cli` but never reads it.
 - **2026-11-16: hooks feature removed.** The settings `hooks` feature ran shell commands from `settings.json` on recording start and stop. It has been deleted (`plugins/hooks`, `crates/hooks`, its registration, capability entry and callers). It may only come back as a separate, reviewed task, behind authentication and an explicit opt-in that shows the user the exact command. A leftover `hooks` key in an existing `settings.json` is now ignored.
 - **Decision 1 (2026-11-16): Efficiency Engine, LOCAL Direct mode, proxy-ready.** AI calls go through the Rust Engine in DIRECT mode with a key the user enters, kept in this Mac's Keychain. The Engine replaces the user's provider and model choice for every LLM feature: one pinned Haiku model, no provider picker. PROXY mode exists only as a stub behind the same config. No hosted proxy or network backend was built. Speech-to-text provider choice is unchanged. Before any build goes to users running on the developer's key, gate C7.6 applies.
 - **C1 webview SQL (2026-11-16):** TEMP views per content table were spiked and rejected (UPSERT and writes cannot go through views, `main.` bypasses them, and TEMP objects leak into the shared pool). Interim: the single-workspace guard (A2.4), which denies webview content access while a second workspace's rows exist. Filtering webview SQL by workspace needs moving webview content access to scoped Rust commands, or views on a dedicated pool with UPSERT-free writes.

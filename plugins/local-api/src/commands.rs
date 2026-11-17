@@ -230,9 +230,23 @@ pub async fn export_meeting_markdown<R: tauri::Runtime>(
         return Err("export directory is not set".to_string());
     }
     let pool = pool(&app)?;
+    let audited = meeting_id.clone();
     let export = scoped_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::MEETING_EXPORTED,
+            "meeting",
+            if anlg_audit_log::is_identifier(&audited) {
+                audited.as_str()
+            } else {
+                ""
+            },
+        )
+        .id("format", "markdown"),
+    );
     let path = write_markdown_export_with_options(
         std::path::Path::new(directory),
         &export,

@@ -439,7 +439,24 @@ pub(crate) async fn set_secret<R: tauri::Runtime>(
         anlg_aspc::Action::Edit,
     )
     .map_err(|denied| denied.to_string())?;
-    write_secret_for(SecretCaller::Renderer, app, scope, key, value).await
+    let name = format!("{scope}:{key}");
+    write_secret_for(SecretCaller::Renderer, app.clone(), scope, key, value).await?;
+    record_key_change(&app, &name, "set");
+    Ok(())
+}
+
+/// D1.4 key change: the secret's scope and name only, never its value.
+fn record_key_change<R: tauri::Runtime>(app: &tauri::AppHandle<R>, name: &str, change: &str) {
+    let name = if anlg_audit_log::is_identifier(name) {
+        name
+    } else {
+        ""
+    };
+    anlg_audit_log::record(
+        app,
+        anlg_audit_log::NewEntry::new(anlg_audit_log::actions::KEY_CHANGED, "secret", name)
+            .id("change", change),
+    );
 }
 
 pub async fn write_secret<R: tauri::Runtime>(
@@ -505,7 +522,10 @@ pub(crate) async fn delete_secret<R: tauri::Runtime>(
         anlg_aspc::Action::Delete,
     )
     .map_err(|denied| denied.to_string())?;
-    delete_secret_for(SecretCaller::Renderer, app, scope, key).await
+    let name = format!("{scope}:{key}");
+    delete_secret_for(SecretCaller::Renderer, app.clone(), scope, key).await?;
+    record_key_change(&app, &name, "deleted");
+    Ok(())
 }
 
 pub fn delete_secret_blocking<R: tauri::Runtime>(

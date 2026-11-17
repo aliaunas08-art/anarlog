@@ -12,6 +12,7 @@ import { SettingsTodo } from "./todo";
 import { AiEngineSettings } from "~/settings/ai/engine";
 import { STT } from "~/settings/ai/stt";
 import { SettingsAppearance } from "~/settings/appearance";
+import { SettingsAudit } from "~/settings/audit";
 import { SettingsCrm } from "~/settings/crm";
 import { SettingsDevelopers } from "~/settings/developers";
 import { SettingsDictation } from "~/settings/dictation";
@@ -83,6 +84,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsPermissions />;
       case "privacy":
         return <SettingsPrivacy />;
+      case "audit":
+        return <SettingsAudit />;
       case "developers":
         return <SettingsDevelopers />;
       case "dictionary":

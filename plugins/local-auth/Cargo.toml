@@ -16,6 +16,7 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 
 [dependencies]
 anlg-aspc = { workspace = true, features = ["specta", "tauri"] }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-host = { workspace = true }

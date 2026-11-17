@@ -129,6 +129,14 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("ai-engine", "set_api_key", Keys, Edit),
     guarded!("ai-engine", "set_quotas", Settings, Administer),
     guarded!("ai-engine", "status", Settings, Read),
+    // audit: Settings -> Audit (D1.6). Reading the log is Settings/Administer;
+    // the record_* commands append one fixed event shape each (ids only) and
+    // there is no command that edits or deletes entries.
+    guarded!("audit", "list_entries", Settings, Administer),
+    guarded!("audit", "record_ask", Notes, Read),
+    guarded!("audit", "record_meeting_view", Notes, Read),
+    guarded!("audit", "record_settings_change", Settings, Edit),
+    guarded!("audit", "verify", Settings, Administer),
     // analytics
     public!("analytics", "clear_groups", TELEMETRY),
     public!("analytics", "event", TELEMETRY),

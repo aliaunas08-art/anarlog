@@ -9,6 +9,7 @@ macro_rules! app_name {
 mod agent_skills;
 mod agents;
 mod appearance;
+mod audit;
 mod commands;
 mod db;
 mod embedded_cli;
@@ -163,36 +164,46 @@ pub fn main() {
         }
     };
 
-    let (root_supervisor_ctx, root_supervisor_handle, db, crash_reporting_enabled, access_state) =
-        runtime.block_on(async {
-            let (root_supervisor_ctx, root_supervisor_handle) =
-                match supervisor::spawn_root_supervisor().await {
-                    Some((ctx, handle)) => (Some(ctx), Some(handle)),
-                    None => (None, None),
-                };
-
-            let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
-            startup::consolidate_custom_storage(&identifier);
-            let db = match open_desktop_db(&identifier).await {
-                Ok(db) => db,
-                Err(error) => {
-                    startup_indicator.dismiss();
-                    exit_after_startup_failure(&identifier, &error)
-                }
+    let (
+        root_supervisor_ctx,
+        root_supervisor_handle,
+        db,
+        crash_reporting_enabled,
+        access_state,
+        audit,
+    ) = runtime.block_on(async {
+        let (root_supervisor_ctx, root_supervisor_handle) =
+            match supervisor::spawn_root_supervisor().await {
+                Some((ctx, handle)) => (Some(ctx), Some(handle)),
+                None => (None, None),
             };
-            startup_indicator.dismiss();
-            let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
-            // ASPC A1.3/A4.2: the local Owner's access context and the
-            // Rust-held app lock, built before any window exists.
-            let access_state = tauri_plugin_local_auth::access::bootstrap(&db).await;
-            (
-                root_supervisor_ctx,
-                root_supervisor_handle,
-                db,
-                crash_reporting_enabled,
-                access_state,
-            )
-        });
+
+        let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
+        startup::consolidate_custom_storage(&identifier);
+        let db = match open_desktop_db(&identifier).await {
+            Ok(db) => db,
+            Err(error) => {
+                startup_indicator.dismiss();
+                exit_after_startup_failure(&identifier, &error)
+            }
+        };
+        startup_indicator.dismiss();
+        let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
+        // ASPC A1.3/A4.2: the local Owner's access context and the
+        // Rust-held app lock, built before any window exists.
+        let access_state = tauri_plugin_local_auth::access::bootstrap(&db).await;
+        // ASPC D1: the audit log, next to app.db. A failure is logged and
+        // the app runs without it rather than refusing to start.
+        let audit = audit::open(&identifier).await;
+        (
+            root_supervisor_ctx,
+            root_supervisor_handle,
+            db,
+            crash_reporting_enabled,
+            access_state,
+            audit,
+        )
+    });
 
     let sentry_client = {
         let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
@@ -257,6 +268,9 @@ pub fn main() {
         .manage(db.clone())
         .manage(access_state.clone())
         .manage(crash_reporting_state);
+    if let Some((writer, _)) = &audit {
+        builder = builder.manage(writer.clone());
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -336,6 +350,9 @@ pub fn main() {
         .plugin(tauri_plugin_misc::init())
         .plugin(tauri_plugin_template::init())
         .plugin(tauri_plugin_ai_engine::init())
+        .plugin(tauri_plugin_audit::init(
+            audit.as_ref().map(|(_, reader)| reader.clone()),
+        ))
         .plugin(tauri_plugin_session::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_detect::init())
@@ -421,6 +438,9 @@ pub fn main() {
             allow_vault_sessions_in_asset_scope(&app_handle);
 
             wire_app_lock(&app_handle, &access_state);
+            if let Some((writer, _)) = &audit {
+                audit::wire(&app_handle, &access_state, writer);
+            }
 
             {
                 use tauri_specta::Event;

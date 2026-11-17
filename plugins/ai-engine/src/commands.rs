@@ -85,7 +85,17 @@ pub async fn set_api_key<R: tauri::Runtime>(
     anlg_aspc::require(&app, &aspc_window, DataType::Keys, Action::Edit)
         .and_then(anlg_aspc::Grant::require_full)
         .map_err(denied)?;
-    engine(&app)?.set_api_key(key).await
+    let status = engine(&app)?.set_api_key(key).await?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::KEY_CHANGED,
+            "key",
+            "anthropic-api-key",
+        )
+        .id("change", "set"),
+    );
+    Ok(status)
 }
 
 #[tauri::command]
@@ -97,7 +107,17 @@ pub async fn clear_api_key<R: tauri::Runtime>(
     anlg_aspc::require(&app, &aspc_window, DataType::Keys, Action::Edit)
         .and_then(anlg_aspc::Grant::require_full)
         .map_err(denied)?;
-    engine(&app)?.clear_api_key().await
+    let status = engine(&app)?.clear_api_key().await?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::KEY_CHANGED,
+            "key",
+            "anthropic-api-key",
+        )
+        .id("change", "cleared"),
+    );
+    Ok(status)
 }
 
 /// Quotas are validated against fixed ranges in Rust.
@@ -110,5 +130,15 @@ pub async fn set_quotas<R: tauri::Runtime>(
 ) -> Result<EngineStatus, EngineError> {
     anlg_aspc::require(&app, &aspc_window, DataType::Settings, Action::Administer)
         .map_err(denied)?;
-    engine(&app)?.set_quotas(quotas)
+    let status = engine(&app)?.set_quotas(quotas)?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::SETTINGS_CHANGED,
+            "settings",
+            "ai-engine",
+        )
+        .ids("keys", vec!["ai-engine.quotas".into()]),
+    );
+    Ok(status)
 }

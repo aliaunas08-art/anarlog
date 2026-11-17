@@ -81,6 +81,8 @@ impl QueryEventSink for QueryEventChannel {
     }
 }
 
+pub type ContentAccessObserver = std::sync::Arc<dyn Fn(&'static str, &str) + Send + Sync>;
+
 pub struct PluginDbRuntime {
     db: std::sync::Arc<Db>,
     schema_ready: tokio::sync::OnceCell<()>,
@@ -90,6 +92,10 @@ pub struct PluginDbRuntime {
     webview_sql: std::sync::Arc<anlg_db_core::WebviewSqlAuthorizer>,
     /// The app's access state (ASPC), set at startup when the app manages one.
     access_state: std::sync::OnceLock<std::sync::Arc<anlg_aspc::AspcState>>,
+    /// Told when a Rust read command hands out sensitive content (a
+    /// transcript page). The desktop app audit-logs it (D1.4); this plugin
+    /// itself has no handle to the audit log (D1.1).
+    content_access_observer: std::sync::OnceLock<ContentAccessObserver>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     renderer_subscriptions: renderer::RendererSubscriptions,
@@ -194,6 +200,7 @@ impl PluginDbRuntime {
             ),
             webview_sql,
             access_state: Default::default(),
+            content_access_observer: Default::default(),
             renderer_subscriptions: Default::default(),
             e2ee_sync_hook,
             _witness_watch: witness_watch,
@@ -642,10 +649,34 @@ impl PluginDbRuntime {
         self.webview_sql.set_locked(locked);
     }
 
+    /// Receives every webview SQL denial (the desktop app audit-logs them,
+    /// D1.4). The sink must only queue; it runs inside the SQLite callback.
+    pub fn set_webview_sql_denial_sink(
+        &self,
+        sink: impl Fn(anlg_db_core::SqlDenial) + Send + Sync + 'static,
+    ) {
+        self.webview_sql.set_denial_sink(sink);
+    }
+
     /// The access context every webview statement is checked against, per
     /// table (A2.4).
     pub fn set_webview_sql_context(&self, context: anlg_aspc::AccessContext) {
         self.webview_sql.set_context(context);
+    }
+
+    pub fn set_content_access_observer(
+        &self,
+        observer: impl Fn(&'static str, &str) + Send + Sync + 'static,
+    ) {
+        let _ = self
+            .content_access_observer
+            .set(std::sync::Arc::new(observer));
+    }
+
+    pub(crate) fn observe_content_access(&self, kind: &'static str, id: &str) {
+        if let Some(observer) = self.content_access_observer.get() {
+            observer(kind, id);
+        }
     }
 
     pub fn set_access_state(&self, state: std::sync::Arc<anlg_aspc::AspcState>) {

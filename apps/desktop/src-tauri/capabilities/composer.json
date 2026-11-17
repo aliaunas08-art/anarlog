@@ -40,6 +40,7 @@
     "ai-engine:allow-request",
     "ai-engine:allow-cancel-request",
     "ai-engine:allow-status",
+    "audit:allow-record-ask",
     "deeplink2:default",
     "store:default",
     "store2:default",

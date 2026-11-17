@@ -223,7 +223,7 @@ Most of the ASPC work is closing that boundary.
 | C5 Backup/restore                   | MISSING            | no full-library backup; `.bak` on reset is incidental (`apps/desktop/src-tauri/src/db.rs:53-76`)                                                                                                                                                                         | everything                                                                                                                                                                                       |
 | C6 Recording protection             | PARTIAL            | tray animation, floating bar, Info.plist strings, onboarding text, consent-disclosure option                                                                                                                                                                             | auto-start defaults **on** (`schema.ts:73-77`) [V] and both indicators can be turned off, so recording without an in-app indicator is possible; no "Private" flag (`sessions.locked` is closest) |
 | C7 Cost protection                  | EXISTS (Phase 3)   | `crates/ai-engine`, `plugins/ai-engine`; see "Phase 3 changes"                                                                                                                                                                                                           | PROXY mode is a stub; spend caps **[hosted]**; not run in the app                                                                                                                                |
-| D1 Immutable audit log              | MISSING            | the sync "log" is unrelated (`settings/sync/log.tsx`)                                                                                                                                                                                                                    | everything                                                                                                                                                                                       |
+| D1 Immutable audit log              | EXISTS (Phase 4)   | separate `audit.db`, append-only triggers, hash chain with the head in the Keychain, Settings → Audit with Verify (`crates/audit-log`, `plugins/audit`); see "Phase 4 changes" | everything                                                                                                                                                                                       |
 | D2 Data rights                      | PARTIAL            | per-note export (PDF/TXT/MD/ORG); CLI hard delete with VACUUM (`apps/cli/src/commands/meeting_delete.rs:118-262`)                                                                                                                                                        | app delete is a soft delete that keeps rows forever (`plugins/session/src/deletion.rs:53-94`); versions, live deltas, chats and the search index survive; no export-all; no delete-library       |
 | D3 Retention                        | PARTIAL            | audio-only retention sweep (`plugins/transcription/src/audio_retention.rs:117-313`)                                                                                                                                                                                      | nothing for notes, transcripts or rows                                                                                                                                                           |
 | D4 Privacy surfaces                 | MISSING            | `docs/data-and-privacy.mdx` exists outside the app                                                                                                                                                                                                                       | no in-app policy/terms links or "where your data lives" screen; no consent notice before the first recording                                                                                     |
@@ -723,6 +723,48 @@ Nothing below was run in the app; see "Phase 3 runtime check".
 5. **Speech-to-text** with a BYOK provider still works (its key is still readable; its host is still in the scope).
 6. **Automations chat** answers questions but makes no edits.
 7. Old LLM settings rows (`current_llm_provider`, provider keys under `llm:*`) are ignored; nothing errors on boot.
+
+## Phase 4 changes (audit log, Private, permanent delete, retention), 2026-11-16
+
+Nothing below was run in the app; see "Phase 4 runtime check". Approved schema changes only: the separate `audit.db` and `sessions.private`.
+
+### D1 audit log: EXISTS
+
+- **Core** `crates/audit-log` (no Tauri unless the `tauri` feature):
+  - `open` (`src/lib.rs:195`) returns an append-only `AuditWriter` and an `AuditReader`; `open_append_only` (`:209`) gives the CLI a writer only, without the Keychain;
+  - table and append-only triggers `SCHEMA` (`:84`), file mode `0600`; `append` (`:281`) runs in `BEGIN IMMEDIATE`, so the app and the CLI never fork the chain;
+  - entry validation (`src/entry.rs:107`, `is_identifier` `:154`): ids and counts only, no whitespace (D1.5); canonical form `:186`;
+  - Keychain head (`src/head.rs`, item `audit-chain-head` `:19`, worker thread `:101`): reads and writes off the caller's thread with a 3 s timeout; `reconcile_head` (`src/lib.rs:449`) stores the head on first run, freezes it on a mismatch; `check_head` (`:352`);
+  - `verify` (`:505`): walks the chain (missing seq, broken link, hash mismatch), then checks the end against the Keychain head (truncation, a consistently rewritten chain); `list` (`:481`) pages newest first;
+  - denial rate limit (`src/limiter.rs:46`), used by `submit_denial` (`src/lib.rs:420`); Tauri helpers `record`, `record_debounced`, `record_transcript_access`, `denial_entry` (`src/tauri_helpers.rs:85`).
+- **Commands** `plugins/audit` (registry `crates/aspc/src/commands.rs:135-139`): `list_entries` and `verify` `(Settings, Administer)`; `record_meeting_view` and `record_ask` `(Notes, Read)`; `record_settings_change` `(Settings, Edit)`. All guarded. The reader lives in a state type private to the plugin (`plugins/audit/src/lib.rs:16`). Capabilities: `main.json` gets `audit:default`, `composer.json` only `audit:allow-record-ask`.
+- **Wiring** `apps/desktop/src-tauri/src/audit.rs`: opens `audit.db` next to `app.db` (`lib.rs:197`, a failure only logs), registers the plugin (`lib.rs:353`) and `wire` (`audit.rs:26`, called at `lib.rs:442`): guard denials through `AspcState::on_denial` (`crates/aspc/src/state.rs:109`, fired at `:211`), webview SQL denials through `WebviewSqlAuthorizer::set_denial_sink` (`crates/db-core/src/webview_sql.rs:259`), the `db` plugin's transcript reads through `set_content_access_observer` (`plugins/db/src/runtime.rs:667`, so the `db` plugin itself has no audit handle), and the Keychain reconcile in the background.
+- **Events** (D1.4):
+  - `app.unlocked`: `plugins/local-auth/src/app_lock.rs:97`;
+  - `meeting.viewed`: `apps/desktop/src/session/index.tsx:85` → `audit:record_meeting_view` (`plugins/audit/src/commands.rs:56`), debounced 5 min per meeting in Rust;
+  - `meeting.exported`: PDF `plugins/export/src/commands.rs:32`, VTT `plugins/transcription/src/listener2/commands.rs:95`, Markdown `plugins/local-api/src/commands.rs:240`, CLI `apps/cli/src/lib.rs:107`;
+  - `transcript.accessed`: `render_session_transcript` (`plugins/transcription/src/listener2/commands.rs:195`), `db:get_meeting_transcript` (`plugins/db/src/commands.rs:127`), debounced;
+  - `ask.query`: `apps/desktop/src/chat/transport/index.ts:488` → `audit:record_ask` (`commands.rs:79`): scope, meeting ids, count, never the text;
+  - `settings.changed`: `settings:save` with changed key names (`plugins/settings/src/commands.rs:78`), app settings writes (`apps/desktop/src/settings/queries.ts:355` → `record_settings_change`), the lock (`app_lock.rs:132`), Engine quotas (`plugins/ai-engine/src/commands.rs:141`);
+  - `key.changed`: Engine key set/clear (`plugins/ai-engine/src/commands.rs:92`), `store2` secrets by name (`plugins/store2/src/commands.rs:449`);
+  - `permission.denied`: guard and SQL authorizer, rate-limited;
+  - `meeting.deleted`: CLI hard delete (`apps/cli/src/lib.rs:61`); the app's permanent delete and retention are below.
+- **UI** Settings → Audit (`apps/desktop/src/settings/audit/index.tsx:17`): paged entries and Verify with the result and the head note.
+- **Tests:** `crates/audit-log/src/tests.rs` (chain and paging, triggers refuse UPDATE/DELETE, edited / deleted / reordered entries point to the first bad seq, truncation and a recomputed chain are caught by the Keychain head even after reopening, first run stores the head, a hanging Keychain blocks neither appends nor verify, a denial loop writes one entry, content is refused, the CLI's append-only handle), `src/entry.rs`, `src/limiter.rs`; `tests/isolation.rs`; `webview_sql_cannot_reach_the_audit_log` and `denials_reach_the_denial_sink` (`crates/db-core/src/webview_sql.rs`); `denials_reach_the_denial_listeners_with_the_window` (`crates/aspc/src/state.rs`); `changed_keys_names_only_what_changed` (`plugins/settings`).
+- **Gaps:**
+  - most settings are written by the webview with raw SQL; their key names reach the log only because the webview reports them (`record_settings_change`). A hostile webview can skip that report. The `store2` plain values (`set_str`/`set_bool`/`set_number`, UI state) are not logged.
+  - webview raw SQL reads of transcripts (the transcript view) are not logged one by one; "meeting viewed" covers opening the meeting.
+  - MCP tool calls through the CLI are not logged (only CLI delete and local export are).
+  - a head mismatch is never cleared: after a real incident Verify keeps failing until the Keychain item is removed by hand.
+  - `meeting.shared` exists as an action but sharing is a webview flow; it is not recorded yet.
+
+### Phase 4 runtime check
+
+1. **Audit log file:** after a launch, `audit.db` sits next to `app.db` (mode `0600`). Keychain Access shows an item `<bundle id>.audit-log` / `audit-chain-head` after the first entry. A Keychain prompt, if any, does not hold up startup.
+2. **Settings → Audit:** unlock the app, open a meeting, export it as PDF, run an Ask query in each scope, change a setting and the Engine key: each shows one entry with ids only (no title, no query text, no key value). Opening the same meeting again within 5 minutes adds nothing.
+3. **Verify:** says OK with the entry count. Close the app, then in a copy of the data folder run `sqlite3 audit.db "DROP TRIGGER audit_entries_no_update; UPDATE audit_entries SET object_id='x' WHERE seq=2"`; on the next launch Verify points to entry 2. (Restore the original file afterwards.)
+4. **Denials:** lock the app with a note window open; Settings → Audit later shows a few `permission.denied` entries with a `suppressed` count, not hundreds.
+5. **Keychain unavailable:** with the login keychain locked, the app still starts and Verify says the head could not be read.
 
 ## Not verified
 

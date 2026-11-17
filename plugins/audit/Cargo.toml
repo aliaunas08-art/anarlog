@@ -1,0 +1,23 @@
+[package]
+name = "tauri-plugin-audit"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-audit"
+description = "Tauri commands for the ASPC D1 audit log: Settings -> Audit (list, verify) and the few events only the webview knows about"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
+anlg-audit-log = { workspace = true, features = ["specta", "tauri"] }
+serde = { workspace = true }
+specta = { workspace = true }
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+tracing = { workspace = true }

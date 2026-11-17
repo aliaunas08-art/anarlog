@@ -91,6 +91,13 @@ pub(crate) async fn unlock<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Lock
     let result = run_device_auth(app, UNLOCK_REASON).await;
     match state.finish_unlock(epoch, result) {
         UnlockOutcome::Unavailable => Err(UNAVAILABLE_MESSAGE.to_string()),
+        UnlockOutcome::Unlocked => {
+            anlg_audit_log::record(
+                app,
+                anlg_audit_log::NewEntry::new(anlg_audit_log::actions::APP_UNLOCKED, "app", ""),
+            );
+            Ok(state.lock_snapshot())
+        }
         _ => Ok(state.lock_snapshot()),
     }
 }
@@ -115,6 +122,16 @@ pub(crate) async fn set_enabled<R: Runtime>(
         .await
         .map_err(|error| error.to_string())?;
     state.set_lock_enabled(enabled, AuthResult::Success);
+    anlg_audit_log::record(
+        app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::SETTINGS_CHANGED,
+            "settings",
+            "app_settings",
+        )
+        .ids("keys", vec!["lock_app".into()])
+        .flag("enabled", enabled),
+    );
     Ok(state.lock_snapshot())
 }
 

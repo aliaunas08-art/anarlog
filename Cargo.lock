@@ -390,6 +390,7 @@ name = "anarlog-cli"
 version = "0.1.0"
 dependencies = [
  "agent-access",
+ "audit-log",
  "base64 0.22.1",
  "clap",
  "cli-docs",
@@ -1805,6 +1806,25 @@ checksum = "4e9a3d502fec0b21aa420febe0b110875cf8a7057c49e83a0cace1df6a73e03e"
 dependencies = [
  "audio-core",
  "num-traits",
+]
+
+[[package]]
+name = "audit-log"
+version = "0.1.0"
+dependencies = [
+ "aspc",
+ "chrono",
+ "local-accounts",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "specta",
+ "sqlx",
+ "tauri",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4735,6 +4755,7 @@ dependencies = [
  "aspc",
  "audio-actual",
  "audio-mock",
+ "audit-log",
  "chrono",
  "db-app",
  "db-core",
@@ -4742,6 +4763,7 @@ dependencies = [
  "dirs 6.0.0",
  "host",
  "intercept",
+ "local-accounts",
  "pico-args",
  "ractor",
  "sentry",
@@ -4762,6 +4784,7 @@ dependencies = [
  "tauri-plugin-anlg-tray",
  "tauri-plugin-attachment-sync",
  "tauri-plugin-audio-priority",
+ "tauri-plugin-audit",
  "tauri-plugin-auth",
  "tauri-plugin-automation",
  "tauri-plugin-autostart",
@@ -16586,6 +16609,7 @@ version = "0.1.0"
 dependencies = [
  "ai-engine",
  "aspc",
+ "audit-log",
  "local-accounts",
  "serde",
  "specta",
@@ -16688,6 +16712,21 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "tauri-plugin-audit"
+version = "0.1.0"
+dependencies = [
+ "aspc",
+ "audit-log",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
  "tracing",
 ]
 
@@ -16976,6 +17015,7 @@ name = "tauri-plugin-export"
 version = "0.1.0"
 dependencies = [
  "aspc",
+ "audit-log",
  "export-core",
  "specta",
  "specta-typescript",
@@ -17148,6 +17188,7 @@ version = "0.1.0"
 dependencies = [
  "agent-access",
  "aspc",
+ "audit-log",
  "bytes",
  "chrono",
  "db-app",
@@ -17177,6 +17218,7 @@ name = "tauri-plugin-local-auth"
 version = "0.1.0"
 dependencies = [
  "aspc",
+ "audit-log",
  "block2",
  "db-app",
  "db-core",
@@ -17547,6 +17589,7 @@ name = "tauri-plugin-settings"
 version = "0.1.0"
 dependencies = [
  "aspc",
+ "audit-log",
  "camino",
  "serde",
  "serde_json",
@@ -17670,6 +17713,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aspc",
+ "audit-log",
  "keyring",
  "objc2-security",
  "security-framework",
@@ -17783,6 +17827,7 @@ dependencies = [
  "aspc",
  "audio",
  "audio-utils",
+ "audit-log",
  "base64 0.22.1",
  "chrono",
  "db-app",

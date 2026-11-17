@@ -2,6 +2,7 @@ import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as auditCommands } from "@anlg/plugin-audit";
 import { commands as detectCommands } from "@anlg/plugin-detect";
 import {
   commands as localSttCommands,
@@ -347,7 +348,13 @@ async function persistSettingValues(values: SettingValues): Promise<void> {
     `,
     params: [key, JSON.stringify(value), now],
   }));
-  if (statements.length > 0) await executeTransaction(statements);
+  if (statements.length > 0) {
+    await executeTransaction(statements);
+    // ASPC D1.4: key names only, never values.
+    void auditCommands
+      .recordSettingsChange(Object.keys(values))
+      .catch(() => undefined);
+  }
   applySettingSideEffects(values);
 }
 

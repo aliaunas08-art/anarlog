@@ -87,7 +87,22 @@ pub async fn export_to_vtt<R: tauri::Runtime>(
         anlg_aspc::Action::Export,
     )
     .map_err(|denied| denied.to_string())?;
-    app.listener2().export_to_vtt(session_id, words)
+    let audited = session_id.clone();
+    let vtt = app.listener2().export_to_vtt(session_id, words)?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::MEETING_EXPORTED,
+            "meeting",
+            if anlg_audit_log::is_identifier(&audited) {
+                audited.as_str()
+            } else {
+                ""
+            },
+        )
+        .id("format", "vtt"),
+    );
+    Ok(vtt)
 }
 
 #[tauri::command]
@@ -176,6 +191,9 @@ pub async fn render_session_transcript<R: tauri::Runtime>(
         .await
         .map_err(|error| error.to_string())?
         .ok_or_else(|| "aspc.no_context: no local workspace".to_string())?;
+    if anlg_audit_log::is_identifier(&request.session_id) {
+        anlg_audit_log::record_transcript_access(&app, &request.session_id, "render");
+    }
     crate::session_transcript::render_session_transcript(runtime.pool(), &scope, request).await
 }
 

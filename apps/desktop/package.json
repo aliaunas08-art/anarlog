@@ -29,6 +29,7 @@
     "@anlg/editor": "workspace:^",
     "@anlg/plugin-accounts": "workspace:*",
     "@anlg/plugin-ai-engine": "workspace:*",
+    "@anlg/plugin-audit": "workspace:*",
     "@anlg/plugin-analytics": "workspace:*",
     "@anlg/plugin-attachment-sync": "workspace:*",
     "@anlg/plugin-auth": "workspace:*",

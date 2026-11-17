@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-record-ask"
+description = "Enables the record_ask command without any pre-configured scope."
+commands.allow = ["record_ask"]
+
+[[permission]]
+identifier = "deny-record-ask"
+description = "Denies the record_ask command without any pre-configured scope."
+commands.deny = ["record_ask"]
