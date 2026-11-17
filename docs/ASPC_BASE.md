@@ -262,11 +262,11 @@ The rules:
 ### D2. Data rights
 
 - **D2.1** Export all: every meeting as Markdown and JSON, with audio and attachments, in one folder or archive (§C5 for encryption).
-- **D2.2** Deleting a meeting permanently removes:
-  - its DB rows in every table that refers to it (including versions, live deltas and consent rows);
-  - its audio, recovery chunks and attachments;
-  - its search-index documents and caches.
-    It then runs `secure_delete` and a WAL checkpoint. The 5-second undo window still applies, before anything is removed. Test: after deleting, a marker from the meeting is found nowhere in `app.db` (including the WAL), `search_index/`, the vault or caches.
+- **D2.2** Deleting a meeting permanently removes, once its 5-second undo window is over (nothing is removed before):
+  - its DB rows in every table that refers to it (every table with a `session_id` column, including versions, live deltas, consent rows, proposals and share caches; transcript live state; entity mentions; "This meeting" Ask chats; its app settings entries), in one transaction on a connection with `secure_delete` on;
+  - its audio, recovery chunks and attachments (its vault folder);
+  - its search-index documents (segments rewritten, so the text leaves `search_index/`) and caches (`audio-peaks/<id>.json` and any cache entry named after it).
+    It then runs a WAL checkpoint (TRUNCATE). The app database is opened with `secure_delete` on, so an edited or deleted note's earlier text doesn't linger in free pages. **A meeting sync has seen** (an E2EE replica state, a cloud attachment or a shared copy) keeps only a tombstone: the `sessions` row and its synced child rows with every content column reset to its default, `deleted_at` set and `deletion_context` cleared, queued for upload, so the server copy becomes blank and other devices delete the meeting too (their own sweep then purges it locally). The permanent delete is `session:purge_deleted_session`, called when the undo toast closes; if the app quits during the window, the meeting is permanently deleted on the next launch (a startup sweep purges every soft-deleted meeting older than the window plus a minute; it is never restored). Each purge writes `meeting.deleted` (id and counts) and `data.deleted` to the audit log. Tests: `a_purged_meeting_leaves_no_marker_in_the_database_wal_vault_or_cache` (`plugins/session`: `app.db`, `-wal`, vault, cache), `purged_sessions_leave_no_bytes_in_the_index_directory` (`plugins/tantivy`: `search_index/`), `an_unsynced_meeting_leaves_no_row_behind` and `a_synced_meeting_keeps_only_a_blank_tombstone_and_queues_it` (`crates/db-app`).
 - **D2.3** Deleting the whole library needs confirmation and re-authentication. It removes all of the above and the app's Keychain items, but keeps the audit log, which records the deletion.
 
 ### D3. Retention
@@ -373,6 +373,7 @@ These tests must exist and pass; each item is true or false:
 
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
 
+- **Phase 4 (2026-11-16): permanent delete.** After the undo window a meeting is deleted permanently in Rust. A meeting sync has seen keeps a blank tombstone (content columns reset, `deletion_context` cleared so no device restores it), the rest is deleted. A quit during the undo window deletes it on the next launch rather than restoring it. The app database runs with `secure_delete` on.
 - **Phase 4 (2026-11-16): Private is its own flag.** `sessions.private` (migration `20261116120000_session_private`, default 0, synced like `locked`) is separate from the Lock Note flag. Where an action has no "include Private meetings" choice, Private meetings are simply left out; the only explicit includes are a new share of that meeting (a confirmation) and the CLI's `--include-private`. An AI tool can never include them.
 - **Phase 4 (2026-11-16): audit log in its own file.** `audit.db` is a separate SQLite file next to `app.db` with its own crate (`crates/audit-log`), not a table in `app.db`; its chain head is kept in the Keychain. The CLI may append with source `cli` but never reads it.
 - **2026-11-16: hooks feature removed.** The settings `hooks` feature ran shell commands from `settings.json` on recording start and stop. It has been deleted (`plugins/hooks`, `crates/hooks`, its registration, capability entry and callers). It may only come back as a separate, reviewed task, behind authentication and an explicit opt-in that shows the user the exact command. A leftover `hooks` key in an existing `settings.json` is now ignored.

@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "create_session_for_event",
     "soft_delete_session",
     "restore_deleted_session",
+    "purge_deleted_session",
     "add_session_participant",
     "remove_session_participant",
     "persist_chat_session_proposal",

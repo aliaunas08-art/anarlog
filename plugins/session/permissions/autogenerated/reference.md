@@ -8,6 +8,7 @@ Default permissions for the plugin
 - `allow-create-session-for-event`
 - `allow-soft-delete-session`
 - `allow-restore-deleted-session`
+- `allow-purge-deleted-session`
 - `allow-add-session-participant`
 - `allow-remove-session-participant`
 - `allow-persist-chat-session-proposal`
@@ -347,6 +348,32 @@ Enables the persist_chat_session_proposal command without any pre-configured sco
 <td>
 
 Denies the persist_chat_session_proposal command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:allow-purge-deleted-session`
+
+</td>
+<td>
+
+Enables the purge_deleted_session command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-purge-deleted-session`
+
+</td>
+<td>
+
+Denies the purge_deleted_session command without any pre-configured scope.
 
 </td>
 </tr>

@@ -17568,6 +17568,7 @@ name = "tauri-plugin-session"
 version = "0.1.0"
 dependencies = [
  "aspc",
+ "audit-log",
  "chrono",
  "db-app",
  "db-core",
@@ -17579,8 +17580,12 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-db",
+ "tauri-plugin-settings",
+ "tauri-plugin-tantivy",
  "tauri-specta",
+ "tempfile",
  "tokio",
+ "tracing",
  "uuid",
 ]
 

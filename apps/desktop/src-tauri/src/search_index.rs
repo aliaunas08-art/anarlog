@@ -110,7 +110,7 @@ async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     }
 }
 
-async fn wait_for_database_ready(app: &AppHandle) -> bool {
+pub(crate) async fn wait_for_database_ready(app: &AppHandle) -> bool {
     loop {
         if let Some(runtime) = app.try_state::<tauri_plugin_db::ManagedState>() {
             return match runtime.wait_until_ready().await {
@@ -125,7 +125,7 @@ async fn wait_for_database_ready(app: &AppHandle) -> bool {
     }
 }
 
-async fn wait_for_tantivy(app: &AppHandle) {
+pub(crate) async fn wait_for_tantivy(app: &AppHandle) {
     loop {
         match index_document_count(app).await {
             Ok(_) => return,

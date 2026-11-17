@@ -341,6 +341,12 @@ async fn connect_with_options(
     if options.foreign_keys {
         connect_options = connect_options.pragma("foreign_keys", "ON");
     }
+    // ASPC D2.2: SQLite overwrites freed content with zeros, so the earlier
+    // text of an edited or deleted note never lingers in free pages of the
+    // database file. A permanent delete then leaves nothing to find.
+    if matches!(options.storage, DbStorage::Local(_)) {
+        connect_options = connect_options.pragma("secure_delete", "ON");
+    }
 
     let (connect_options, cloudsync_path) = match (options.cloudsync_enabled, options.storage) {
         (true, DbStorage::Local(_)) => {

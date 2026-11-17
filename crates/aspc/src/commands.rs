@@ -538,6 +538,8 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("session", "rename_folder_catalog", Notes, Edit),
     pending!("session", "resolve_session_conflict", Notes, Edit),
     pending!("session", "resolve_session_conflicts", Notes, Edit),
+    // D2.2 permanent delete after the undo window (soft-deleted meetings only).
+    guarded!("session", "purge_deleted_session", Notes, Delete),
     guarded!("session", "restore_deleted_session", Notes, Edit),
     pending!(
         "session",

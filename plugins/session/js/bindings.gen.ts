@@ -38,6 +38,19 @@ async restoreDeletedSession(request: TombstoneSessionRequest) : Promise<Result<R
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * ASPC D2.2: permanently deletes a soft-deleted meeting once its undo
+ * window is over (the webview calls this when the undo toast closes).
+ * A meeting that is not soft-deleted is left alone.
+ */
+async purgeDeletedSession(sessionId: string) : Promise<Result<PurgeReport, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|purge_deleted_session", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async addSessionParticipant(request: AddSessionParticipantRequest) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:session|add_session_participant", { request }) };
@@ -231,6 +244,19 @@ export type EventParticipantIdentity = { email: string; name: string; company_na
 export type EventSessionResult = { session_id: string; created: boolean }
 export type MoveSessionContentsRequest = { source_session_id: string; target_session_id: string; rewrite_audio_ids: boolean; next_target_note: string | null; empty_source_note: string | null }
 export type PersistChatSessionProposalRequest = { id: string; session_id: string; kind: string; target_id: string; base_updated_at: string; current_markdown: string; proposed_markdown: string; source: string }
+export type PurgeReport = { 
+/**
+ * Meetings whose rows were removed (or blanked) by this run.
+ */
+purged: number; 
+/**
+ * Of those, the ones kept as blank sync tombstones.
+ */
+tombstones: number; rows_deleted: number; files_removed: number; 
+/**
+ * Whether the WAL was checkpointed and truncated.
+ */
+wal_truncated: boolean }
 export type RemoveSessionParticipantRequest = { mapping_id: string }
 export type RenameFolderCatalogRequest = { old_path: string; new_path: string }
 export type ResolveSessionConflictRequest = { conflict_id: string }

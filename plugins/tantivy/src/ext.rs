@@ -406,6 +406,44 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
 
         Ok(())
     }
+
+    /// ASPC D2.2: removes every document of these meetings from every
+    /// collection and rewrites the segments, so their text is gone from
+    /// `search_index/` and not only marked deleted.
+    pub async fn purge_sessions(&self, session_ids: &[String]) -> Result<(), crate::Error> {
+        if session_ids.is_empty() {
+            return Ok(());
+        }
+        let state = self.manager.state::<IndexState>();
+        let mut guard = state.inner.write().await;
+        for collection_index in guard.collections.values_mut() {
+            purge_sessions_from_collection(collection_index, session_ids)?;
+        }
+        Ok(())
+    }
+}
+
+/// Deletes the meetings' documents (by `session_id` and by `id`), commits,
+/// merges all segments so deleted documents are dropped from the files, and
+/// removes the files no longer used.
+pub(crate) fn purge_sessions_from_collection(
+    collection_index: &mut CollectionIndex,
+    session_ids: &[String],
+) -> Result<(), crate::Error> {
+    let fields = get_fields(&collection_index.schema);
+    let writer = &mut collection_index.writer;
+    for session_id in session_ids {
+        writer.delete_term(Term::from_field_text(fields.session_id, session_id));
+        writer.delete_term(Term::from_field_text(fields.id, session_id));
+    }
+    writer.commit()?;
+    let segments = collection_index.index.searchable_segment_ids()?;
+    if !segments.is_empty() {
+        writer.merge(&segments).wait()?;
+    }
+    writer.garbage_collect_files().wait()?;
+    collection_index.reader.reload()?;
+    Ok(())
 }
 
 pub trait TantivyPluginExt<R: tauri::Runtime> {
@@ -794,6 +832,60 @@ mod scoped_search_tests {
         .collect();
         ids.sort();
         ids
+    }
+
+    /// D2.2: a purged meeting's words are gone from the index files, not
+    /// only marked deleted; other meetings stay searchable.
+    #[test]
+    fn purged_sessions_leave_no_bytes_in_the_index_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let schema = crate::build_schema();
+        let index = Index::create_in_dir(dir.path(), schema.clone()).unwrap();
+        register_tokenizers(&index);
+        let mut writer = create_index_writer(&index).unwrap();
+        let fields = get_fields(&schema);
+        for document in [
+            document("gone", "w1", "gone", "zebrapurgemarker"),
+            document("gone-doc", "w1", "gone", "zebrapurgemarker"),
+            document("kept", "w1", "kept", "keptwordmarker"),
+        ] {
+            writer
+                .add_document(to_tantivy_document(&fields, &document))
+                .unwrap();
+        }
+        writer.commit().unwrap();
+        let reader = index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::Manual)
+            .try_into()
+            .unwrap();
+        let mut collection = CollectionIndex {
+            schema,
+            index,
+            reader,
+            writer,
+        };
+        let contains = |needle: &[u8]| {
+            std::fs::read_dir(dir.path())
+                .unwrap()
+                .flatten()
+                .any(|entry| {
+                    std::fs::read(entry.path())
+                        .map(|bytes| bytes.windows(needle.len()).any(|w| w == needle))
+                        .unwrap_or(false)
+                })
+        };
+        assert!(contains(b"zebrapurgemarker"), "fixture must be on disk");
+
+        purge_sessions_from_collection(&mut collection, &["gone".to_string()]).unwrap();
+
+        assert!(!contains(b"zebrapurgemarker"));
+        let scope = WorkspaceScope::local("w1").unwrap();
+        assert!(ids(&collection, &scope, "zebrapurgemarker", None).is_empty());
+        assert_eq!(
+            ids(&collection, &scope, "keptwordmarker", None),
+            vec!["kept"]
+        );
     }
 
     /// C6.4: excluded (Private) meetings drop out of an all-meetings search

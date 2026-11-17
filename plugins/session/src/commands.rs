@@ -73,6 +73,25 @@ pub(crate) async fn restore_deleted_session<R: tauri::Runtime>(
     deletion::restore_deleted_session(runtime.pool(), request).await
 }
 
+/// ASPC D2.2: permanently deletes a soft-deleted meeting once its undo
+/// window is over (the webview calls this when the undo toast closes).
+/// A meeting that is not soft-deleted is left alone.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn purge_deleted_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    session_id: String,
+) -> Result<crate::purge::PurgeReport, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )?;
+    crate::purge::purge_sessions(&app, &[session_id], anlg_audit_log::Source::App).await
+}
+
 fn db_runtime<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<tauri_plugin_db::ManagedState, String> {

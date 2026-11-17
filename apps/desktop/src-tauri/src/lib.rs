@@ -14,6 +14,7 @@ mod commands;
 mod db;
 mod embedded_cli;
 mod ext;
+mod retention;
 mod search_index;
 mod startup;
 mod store;
@@ -525,6 +526,7 @@ pub fn main() {
 
             search_index::install_private_session_source(&app_handle, db.clone());
             search_index::spawn(app_handle.clone(), db.clone());
+            retention::spawn(app_handle.clone());
 
             #[cfg(not(feature = "app-store"))]
             embedded_cli::spawn_auto_install(app_handle);
