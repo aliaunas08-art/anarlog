@@ -11,13 +11,11 @@ import { AiEngineError } from "./errors";
 const STATUS_KEY = ["ai-engine", "status"] as const;
 const KEY_STATUS_KEY = ["ai-engine", "key-status"] as const;
 
-async function unwrap<T>(
-  promise: Promise<
+function unwrap<T>(
+  result:
     | { status: "ok"; data: T }
-    | { status: "error"; error: { code: string; message: string } }
-  >,
-): Promise<T> {
-  const result = await promise;
+    | { status: "error"; error: { code: string; message: string } },
+): T {
   if (result.status === "error") throw new AiEngineError(result.error);
   return result.data;
 }
@@ -25,7 +23,7 @@ async function unwrap<T>(
 export function useEngineStatus() {
   return useQuery({
     queryKey: STATUS_KEY,
-    queryFn: () => unwrap<EngineStatus>(engineCommands.status()),
+    queryFn: async () => unwrap<EngineStatus>(await engineCommands.status()),
     refetchInterval: 15_000,
   });
 }
@@ -37,7 +35,7 @@ export function useEngineStatus() {
 export function useEngineKeyStatus() {
   return useQuery({
     queryKey: KEY_STATUS_KEY,
-    queryFn: () => unwrap(engineCommands.keyStatus()),
+    queryFn: async () => unwrap(await engineCommands.keyStatus()),
     retry: false,
     staleTime: 30_000,
   });
@@ -55,7 +53,8 @@ function useInvalidateEngine() {
 export function useSetEngineKey() {
   const invalidate = useInvalidateEngine();
   return useMutation({
-    mutationFn: (key: string) => unwrap(engineCommands.setApiKey(key)),
+    mutationFn: async (key: string) =>
+      unwrap(await engineCommands.setApiKey(key)),
     onSettled: invalidate,
   });
 }
@@ -63,7 +62,7 @@ export function useSetEngineKey() {
 export function useClearEngineKey() {
   const invalidate = useInvalidateEngine();
   return useMutation({
-    mutationFn: () => unwrap(engineCommands.clearApiKey()),
+    mutationFn: async () => unwrap(await engineCommands.clearApiKey()),
     onSettled: invalidate,
   });
 }
@@ -71,8 +70,8 @@ export function useClearEngineKey() {
 export function useSetEngineQuotas() {
   const invalidate = useInvalidateEngine();
   return useMutation({
-    mutationFn: (quotas: Quotas) =>
-      unwrap<EngineStatus>(engineCommands.setQuotas(quotas)),
+    mutationFn: async (quotas: Quotas) =>
+      unwrap<EngineStatus>(await engineCommands.setQuotas(quotas)),
     onSettled: invalidate,
   });
 }

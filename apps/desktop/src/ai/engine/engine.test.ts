@@ -1,7 +1,6 @@
+import { generateText, streamText } from "ai";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-
-import { generateText, streamText } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import { AiEngineError, isAiEngineError } from "./errors";
@@ -23,7 +22,9 @@ describe("Efficiency Engine client", () => {
       resolve(__dirname, "../../../../../crates/ai-engine/src/config.rs"),
       "utf8",
     );
-    expect(rust).toContain(`pub const HAIKU_MODEL: &str = "${ENGINE_MODEL_ID}";`);
+    expect(rust).toContain(
+      `pub const HAIKU_MODEL: &str = "${ENGINE_MODEL_ID}";`,
+    );
   });
 
   it("sends every call to the Engine as a Messages request, never to a host", async () => {
@@ -76,7 +77,11 @@ describe("Efficiency Engine client", () => {
     const transport: EngineTransport = {
       send: (_request, onEvent) =>
         new Promise((resolveSend) => {
-          onEvent({ type: "head", status: 200, contentType: "text/event-stream" });
+          onEvent({
+            type: "head",
+            status: 200,
+            contentType: "text/event-stream",
+          });
           release = () =>
             resolveSend({
               status: "error",

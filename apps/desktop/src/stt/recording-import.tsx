@@ -102,10 +102,7 @@ function ReadyImport({ job }: { job: ImportJob }) {
   const auth = useAuth();
   // Signed-out users have no billing claims to load; local providers still run.
   const billingSettled = billing.isReady || auth.session === null;
-  return session &&
-    settingsReady &&
-    stt.isReady &&
-    billingSettled ? (
+  return session && settingsReady && stt.isReady && billingSettled ? (
     <RunImport job={job} />
   ) : null;
 }

@@ -68,4 +68,3 @@ export function textAnswer(text: string): EngineEvent[] {
     { type: "end" },
   ];
 }
-

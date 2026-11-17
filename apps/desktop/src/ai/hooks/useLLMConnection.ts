@@ -68,7 +68,9 @@ export const useLLMConnection = (): LLMConnectionResult => {
         conn: null,
         status: {
           status: "pending",
-          reason: intelligenceDisabled ? "managed_disabled" : "settings_loading",
+          reason: intelligenceDisabled
+            ? "managed_disabled"
+            : "settings_loading",
         },
       };
     }

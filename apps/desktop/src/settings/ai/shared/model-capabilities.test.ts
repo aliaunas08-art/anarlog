@@ -36,5 +36,4 @@ describe("modelSupportsImageInput", () => {
     expect(modelSupportsImageInput("ollama", "llava:latest")).toBe(true);
     expect(modelSupportsImageInput("custom", "llama-3.1-8b")).toBe(false);
   });
-
 });

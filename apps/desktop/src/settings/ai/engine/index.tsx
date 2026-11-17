@@ -42,7 +42,11 @@ function EngineStatusSection({ status }: { status: EngineStatus | undefined }) {
         <span>
           <Trans>Mode:</Trans>{" "}
           <strong>
-            {status?.mode === "proxy" ? <Trans>Proxy</Trans> : <Trans>Direct</Trans>}
+            {status?.mode === "proxy" ? (
+              <Trans>Proxy</Trans>
+            ) : (
+              <Trans>Direct</Trans>
+            )}
           </strong>
         </span>
         <span>
@@ -247,7 +251,11 @@ function QuotasSection({ quotas }: { quotas: Quotas }) {
           </form.Field>
         ))}
         <div className="col-span-2 flex items-center gap-3">
-          <Button type="submit" variant="outline" disabled={setQuotas.isPending}>
+          <Button
+            type="submit"
+            variant="outline"
+            disabled={setQuotas.isPending}
+          >
             <Trans>Save limits</Trans>
           </Button>
           {setQuotas.error ? (

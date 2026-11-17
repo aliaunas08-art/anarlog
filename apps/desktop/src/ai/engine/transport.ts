@@ -20,7 +20,7 @@ export type EngineSend = (
 
 export type EngineTransport = {
   send: EngineSend;
-  cancel: (requestId: string) => void;
+  cancel: (requestId: string) => void | Promise<void>;
 };
 
 export const tauriEngineTransport: EngineTransport = {
@@ -30,8 +30,12 @@ export const tauriEngineTransport: EngineTransport = {
     const result = await engineCommands.request(request, channel);
     return result.status === "ok" ? { status: "ok" } : result;
   },
-  cancel: (requestId) => {
-    void engineCommands.cancelRequest(requestId).catch(() => undefined);
+  cancel: async (requestId) => {
+    try {
+      await engineCommands.cancelRequest(requestId);
+    } catch {
+      // The request may already have finished.
+    }
   },
 };
 
@@ -86,13 +90,13 @@ export function createEngineFetch(
           controller = c;
         },
         cancel() {
-          if (!done) transport.cancel(request.request_id);
+          if (!done) void transport.cancel(request.request_id);
         },
       });
 
       const onAbort = () => {
         if (done) return;
-        transport.cancel(request.request_id);
+        void transport.cancel(request.request_id);
         fail(abortError());
       };
       signal?.addEventListener("abort", onAbort, { once: true });
