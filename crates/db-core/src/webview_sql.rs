@@ -505,9 +505,12 @@ pub struct ConnectionState {
     /// census.
     allowed_only: std::sync::Mutex<Option<Vec<&'static str>>>,
     /// `Some` while a read runs its first attempt after a partial census:
-    /// denials are held here instead of reaching the denial sink. A full
-    /// census before the retry discards them (the retry reports its own);
-    /// anything still held when the connection is released is reported.
+    /// denials are held here instead of reaching the denial sink. They are
+    /// provisional (judged against a partial census), so they are never
+    /// reported: a full census before the retry discards them and the retry
+    /// reports its own, and a first attempt that is cancelled (the live query
+    /// was dropped while the user moved on) or not retried discards them on
+    /// release. A real denial always resurfaces in the retry.
     deferred_denials: std::sync::Mutex<Option<Vec<SqlDenial>>>,
 }
 
@@ -524,19 +527,6 @@ impl ConnectionState {
             .deferred_denials
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
-    }
-
-    /// Reports the denials still held (a first attempt that was never
-    /// retried) and stops deferring.
-    fn flush_deferred_denials(&self) {
-        let held = self
-            .deferred_denials
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
-        for denial in held.into_iter().flatten() {
-            self.policy.report_denial(denial);
-        }
     }
 
     fn allows_content(&self, table: Option<&str>) -> bool {
@@ -658,8 +648,8 @@ impl WorkspaceGuard {
     /// table without `workspace_id`), the caller runs [`Self::check`] in the
     /// same transaction and retries.
     pub async fn check_read(&self, connection: &mut SqliteConnection, sql: &str) {
-        // The first attempt's denials are provisional until the caller either
-        // retries (`check` drops them) or releases the connection (reported).
+        // The first attempt's denials are provisional: `check` before a retry,
+        // or releasing the connection, drops them (see `deferred_denials`).
         self.state.defer_denials();
         let tables = referenced_scoped_tables(sql);
         if tables.is_empty() {
@@ -768,7 +758,7 @@ impl AuthorizedConnection {
 
     /// Remove the authorizer and return the connection to the pool.
     pub async fn release(mut self) -> Result<(), sqlx::Error> {
-        self.state.flush_deferred_denials();
+        self.state.discard_deferred_denials();
         let connection = self.connection.as_mut().expect("connection present");
         clear_authorizer(connection).await?;
         self.installed = false;
@@ -795,7 +785,7 @@ impl Drop for AuthorizedConnection {
         if !self.installed {
             return;
         }
-        self.state.flush_deferred_denials();
+        self.state.discard_deferred_denials();
         let Some(mut connection) = self.connection.take() else {
             return;
         };

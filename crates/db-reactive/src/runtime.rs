@@ -701,6 +701,64 @@ mod tests {
         ));
     }
 
+    /// A live query whose first, partial-census attempt is denied and then
+    /// succeeds after the full census must not report a denial.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn retried_live_queries_report_no_denials() {
+        let _guard = hook_test_lock().lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: false,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+        let mut schema = String::from(
+            "CREATE TABLE app_settings (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
+             INSERT INTO app_settings VALUES
+               ('cloudsync_workspace_binding', '{\"workspace_id\":\"local-ws\"}');",
+        );
+        for table in anlg_db_core::WORKSPACE_SCOPED_TABLES {
+            schema.push_str(&format!(
+                "CREATE TABLE {table} (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL DEFAULT '');"
+            ));
+        }
+        schema.push_str("INSERT INTO sessions VALUES ('s-1', 'local-ws');");
+        sqlx::raw_sql(sqlx::AssertSqlSafe(schema))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        authorizer.enable_workspace_guard();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let sink_seen = Arc::clone(&seen);
+        authorizer.set_denial_sink(move |denial| sink_seen.lock().unwrap().push(denial));
+        let runtime =
+            LiveQueryRuntime::<TestSink>::new_for_webview(Arc::new(db), Arc::clone(&authorizer));
+        let (sink, events) = TestSink::capture();
+        runtime
+            .subscribe(
+                "SELECT s.id FROM sessions s WHERE NOT EXISTS (SELECT 1 FROM humans h \
+                 WHERE EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(h.id) \
+                 THEN h.id ELSE '[]' END) AS extra WHERE extra.value = s.id))"
+                    .to_string(),
+                vec![],
+                sink,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            next_event(&events, 0, Duration::from_secs(2)).await,
+            TestEvent::Result(vec![json!({ "id": "s-1" })])
+        );
+        let seen = seen.lock().unwrap();
+        assert!(seen.is_empty(), "retried live query reported: {seen:?}");
+    }
+
     async fn next_event(
         events: &Arc<Mutex<Vec<TestEvent>>>,
         index: usize,

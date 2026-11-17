@@ -178,6 +178,17 @@ async fn only_final_denials_reach_the_denial_sink() {
     )
     .await
     .unwrap();
+    // A correlated json_each inside EXISTS, as the meeting participants
+    // query uses it.
+    select(
+        &f.webview,
+        "SELECT s.id FROM sessions s WHERE NOT EXISTS (SELECT 1 FROM humans h \
+         WHERE EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(h.title) \
+         THEN json_extract(h.title, '$.additionalEmails') ELSE '[]' END) AS extra \
+         WHERE extra.value = s.id))",
+    )
+    .await
+    .unwrap();
     assert!(
         seen.lock().unwrap().is_empty(),
         "retried reads reported denials: {:?}",
@@ -195,6 +206,36 @@ async fn only_final_denials_reach_the_denial_sink() {
         seen.iter()
             .any(|d| d.code == "sql.workspace" && d.table.as_deref() == Some("sessions")),
         "{seen:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_cancelled_first_attempt_reports_no_denial() {
+    let f = fixture(Some("local-ws")).await;
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = Arc::clone(&seen);
+    f.authorizer
+        .set_denial_sink(move |denial| sink.lock().unwrap().push(denial));
+
+    // The first attempt names only `sessions`, so reading `humans` is denied
+    // provisionally; the caller is then dropped before it can retry.
+    let mut connection = AuthorizedConnection::acquire(f.db.pool(), &f.authorizer)
+        .await
+        .unwrap();
+    let guard = connection.workspace_guard().unwrap();
+    let sql = "SELECT s.id FROM sessions s, humans h";
+    guard.check_read(connection.connection(), "SELECT id FROM sessions").await;
+    let first = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .fetch_all(connection.connection())
+        .await;
+    assert!(first.is_err(), "the partial census should deny humans");
+    drop(guard);
+    drop(connection);
+
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "a cancelled first attempt was reported: {:?}",
+        seen.lock().unwrap()
     );
 }
 
