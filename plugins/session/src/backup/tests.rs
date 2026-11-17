@@ -127,6 +127,8 @@ async fn library_without_schema(dir: &Path) -> SqlitePool {
         .unwrap()
 }
 
+type BuildArchive = Box<dyn FnOnce(&mut tar::Builder<File>)>;
+
 fn archive_with(path: &Path, build: impl FnOnce(&mut tar::Builder<File>)) {
     let mut builder = tar::Builder::new(File::create(path).unwrap());
     build(&mut builder);
@@ -159,7 +161,7 @@ async fn hostile_or_foreign_archives_are_refused_and_change_nothing() {
     })
     .unwrap();
 
-    let cases: Vec<(&str, Box<dyn FnOnce(&mut tar::Builder<File>)>)> = vec![
+    let cases: Vec<(&str, BuildArchive)> = vec![
         (
             "escape",
             Box::new(|b| regular(b, "sessions/../../evil.sh", b"x")),
