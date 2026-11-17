@@ -9,7 +9,7 @@ let package = Package(
     .library(
       name: "notification-swift",
       type: .static,
-      targets: ["swift-lib"])
+      targets: ["NotificationBridge"])
   ],
   dependencies: [
     .package(
@@ -18,15 +18,16 @@ let package = Package(
   ],
   targets: [
     .target(
-      name: "swift-lib",
+      // Unique module name; see scripts/check-swift-modules.mjs.
+      name: "NotificationBridge",
       dependencies: [
         .product(name: "SwiftRs", package: "swift-rs")
       ],
       path: "src"
     ),
     .testTarget(
-      name: "swift-lib-tests",
-      dependencies: ["swift-lib"],
+      name: "NotificationBridgeTests",
+      dependencies: ["NotificationBridge"],
       path: "tests"
     ),
   ]

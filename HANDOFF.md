@@ -22,7 +22,7 @@ The `.m4a` upload file isn't used here: whisper.cpp reads the `.aac` directly. T
 
 The engine setting change was made in Settings only, never in code, and the app's default engine is unchanged. It was set back to **Apple Speech** after the test (confirmed in the settings, 2026-11-17 23:11 UTC). A copy of the model is in `~/Downloads/ggml-base.en-q8_0.bin` (the picker couldn't see the app folder). You can delete it once the engine is back on Apple Speech.
 
-## (b) Follow-up bug, NOT fixed here: Apple Speech crashes when recording starts
+## (b) Apple Speech crash when recording starts: FIXED later on 2026-11-17 (see below)
 
 - Crash reports: `~/Library/Logs/DiagnosticReports/desktop-2026-11-17-165524.ips`, `-165802.ips`, `-171606.ips`.
 - Error: `EXC_BAD_ACCESS (KERN_INVALID_ADDRESS)`.
@@ -53,3 +53,11 @@ Noted only; not fixed in this task.
   - FLAC files are larger;
   - the FLAC path is not built or tested on real Windows or Linux here.
 - The licence check still fails on `pos` (LGPL) and `khroma` (unknown licence). The allowlist was not changed, as instructed.
+
+## Apple Speech crash: cause and fix (2026-11-17, later)
+
+Cause: every Swift library linked into the app used the module name `swift_lib`. The Apple Speech and Soniqo bridges each had a private `StatusPayload` in `lib.swift`, so both got identical symbols. The linker kept one `outlined destroy of StatusPayload`, Soniqo's 3-field version, and Apple Speech used it on its 2-field value. That freed memory past the end of the value. All 6 crash reports from today have this same stack and fault address. The bridge's own tests passed because their test binary does not link Soniqo.
+
+Fix: the Apple Speech, Soniqo and notification libraries now have their own module names (`AppleSpeechBridge`, `SoniqoBridge`, `NotificationBridge`). `pnpm swift:check-modules` (`scripts/check-swift-modules.mjs`) fails if libraries that share a module name declare the same type. It reports 4 collisions on the old code and 0 now. The rebuilt binary has a separate destroy routine for each library.
+
+Still open: a transcription crash still takes the recording with it (the design issue above).

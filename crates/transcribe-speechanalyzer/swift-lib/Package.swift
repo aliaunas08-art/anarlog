@@ -9,7 +9,7 @@ let package = Package(
     .library(
       name: "apple-speech-swift",
       type: .static,
-      targets: ["swift-lib"])
+      targets: ["AppleSpeechBridge"])
   ],
   dependencies: [
     .package(
@@ -18,7 +18,8 @@ let package = Package(
   ],
   targets: [
     .target(
-      name: "swift-lib",
+      // Unique module name; see scripts/check-swift-modules.mjs.
+      name: "AppleSpeechBridge",
       dependencies: [
         .product(name: "SwiftRs", package: "swift-rs")
       ],

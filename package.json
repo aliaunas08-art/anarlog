@@ -10,6 +10,7 @@
     "lint:eslint": "eslint",
     "lint:oxlint": "oxlint --type-aware",
     "licenses:check": "node scripts/check-licenses.mjs",
+    "swift:check-modules": "node scripts/check-swift-modules.mjs",
     "licenses:generate": "node scripts/generate-licenses.mjs",
     "plugin:hello-world:install": "pnpm --dir examples/plugins/hello-world install:dev"
   },

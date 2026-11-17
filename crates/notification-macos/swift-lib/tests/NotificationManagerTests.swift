@@ -1,7 +1,7 @@
 import Cocoa
 import XCTest
 
-@testable import swift_lib
+@testable import NotificationBridge
 
 @_cdecl("rust_on_collapsed_confirm")
 func rustOnCollapsedConfirm(_: UnsafePointer<CChar>, _: Int32) {}
