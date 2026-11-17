@@ -50,21 +50,56 @@ pub async fn run_transaction(
     connection: &mut SqliteConnection,
     statements: Vec<TransactionStatement>,
 ) -> crate::Result<Vec<u64>> {
-    let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
+    run_transaction_guarded(connection, statements, None).await
+}
+
+/// Like [`run_transaction`]; with a C1 workspace guard, the census runs right
+/// after `BEGIN IMMEDIATE` and again before commit (see
+/// `anlg_db_core::WorkspaceGuard`).
+pub async fn run_transaction_guarded(
+    connection: &mut SqliteConnection,
+    statements: Vec<TransactionStatement>,
+    guard: Option<&anlg_db_core::WorkspaceGuard>,
+) -> crate::Result<Vec<u64>> {
+    let control = |allowed: bool| {
+        if let Some(guard) = guard {
+            guard.allow_transaction_control(allowed);
+        }
+    };
+    control(true);
+    let begun = connection.begin_with("BEGIN IMMEDIATE").await;
+    control(false);
+    let mut transaction = begun?;
+    let mut changes_before = 0;
+    if let Some(guard) = guard {
+        guard.check(&mut transaction).await;
+        changes_before = guard.changes(&mut transaction).await?;
+    }
     let mut rows_affected = Vec::with_capacity(statements.len());
 
     for (statement_index, statement) in statements.into_iter().enumerate() {
-        let result = bind_params(
+        let result = match bind_params(
             sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
             &statement.params,
         )
         .execute(&mut *transaction)
-        .await?;
+        .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                control(true);
+                let _ = transaction.rollback().await;
+                control(false);
+                return Err(error.into());
+            }
+        };
         let actual = result.rows_affected();
         if let Some(expected) = statement.expected_rows_affected
             && actual != expected
         {
+            control(true);
             transaction.rollback().await?;
+            control(false);
             return Err(Error::UnexpectedRowsAffected {
                 statement_index,
                 expected,
@@ -74,7 +109,18 @@ pub async fn run_transaction(
         rows_affected.push(actual);
     }
 
-    transaction.commit().await?;
+    if let Some(guard) = guard
+        && let Err(error) = guard.check_writes(&mut transaction, changes_before).await
+    {
+        control(true);
+        let _ = transaction.rollback().await;
+        control(false);
+        return Err(error.into());
+    }
+    control(true);
+    let committed = transaction.commit().await;
+    control(false);
+    committed?;
     Ok(rows_affected)
 }
 

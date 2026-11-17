@@ -5,7 +5,8 @@ mod query;
 
 use std::sync::Arc;
 
-use anlg_db_core::{AuthorizedConnection, WebviewSqlAuthorizer};
+use anlg_db_core::{AuthorizedConnection, WebviewSqlAuthorizer, WorkspaceGuard};
+use sqlx::{Connection, SqliteConnection};
 
 pub use error::{Error, Result};
 
@@ -83,9 +84,23 @@ impl DbExecutor {
                 .map_err(Into::into);
         };
         let mut connection = AuthorizedConnection::acquire(self.db.pool(), authorizer).await?;
-        let result = query::run_query(connection.connection(), &sql, &params).await;
+        let result = match connection.workspace_guard() {
+            None => query::run_query(connection.connection(), &sql, &params)
+                .await
+                .map_err(Into::into),
+            Some(guard) => {
+                let read_only = anlg_db_core::is_read_only_sql(&sql);
+                let conn = connection.connection();
+                let statement = sql.clone();
+                guarded(conn, &guard, read_only, &statement, move |conn| {
+                    let (sql, params) = (sql.clone(), params.clone());
+                    Box::pin(async move { query::run_query(conn, &sql, &params).await })
+                })
+                .await
+            }
+        };
         connection.release().await?;
-        result.map_err(Into::into)
+        result
     }
 
     pub async fn execute_proxy(
@@ -100,9 +115,26 @@ impl DbExecutor {
                 .map_err(Into::into);
         };
         let mut connection = AuthorizedConnection::acquire(self.db.pool(), authorizer).await?;
-        let result = query::run_query_proxy(connection.connection(), &sql, &params, method).await;
+        let result = match connection.workspace_guard() {
+            None => query::run_query_proxy(connection.connection(), &sql, &params, method)
+                .await
+                .map_err(Into::into),
+            Some(guard) => {
+                let read_only =
+                    anlg_db_core::is_read_only_sql(&sql) && method != ProxyQueryMethod::Run;
+                let conn = connection.connection();
+                let statement = sql.clone();
+                guarded(conn, &guard, read_only, &statement, move |conn| {
+                    let (sql, params) = (sql.clone(), params.clone());
+                    Box::pin(
+                        async move { query::run_query_proxy(conn, &sql, &params, method).await },
+                    )
+                })
+                .await
+            }
+        };
         connection.release().await?;
-        result.map_err(Into::into)
+        result
     }
 
     pub async fn execute_transaction(
@@ -114,8 +146,71 @@ impl DbExecutor {
             return query::run_transaction(&mut connection, statements).await;
         };
         let mut connection = AuthorizedConnection::acquire(self.db.pool(), authorizer).await?;
-        let result = query::run_transaction(connection.connection(), statements).await;
+        let guard = connection.workspace_guard();
+        let result =
+            query::run_transaction_guarded(connection.connection(), statements, guard.as_ref())
+                .await;
         connection.release().await?;
         result
     }
+}
+
+/// Runs one webview statement under the C1 workspace guard: in a
+/// transaction Rust opens, after the census, with the post-write census
+/// before commit (see [`WorkspaceGuard`]).
+async fn guarded<T>(
+    connection: &mut SqliteConnection,
+    guard: &WorkspaceGuard,
+    read_only: bool,
+    sql: &str,
+    run: impl for<'c> Fn(
+        &'c mut SqliteConnection,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = std::result::Result<T, sqlx::Error>> + Send + 'c>,
+    >,
+) -> Result<T> {
+    guard.allow_transaction_control(true);
+    let begun = connection
+        .begin_with(if read_only {
+            "BEGIN"
+        } else {
+            "BEGIN IMMEDIATE"
+        })
+        .await;
+    guard.allow_transaction_control(false);
+    let mut transaction = begun?;
+    let result = async {
+        let before = guard.changes(&mut transaction).await?;
+        let value = if read_only {
+            // Census only the tables the read names; if it reaches another
+            // content table, a full census in the same snapshot, then retry.
+            guard.check_read(&mut transaction, sql).await;
+            match run(&mut transaction).await {
+                Err(error) if is_denied(&error) => {
+                    guard.check(&mut transaction).await;
+                    run(&mut transaction).await?
+                }
+                other => other?,
+            }
+        } else {
+            guard.check(&mut transaction).await;
+            run(&mut transaction).await?
+        };
+        guard.check_writes(&mut transaction, before).await?;
+        Ok::<_, sqlx::Error>(value)
+    }
+    .await;
+    guard.allow_transaction_control(true);
+    let finished = match &result {
+        Ok(_) => transaction.commit().await,
+        Err(_) => transaction.rollback().await,
+    };
+    guard.allow_transaction_control(false);
+    finished?;
+    result.map_err(Into::into)
+}
+
+fn is_denied(error: &sqlx::Error) -> bool {
+    let message = error.to_string();
+    message.contains("not authorized") || message.contains("prohibited")
 }

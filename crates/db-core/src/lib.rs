@@ -20,7 +20,8 @@ pub use crate::cloudsync::{
 };
 use crate::cloudsync::{CloudsyncInterruptHandle, CloudsyncRuntimeState};
 pub use crate::webview_sql::{
-    AuthorizedConnection, WebviewSqlAuthorizer, table_data_type, with_authorized_connection,
+    AuthorizedConnection, WORKSPACE_SCOPED_TABLES, WebviewSqlAuthorizer, WorkspaceGuard,
+    is_read_only_sql, table_data_type, with_authorized_connection,
 };
 
 #[derive(Clone, Copy, Debug)]

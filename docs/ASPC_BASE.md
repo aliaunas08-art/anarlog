@@ -27,7 +27,8 @@ Controls that only make sense on a server are marked **[hosted]**. They don't ap
 **Status: BUILT for the local app (Phase 2a, 2026-11-16)**, except where marked:
 
 - BUILT: `crates/aspc` (roles, data types, actions, the A1 matrix, `AccessContext`, `authorize`), the local context in Tauri state, the Rust-held app lock, the command registry and guard (A2.1–A2.3, with the coverage listed in ASPC_AUDIT.md), and the per-table SQL authorizer (A2.4).
-- NOT BUILT: workspace filtering of rows (C1, Phase 2b) and the `permission.denied` audit entry (D1).
+- BUILT (Phase 2b): C1 local identity, backfill and create paths; workspace-scoped Rust reads; Tantivy workspace and session filters; the single-workspace guard on webview SQL (an interim that fails closed, see C1).
+- NOT BUILT: row-level workspace filtering of webview SQL (C1 decision in ASPC_AUDIT.md) and the `permission.denied` audit entry (D1).
 
 ### Trust boundary
 
@@ -40,7 +41,7 @@ authorize(ctx: &AccessContext, workspace_id, data: DataType, action: Action) -> 
 ```
 
 - `AccessContext` holds:
-  - `actor_id`: the local user (macOS account), or a signed-in user id **[hosted]**;
+  - `actor_id`: the local owner id the data model writes as `owner_user_id` (see C1.1), or a signed-in user id **[hosted]**;
   - `role`;
   - `device_id`;
   - `window`: the window label, which limits the calling window to its own data;
@@ -82,7 +83,8 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - maps each table to a `DataType` (`table_data_type`; unknown tables, including CloudSync's `*_cloudsync` shadow tables, count as `Notes`) and each column read to `Read` and each insert, update or delete to `Edit`, and checks them with `authorize` against the app's context, so a `Viewer` cannot write. The window is checked by the `db:*` command guard, not per statement;
   - denies `ATTACH`, `DETACH`, `load_extension` and `PRAGMA`s outside an allowlist;
   - denies any write to audit tables;
-  - denies everything while the app is locked, except reads of `app_settings` and `synced_preferences` (and the schema table), which the shared boot path needs to render the lock screen.
+  - denies everything while the app is locked, except reads of `app_settings` and `synced_preferences` (and the schema table), which the shared boot path needs to render the lock screen;
+  - **C1 guard (interim):** runs each webview statement in a transaction Rust opens and denies every content table while any content row belongs to a workspace other than the local one; a webview write that creates such a row is rolled back; the webview cannot issue `BEGIN`/`COMMIT`/`ROLLBACK` (`WorkspaceGuard`, `crates/db-core/src/webview_sql.rs`).
 - **A2.5** Windows get only the capabilities they need, from one capability file per window kind in `apps/desktop/src-tauri/capabilities/`. Only the main and note windows (`main`, `note-*`) have file, export, import, webhook and shell access; the composer gets what its chat uses. The floating bar and caption overlays get their own commands plus the shared boot path's settings read; until Phase 2 replaces it with a settings command, that read is `db:execute`/`db:subscribe` under the A2.4 authorizer. The dictation overlay gets no capability. `"windows": ["*"]` is not allowed. The same limits are applied again in Rust by `aspc::window_allows`: `main` and `note-*` may do everything; the composer gets content Create/Read/Edit and Settings Read/Edit, and no Keys, Export, Share, Delete or Administer; the floating bar and live caption get Read on Recording, Transcript, Notes and Settings; the dictation overlay and any unknown label get nothing.
 - **A2.6** Non-IPC entry points:
   - local servers bind loopback only;
@@ -146,8 +148,8 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### B4. Cross-meeting isolation in AI
 
-- **B4.1** Ask in "This meeting" scope can retrieve only rows, search hits and artifacts whose `session_id` equals the pinned meeting. This is enforced in the tools and in search (a `session_id` filter on Tantivy).
-- **B4.2** Test: two meetings each hold a unique marker. Ask scoped to meeting A, with injected requests for B, never returns B's marker.
+- **B4.1** Ask in "This meeting" scope can retrieve only rows, search hits and artifacts whose `session_id` equals the pinned meeting. This is enforced in the tools and in search (a `session_id` filter on Tantivy: `SearchFilters.session_id`, an empty id matching nothing).
+- **B4.2** Test: two meetings each hold a unique marker. Ask scoped to meeting A, with injected requests for B, never returns B's marker. At the search layer: `session_filter_limits_results_to_one_meeting` (`plugins/tantivy/src/ext.rs`). The Ask-level test with a stub model is not written yet.
 
 ### B5. Updates
 
@@ -158,10 +160,10 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### C1. Workspace (tenant) isolation
 
-- **C1.1** Every content row has a non-empty `workspace_id` and `owner_user_id` from the moment it's created. That covers meetings, transcripts, documents, artifacts, chunks and audit entries. In local mode they are the device's personal workspace id and the local actor id.
-- **C1.2** Every read of content filters by `workspace_id`, through scoped Rust query functions or the SQL authorizer's workspace guard. No query returns another workspace's rows.
+- **C1.1** Every content row has a non-empty `workspace_id` and `owner_user_id` from the moment it's created. That covers meetings, transcripts, documents, artifacts, chunks and audit entries. In local mode they are the device's local workspace id and local owner id: the CloudSync binding's workspace (the account id once claimed) and the owner rule `insert_session` uses (`anlg_db_app::local_content_identity`). The access context's `workspace_id` and `actor_id` are the same ids. Content tables: `WORKSPACE_CONTENT_TABLES` (`crates/db-app/src/content_identity.rs`). A startup step gives older `''` rows these ids without queuing sync uploads. Tests: `rust_create_paths_never_write_empty_ids`, `apps/desktop/src/shared/content-identity.test.ts`, `backfill_assigns_unassigned_rows_only_and_is_idempotent`.
+- **C1.2** Every read of content filters by `workspace_id`, through scoped Rust query functions (taking `aspc::WorkspaceScope`) or the SQL authorizer's workspace guard. No query returns another workspace's rows. A local scope also matches unassigned (`''`) rows, which belong to the local workspace. **Interim:** webview SQL is not filtered; its guard denies all content while a second workspace's rows exist (ASPC_AUDIT.md, "C1 decision"). Rust write helpers that read by a caller-given id are not scoped yet.
 - **C1.3** **[hosted]** The same column is the tenant id. The server enforces it with Postgres RLS, which already exists in `supabase/`.
-- **C1.4** Test: two workspaces are created with marked content. Every list, search, export and Ask path called for workspace 1 returns zero rows from workspace 2.
+- **C1.4** Test: two workspaces are created with marked content. Every list, search, export and Ask path called for workspace 1 returns zero rows from workspace 2. Tests: `crates/agent-access/tests/workspace_isolation.rs` (lists, reads, transcripts, history, folders, exports, proposals; used by the CLI, MCP, local-api and `db:*` commands), `exports_only_the_local_workspace` (local-api), `search_returns_only_the_scoped_workspace` (Tantivy), `crates/db-execute/tests/workspace_guard.rs` (webview SQL).
 
 ### C2. Encryption
 
@@ -351,3 +353,4 @@ These tests must exist and pass; each item is true or false:
 Open decisions are listed in ASPC_AUDIT.md under "Decisions". When one is made, record the outcome here with its date, and update the affected rules.
 
 - **2026-11-16: hooks feature removed.** The settings `hooks` feature ran shell commands from `settings.json` on recording start and stop. It has been deleted (`plugins/hooks`, `crates/hooks`, its registration, capability entry and callers). It may only come back as a separate, reviewed task, behind authentication and an explicit opt-in that shows the user the exact command. A leftover `hooks` key in an existing `settings.json` is now ignored.
+- **C1 webview SQL (2026-11-16):** TEMP views per content table were spiked and rejected (UPSERT and writes cannot go through views, `main.` bypasses them, and TEMP objects leak into the shared pool). Interim: the single-workspace guard (A2.4), which denies webview content access while a second workspace's rows exist. Filtering webview SQL by workspace needs moving webview content access to scoped Rust commands, or views on a dedicated pool with UPSERT-free writes.

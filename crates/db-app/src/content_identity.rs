@@ -414,6 +414,15 @@ mod tests {
         assert_eq!(again.total(), 0);
     }
 
+    /// The webview guard's census covers exactly the content tables.
+    #[test]
+    fn webview_guard_census_covers_every_content_table() {
+        assert_eq!(
+            anlg_db_core::WORKSPACE_SCOPED_TABLES,
+            WORKSPACE_CONTENT_TABLES
+        );
+    }
+
     #[tokio::test]
     async fn backfill_refuses_an_empty_identity() {
         let db = test_db().await;

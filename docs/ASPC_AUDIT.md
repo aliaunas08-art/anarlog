@@ -213,9 +213,9 @@ Most of the ASPC work is closing that boundary.
 | B1 Hardening checklist              | PARTIAL            | SQL values bound with `?`; identifier `format!` uses allowlists (`crates/db-app/src/session_deletion.rs:29-37`); no `Math.random` tokens; no `dangerouslySetInnerHTML`/`innerHTML` writes                                                                                | raw-SQL command; no CSP; no `cargo audit`/`deny`/`pnpm audit` in CI; no constant-time compares                                                                                                   |
 | B2 Input validation                 | PARTIAL            | import formats are JSON/VTT only (`crates/meeting-import`)                                                                                                                                                                                                               | unchecked import paths; `render_custom`; webhook URLs; no response schema checks on calendar/AI                                                                                                  |
 | B3 Prompt injection                 | PARTIAL            | Ask guardrails, no delete/export tools                                                                                                                                                                                                                                   | unscoped automations path; unescaped enhance/title blocks; no injection tests                                                                                                                    |
-| B4 Cross-meeting isolation in Ask   | PARTIAL            | "This meeting" tool pinning (`chat/guardrails/tools.ts:62-100`)                                                                                                                                                                                                          | no explicit test; Tantivy search has no session filter (`plugins/tantivy/src/lib.rs:70-74`)                                                                                                      |
+| B4 Cross-meeting isolation in Ask   | PARTIAL            | "This meeting" tool pinning (`chat/guardrails/tools.ts:62-100`); Tantivy `session_id` filter and B4.2 search-layer test (Phase 2b)                                                                                                                                                                                                          | no end-to-end Ask test with a stub model                                                                                                      |
 | B5 Update signatures                | EXISTS (gap)       | minisign pubkey `tauri.conf.json:115`; verified on download                                                                                                                                                                                                              | cached installer isn't re-verified before install (`plugins/updater2/src/ext.rs:245-258`)                                                                                                        |
-| C1 Tenant isolation                 | PARTIAL            | columns exist and some ops filter by `workspace_id` (`crates/db-app/src/session_deletion.rs:37-75`)                                                                                                                                                                      | default `''`; most frontend SQL doesn't filter; no 2-workspace test                                                                                                                              |
+| C1 Tenant isolation                 | PARTIAL            | columns exist and some ops filter by `workspace_id` (`crates/db-app/src/session_deletion.rs:37-75`)                                                                                                                                                                      | webview SQL is guarded, not filtered (interim); Rust write helpers unscoped                                                                                                                              |
 | C2 Encryption at rest               | MISSING            | no SQLCipher; files are plaintext                                                                                                                                                                                                                                        | relies on FileVault, unchecked. Network: the `http` scope allows `http://**` (not TLS-only)                                                                                                      |
 | C3 Key protection                   | PARTIAL            | §3                                                                                                                                                                                                                                                                       | webview reads keys; `auth.json`; webhook secrets; keys in URL query strings                                                                                                                      |
 | C4 Log/telemetry hygiene            | PARTIAL            | redaction layer and Sentry scrubbing                                                                                                                                                                                                                                     | no marker-string test; Session Replay; sidecar stdout                                                                                                                                            |
@@ -611,6 +611,55 @@ Nothing below was run in the app; see "Phase 2b runtime check".
 - Tests: `rust_create_paths_never_write_empty_ids` (`content_identity.rs:474`) runs the Rust create paths (session, note, owner human and participant, contact, organization, manual participant, tag, session tag, note and audio attachments, folder, folder attachment, proposal, batch and live transcripts) and asserts no content row has an empty `workspace_id` or `owner_user_id` and every row is in the local workspace. `apps/desktop/src/shared/content-identity.test.ts` checks every frontend raw-SQL insert into a content table names `workspace_id` and never writes `''`. `packages/db/src/index.test.ts` checks a Drizzle insert fills both ids from the local identity.
 - **Owner caveat:** paths that take an owner from the frontend keep what it passes. Signed out that is the legacy `00000000-…` id, which is non-empty and which the claim rekeys; it is not the local owner id. The legacy import runs before the startup backfill, which then fills its `''` rows.
 
+### C1 decision: raw webview SQL (spike result)
+
+**Decision: the TEMP-view mechanism is not shipped. Option (a), the single-workspace guard, is shipped as an interim.** It fails closed; it is not workspace filtering.
+
+**Spike: TEMP views that shadow content tables** (`crates/db-execute/tests/workspace_views_spike.rs`, all `#[ignore]`; run with `cargo test -p db-execute --test workspace_views_spike -- --ignored`). Result on 2026-11-16, linked SQLite 3.50.2:
+
+| Case | Result |
+| --- | --- |
+| Unqualified SELECT, joins, subqueries, CTEs | filtered by the view (pass) |
+| `main.sessions` | **returns the other workspace's rows**; denying it needs the authorizer to check the database and accessor arguments, which it ignores today |
+| Writes through the view (INSTEAD OF triggers) | **cannot be built**: a TEMP trigger may not name `main.sessions` in INSERT/UPDATE/DELETE ("qualified table names are not allowed … within triggers"), and the unqualified name is the view itself |
+| UPSERT (`INSERT … ON CONFLICT`) | **rejected on a view** ("cannot UPSERT a view" / "cannot modify … because it is a view"). The frontend writes sessions, notes, chats and more this way (`session/queries/sessions.ts`, `chat/store/queries.ts`, `session/insights/past-notes.ts`, `stt/meeting-consent-store.ts`, …), so Drizzle and those writes would break |
+| Shared pool | **TEMP views leak**: webview SQL runs on the shared pool, so a view on a pool connection also filters every trusted Rust query that later uses that connection (sync, claim, backfill, indexer). Needs a dedicated webview pool with the CloudSync extension and change hooks |
+
+Because writes and UPSERT cannot go through views and `main.` bypasses them, the mechanism cannot be shown to fail closed without rewriting the frontend's writes.
+
+**Shipped interim: single-workspace guard** (`crates/db-core/src/webview_sql.rs:460`, `WorkspaceGuard`; turned on in `plugins/db/src/runtime.rs:178`):
+
+- Webview SQL reaches content tables only while every content row belongs to the local workspace (the CloudSync binding) or is unassigned (`''`). If any content row of another workspace exists, every content table (everything except settings, keys, and SQLite's schema and `pragma_*` functions) is denied to the webview until those rows are gone. Settings stay readable, so the app still opens.
+- Same snapshot: Rust opens each webview statement's transaction (`BEGIN`, or `BEGIN IMMEDIATE` for anything that is not a plain SELECT/EXPLAIN/PRAGMA/VALUES) and runs the census inside it (`crates/db-execute/src/lib.rs:161`, `query.rs:59`, `plugins/db/src/runtime.rs` `run_webview_transaction`). The webview cannot issue `BEGIN`/`COMMIT`/`ROLLBACK` (authorizer, `webview_sql.rs:240`).
+- Reads census only the content tables the statement names (`referenced_scoped_tables`, `:108`) and allow only those; reaching any other content table (a view, a table without `workspace_id`) is denied and retried after a full census in the same transaction. Writes run the full census.
+- Writes are confined: after a statement that changed rows, the full census runs again before commit, and a write that created another workspace's rows is rolled back (`check_writes`, `:568`).
+- No binding, or a census error, denies content (fail closed). Live-query dependency analysis runs the same check (`crates/db-reactive/src/schema.rs`).
+- Denials log `webview_sql_denied_multiple_workspaces` with the table names (no rows).
+- Tests (`crates/db-execute/tests/workspace_guard.rs`):
+  - `a_second_workspace_denies_every_content_path`: unqualified SELECT, `main.sessions`, joins, scalar and EXISTS subqueries, CTEs (also recursive), a view, a table without `workspace_id`, `EXPLAIN QUERY PLAN`, UPDATE/DELETE without WHERE, `RETURNING` on INSERT/UPDATE/DELETE, INSERT … SELECT, `execute_proxy`, `execute_transaction`; `sqlite_master`, `pragma_table_info`, `PRAGMA table_info` and `app_settings` stay readable; nothing was changed; access returns once the rows are gone.
+  - `webview_writes_cannot_create_another_workspace`: INSERT with a foreign `workspace_id` (with and without `RETURNING`), `UPDATE … SET workspace_id`, a write CTE, and a transaction whose second statement adds a foreign row (its first statement is rolled back too).
+  - `webview_cannot_control_transactions`, `no_binding_fails_closed`, `census_failure_fails_closed`, `census_and_statement_share_one_snapshot` (a foreign row committed after the census is invisible to the statement), `guard_is_off_unless_enabled`, `single_workspace_reads_and_writes_work` (UPSERT, RETURNING-free writes, transactions, a view, `EXPLAIN QUERY PLAN`).
+  - Reactive layer: `workspace_guard_keeps_live_queries_working_and_fails_closed` (`crates/db-reactive/src/runtime.rs:623`): a live query and its table-dependency refresh work with one workspace; when another workspace's row appears the refresh is an error event, never rows, and a new subscription gets an error.
+  - `webview_guard_census_covers_every_content_table` keeps the census list equal to `WORKSPACE_CONTENT_TABLES`.
+- **Cost:** on a synthetic large library (493 MB: 3,000 meetings, 40,000 note versions) the full census takes about 27 ms, a census of `sessions` 0.1 ms, `transcripts` 1.5 ms, `session_documents` 2.8 ms. Reads pay only for the tables they name; writes pay the full census while holding the write lock.
+- **Risk to check by hand:** a device whose database already holds another workspace's content rows is locked out of all content in the UI. One known source: legacy folders assigned to a team workspace (`folders.workspace_id`, see `legacyTeamWorkspaceId` in `apps/desktop/src/folders/folder-editor.tsx`). Detect with the SQL in "Phase 2b runtime check".
+- **What it is not:** workspace filtering. The view approach, or moving webview reads to scoped Rust queries table by table, is still needed before a device may hold two workspaces' content. Options for that:
+  - (b) move webview content reads and writes to scoped Rust commands, table by table (largest change, cleanest end state);
+  - (c) views on a dedicated webview connection pool, plus an authorizer that denies `main.`/`temp.`-qualified access by database and accessor, with frontend writes moved off UPSERT (or to Rust commands) because views reject UPSERT and the linked SQLite rejects qualified names in TEMP triggers.
+
+### Phase 2b runtime check
+
+Nothing in Phase 2b was run in the app. Check by hand:
+
+1. **Startup backfill:** quit the app, run `sqlite3 "<app data>/app.db" "SELECT 'sessions', count(*) FROM sessions WHERE workspace_id='' OR owner_user_id='' UNION ALL SELECT 'transcripts', count(*) FROM transcripts WHERE workspace_id=''"`, start the app, check `app.log` for `aspc_content_identity_backfilled`, and run the query again: zero.
+2. **No sync churn:** signed in with sync on, compare `SELECT count(*) FROM e2ee_dirty_rows` before and after the first launch: unchanged by the backfill.
+3. **Locked-out check:** before launching, `SELECT DISTINCT workspace_id FROM folders UNION SELECT DISTINCT workspace_id FROM sessions UNION SELECT DISTINCT workspace_id FROM humans` and compare with `SELECT value_json FROM app_settings WHERE id='cloudsync_workspace_binding'`. Any other non-empty id will lock the webview out of content; `app.log` then shows `webview_sql_denied_multiple_workspaces` with the tables.
+4. **Everyday use:** notes list, open a note, edit and rename, chat (new thread, messages), search, record a short meeting, enhance; all should work and nothing should log `aspc.wrong_workspace`.
+5. **Search:** after the first launch the index rebuilds (schema 3). Search finds notes and contacts; "This meeting" Ask still answers from the pinned meeting.
+6. **Sign-in:** sign in to CloudSync on a device with local notes. The claim must succeed (no `ForeignWorkspace`), notes stay visible, and `access_context` reports the account id as workspace afterwards (`local-auth:access_context`).
+7. **CLI/MCP:** `anarlog meetings list`, `meetings show`, `meetings export` and an MCP `list_meetings` call return the same notes as the app.
+8. **Speed:** with a large library, scrolling the notes list and typing in a note should not feel slower. Writes now run the full census in their transaction.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.
@@ -618,7 +667,7 @@ Nothing below was run in the app; see "Phase 2b runtime check".
 
 ## Proposed design for A1, A2 and C1
 
-A1 and A2 were built in Phase 2a (see "Phase 2a changes"), with these differences: the guard sits in 42 commands, not ~120; the per-window limits are also enforced in Rust; the lock has a narrow lock-screen exception. C1 below is still only proposed (Phase 2b).
+A1 and A2 were built in Phase 2a (see "Phase 2a changes"), with these differences: the guard sits in 42 commands, not ~120; the per-window limits are also enforced in Rust; the lock has a narrow lock-screen exception. C1 was built in Phase 2b (see "Phase 2b changes" and "C1 decision"): the webview part ships as the single-workspace guard, not views.
 
 ### A1: central permission check
 
@@ -697,8 +746,8 @@ Four layers, all in Rust:
 3. **Schema changes.** Each needs your approval:
    - a new `audit.db` file and table (D1);
    - a `sessions.private` column (C6.4);
-   - Tantivy schema fields `workspace_id` and `session_id`;
-   - a data backfill of empty workspace and owner ids (C1).
+   - ~~Tantivy schema fields `workspace_id` and `session_id`;~~ approved and built (Phase 2b);
+   - ~~a data backfill of empty workspace and owner ids (C1).~~ approved and built as a startup step (Phase 2b).
 
    Alternative for Private: reuse the existing `locked` flag to mean Private, with no new column.
 4. **Defaults that change behaviour:**

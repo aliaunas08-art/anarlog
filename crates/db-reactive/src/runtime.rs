@@ -616,6 +616,91 @@ mod tests {
         assert!(!events.lock().unwrap().is_empty());
     }
 
+    /// ASPC C1 interim guard: live queries and their table-dependency
+    /// tracking work while one workspace exists, and fail closed (an error
+    /// event, no rows) once another workspace's row appears.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn workspace_guard_keeps_live_queries_working_and_fails_closed() {
+        let _guard = hook_test_lock().lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: false,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+        let mut schema = String::from(
+            "CREATE TABLE app_settings (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
+             INSERT INTO app_settings VALUES
+               ('cloudsync_workspace_binding', '{\"workspace_id\":\"local-ws\"}');",
+        );
+        for table in anlg_db_core::WORKSPACE_SCOPED_TABLES {
+            schema.push_str(&format!(
+                "CREATE TABLE {table} (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL DEFAULT '');"
+            ));
+        }
+        schema.push_str("INSERT INTO sessions VALUES ('s-1', 'local-ws');");
+        sqlx::raw_sql(sqlx::AssertSqlSafe(schema))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let pool = db.pool().clone();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        authorizer.enable_workspace_guard();
+        let runtime =
+            LiveQueryRuntime::<TestSink>::new_for_webview(Arc::new(db), Arc::clone(&authorizer));
+        let (sink, events) = TestSink::capture();
+        runtime
+            .subscribe(
+                "SELECT id FROM sessions ORDER BY id".to_string(),
+                vec![],
+                sink,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            next_event(&events, 0, Duration::from_secs(1)).await,
+            TestEvent::Result(vec![json!({ "id": "s-1" })])
+        );
+
+        // Dependency tracking still refreshes on a local write.
+        sqlx::query("INSERT INTO sessions VALUES ('s-2', 'local-ws')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            next_event(&events, 1, Duration::from_secs(2)).await,
+            TestEvent::Result(vec![json!({ "id": "s-1" }), json!({ "id": "s-2" })])
+        );
+
+        // Another workspace's row: the refresh is denied, never returned.
+        sqlx::query("INSERT INTO sessions VALUES ('s-foreign', 'team-ws')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        match next_event(&events, 2, Duration::from_secs(2)).await {
+            TestEvent::Error(message) => assert!(
+                message.contains("not authorized") || message.contains("prohibited"),
+                "{message}"
+            ),
+            TestEvent::Result(rows) => panic!("rows returned with two workspaces: {rows:?}"),
+        }
+
+        // A new subscription gets an error, never rows.
+        let (sink, events) = TestSink::capture();
+        let _ = runtime
+            .subscribe("SELECT id FROM sessions".to_string(), vec![], sink)
+            .await;
+        assert!(matches!(
+            next_event(&events, 0, Duration::from_secs(1)).await,
+            TestEvent::Error(_)
+        ));
+    }
+
     async fn next_event(
         events: &Arc<Mutex<Vec<TestEvent>>>,
         index: usize,

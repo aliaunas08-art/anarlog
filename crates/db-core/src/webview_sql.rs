@@ -59,6 +59,101 @@ const LOCK_SCREEN_READABLE: &[&str] = &[
     "sqlite_temp_master",
 ];
 
+/// ASPC C1: content tables that carry `workspace_id`. Must match
+/// `anlg_db_app::WORKSPACE_CONTENT_TABLES` (checked by a db-app test).
+pub const WORKSPACE_SCOPED_TABLES: &[&str] = &[
+    "action_items",
+    "chat_groups",
+    "chat_messages",
+    "daily_notes",
+    "entity_mentions",
+    "folder_attachments",
+    "folders",
+    "humans",
+    "organizations",
+    "session_attachments",
+    "session_document_versions",
+    "session_documents",
+    "session_participants",
+    "session_proposals",
+    "session_tags",
+    "sessions",
+    "synced_preferences",
+    "tags",
+    "transcripts",
+    "voiceprint_candidates",
+    "voiceprint_exemplars",
+];
+
+/// One query: does any content row belong to a workspace other than the
+/// local one (the CloudSync binding) or `''`? Without a binding every
+/// non-empty workspace counts as foreign (fail closed). Reads the binding in
+/// the same snapshot as the rows.
+fn foreign_workspace_census_sql(tables: &[&str]) -> String {
+    let local = "COALESCE((SELECT json_extract(value_json, '$.workspace_id') \
+                 FROM app_settings WHERE id = 'cloudsync_workspace_binding'), char(0))";
+    let checks = tables
+        .iter()
+        .map(|table| {
+            format!("EXISTS(SELECT 1 FROM {table} WHERE workspace_id NOT IN ('', {local}))")
+        })
+        .collect::<Vec<_>>()
+        .join(" OR ");
+    format!("SELECT {checks}")
+}
+
+/// The workspace-scoped tables a statement names (a superset is fine: each
+/// extra table only costs census time; a table it reaches without naming it,
+/// through a view, is denied and the read is retried after a full census).
+pub fn referenced_scoped_tables(sql: &str) -> Vec<&'static str> {
+    let lower = sql.to_ascii_lowercase();
+    let bytes = lower.as_bytes();
+    let is_ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    WORKSPACE_SCOPED_TABLES
+        .iter()
+        .copied()
+        .filter(|table| {
+            lower.match_indices(table).any(|(start, _)| {
+                let end = start + table.len();
+                (start == 0 || !is_ident(bytes[start - 1]))
+                    && (end == bytes.len() || !is_ident(bytes[end]))
+            })
+        })
+        .collect()
+}
+
+/// Whether the webview's own statement only reads. Anything else runs in a
+/// `BEGIN IMMEDIATE` transaction. A misclassified write in a read
+/// transaction fails with `SQLITE_BUSY_SNAPSHOT` if the database changed, and
+/// is still checked by the post-write census.
+pub fn is_read_only_sql(sql: &str) -> bool {
+    let first = sql
+        .trim_start()
+        .split(|c: char| c.is_whitespace() || c == '(')
+        .next()
+        .unwrap_or_default();
+    ["select", "explain", "pragma", "values"]
+        .iter()
+        .any(|keyword| first.eq_ignore_ascii_case(keyword))
+}
+
+/// Whether a table's rows are denied while another workspace is present:
+/// every table except settings, keys (ciphertext and key material the
+/// role check already limits) and SQLite's own schema tables.
+fn denied_while_multi_workspace(table: Option<&str>) -> bool {
+    let Some(table) = table else {
+        return true;
+    };
+    // Schema only: SQLite's tables and the `pragma_*` table-valued
+    // functions (the PRAGMA itself is checked by the static policy).
+    if is_sqlite_internal_table(Some(table))
+        || (table.len() > 7 && table[..7].eq_ignore_ascii_case("pragma_"))
+    {
+        return false;
+    }
+    !matches!(table_data_type(table), DataType::Settings | DataType::Keys)
+}
+
 /// The data type of each app table (A2.4). Unknown tables, including
 /// CloudSync's `*_cloudsync` shadow tables written by triggers, fall back to
 /// `Notes`, the content type every role that can use the app reads.
@@ -94,6 +189,9 @@ pub struct WebviewSqlAuthorizer {
     /// Set by the app at startup. Until then (and in tests that never set
     /// it) only the static policy applies, which is the Phase 1 behaviour.
     context: RwLock<Option<AccessContext>>,
+    /// C1 interim single-workspace guard (see [`WorkspaceGuard`]). Off by
+    /// default; the app turns it on.
+    workspace_guard: AtomicBool,
 }
 
 impl WebviewSqlAuthorizer {
@@ -120,12 +218,41 @@ impl WebviewSqlAuthorizer {
         *self.context.write().unwrap_or_else(|e| e.into_inner()) = Some(context);
     }
 
-    fn decide(&self, request: &AuthRequest<'_>) -> Decision {
+    /// Turns on the C1 single-workspace guard for every later webview
+    /// statement: content tables are readable and writable only while every
+    /// content row belongs to the local workspace (or none), checked in the
+    /// statement's own transaction.
+    pub fn enable_workspace_guard(&self) {
+        self.workspace_guard.store(true, Ordering::SeqCst);
+    }
+
+    pub fn workspace_guard_enabled(&self) -> bool {
+        self.workspace_guard.load(Ordering::SeqCst)
+    }
+
+    fn decide(&self, request: &AuthRequest<'_>, connection: &ConnectionState) -> Decision {
         if self.is_locked() {
             return decide_locked(request);
         }
         if decide(request) == Decision::Deny {
             return Decision::Deny;
+        }
+        if connection.guarded {
+            // Only Rust opens and ends the guard's transaction, so the census
+            // and the statement always share one snapshot.
+            if request.action == ffi::SQLITE_TRANSACTION
+                && !connection.transaction_control.load(Ordering::SeqCst)
+            {
+                return Decision::Deny;
+            }
+            if matches!(
+                request.action,
+                ffi::SQLITE_READ | ffi::SQLITE_INSERT | ffi::SQLITE_UPDATE | ffi::SQLITE_DELETE
+            ) && denied_while_multi_workspace(request.arg1)
+                && !connection.allows_content(request.arg1)
+            {
+                return Decision::Deny;
+            }
         }
         let Some((data, action)) = data_access(request) else {
             return Decision::Allow;
@@ -269,19 +396,194 @@ unsafe extern "C" fn authorizer_callback(
     _accessor: *const c_char,
 ) -> c_int {
     let result = std::panic::catch_unwind(|| {
-        // SAFETY: `context` is an `Arc<WebviewSqlAuthorizer>` pointer that is
+        // SAFETY: `context` is an `Arc<ConnectionState>` pointer that is
         // kept alive while installed (see `AuthorizedConnection`).
-        let policy = unsafe { &*(context as *const WebviewSqlAuthorizer) };
+        let connection = unsafe { &*(context as *const ConnectionState) };
         let request = AuthRequest {
             action,
             arg1: unsafe { opt_str(arg1) },
             arg2: unsafe { opt_str(arg2) },
         };
-        policy.decide(&request)
+        connection.policy.decide(&request, connection)
     });
     match result {
         Ok(Decision::Allow) => ffi::SQLITE_OK,
         _ => ffi::SQLITE_DENY,
+    }
+}
+
+/// Per-connection authorizer state: the shared policy plus the C1 guard's
+/// result for the statement running now.
+#[derive(Debug)]
+pub struct ConnectionState {
+    policy: Arc<WebviewSqlAuthorizer>,
+    guarded: bool,
+    /// Content tables denied. Starts `true` when guarded (deny until the
+    /// census proves one workspace) and is kept `true` while another
+    /// workspace is present.
+    content_denied: AtomicBool,
+    /// Allows `BEGIN`/`COMMIT`/`ROLLBACK`; set only around Rust's own.
+    transaction_control: AtomicBool,
+    /// After a read's partial census: only these content tables are allowed
+    /// (every other content table is denied). `None`: all, after a full
+    /// census.
+    allowed_only: std::sync::Mutex<Option<Vec<&'static str>>>,
+}
+
+impl ConnectionState {
+    fn allows_content(&self, table: Option<&str>) -> bool {
+        if self.content_denied.load(Ordering::SeqCst) {
+            return false;
+        }
+        let allowed = self.allowed_only.lock().unwrap_or_else(|e| e.into_inner());
+        match (allowed.as_ref(), table) {
+            (None, _) => true,
+            (Some(list), Some(table)) => list.iter().any(|t| t.eq_ignore_ascii_case(table)),
+            (Some(_), None) => false,
+        }
+    }
+}
+
+/// C1 interim guard for webview SQL (the single-workspace mode, ASPC_AUDIT
+/// "C1 decision"). The authorizer cannot filter rows, so webview SQL reaches
+/// content only while the device holds a single workspace:
+///
+/// 1. Rust opens the statement's transaction (`BEGIN`, or `BEGIN IMMEDIATE`
+///    for writes); the webview cannot issue `BEGIN`/`COMMIT` itself.
+/// 2. [`WorkspaceGuard::check`] runs the census in that transaction. If any
+///    content row belongs to another workspace, every content table is
+///    denied for the statement.
+/// 3. After a statement that changed rows, [`WorkspaceGuard::check_writes`]
+///    runs the census again before commit; a write that introduced another
+///    workspace is rolled back.
+#[derive(Clone, Debug)]
+pub struct WorkspaceGuard {
+    state: Arc<ConnectionState>,
+}
+
+impl WorkspaceGuard {
+    pub fn allow_transaction_control(&self, allowed: bool) {
+        self.state
+            .transaction_control
+            .store(allowed, Ordering::SeqCst);
+    }
+
+    fn set_allowed_only(&self, tables: Option<Vec<&'static str>>) {
+        *self
+            .state
+            .allowed_only
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = tables;
+    }
+
+    /// Whether the last census covered only some tables.
+    pub fn is_partial(&self) -> bool {
+        self.state
+            .allowed_only
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+    }
+
+    async fn foreign_workspace_present(&self, connection: &mut SqliteConnection) -> bool {
+        self.foreign_workspace_present_in(connection, WORKSPACE_SCOPED_TABLES)
+            .await
+    }
+
+    async fn foreign_workspace_present_in(
+        &self,
+        connection: &mut SqliteConnection,
+        tables: &[&str],
+    ) -> bool {
+        self.set_allowed_only(None);
+        self.state.content_denied.store(false, Ordering::SeqCst);
+        let result: Result<bool, sqlx::Error> =
+            sqlx::query_scalar(sqlx::AssertSqlSafe(foreign_workspace_census_sql(tables)))
+                .fetch_one(&mut *connection)
+                .await;
+        let foreign = match result {
+            Ok(foreign) => foreign,
+            Err(error) => {
+                tracing::error!(%error, "webview_sql_workspace_census_failed");
+                true
+            }
+        };
+        if foreign {
+            self.log_foreign_tables(connection, tables).await;
+        }
+        self.state.content_denied.store(true, Ordering::SeqCst);
+        foreign
+    }
+
+    /// Names (never rows) of the tables that hold another workspace's rows,
+    /// so a locked-out webview can be diagnosed from the log.
+    async fn log_foreign_tables(&self, connection: &mut SqliteConnection, tables: &[&str]) {
+        let mut found = Vec::new();
+        for table in tables {
+            let foreign: Result<bool, sqlx::Error> =
+                sqlx::query_scalar(sqlx::AssertSqlSafe(foreign_workspace_census_sql(&[table])))
+                    .fetch_one(&mut *connection)
+                    .await;
+            if !matches!(foreign, Ok(false)) {
+                found.push(*table);
+            }
+        }
+        tracing::warn!(tables = ?found, "webview_sql_denied_multiple_workspaces");
+    }
+
+    /// Runs the census and allows content tables only if every content row
+    /// is in the local workspace (or unassigned). Never fails: an error
+    /// leaves content denied.
+    pub async fn check(&self, connection: &mut SqliteConnection) {
+        let foreign = self.foreign_workspace_present(connection).await;
+        self.state.content_denied.store(foreign, Ordering::SeqCst);
+    }
+
+    /// For a read: runs the census only on the content tables the statement
+    /// names and allows only those. A statement that names none gets no
+    /// content at all. If the read then hits a denied table (a view, or a
+    /// table without `workspace_id`), the caller runs [`Self::check`] in the
+    /// same transaction and retries.
+    pub async fn check_read(&self, connection: &mut SqliteConnection, sql: &str) {
+        let tables = referenced_scoped_tables(sql);
+        if tables.is_empty() {
+            self.state.content_denied.store(true, Ordering::SeqCst);
+            self.set_allowed_only(None);
+            return;
+        }
+        let foreign = self.foreign_workspace_present_in(connection, &tables).await;
+        self.state.content_denied.store(foreign, Ordering::SeqCst);
+        self.set_allowed_only(if foreign { None } else { Some(tables) });
+    }
+
+    /// Rows changed by this connection so far (`total_changes()`).
+    pub async fn changes(&self, connection: &mut SqliteConnection) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar("SELECT total_changes()")
+            .fetch_one(connection)
+            .await
+    }
+
+    /// After the webview's statements: if they changed rows and another
+    /// workspace is now present, returns an error so the caller rolls back.
+    pub async fn check_writes(
+        &self,
+        connection: &mut SqliteConnection,
+        changes_before: i64,
+    ) -> Result<(), sqlx::Error> {
+        let before = self.state.content_denied.load(Ordering::SeqCst);
+        if self.changes(connection).await? == changes_before {
+            return Ok(());
+        }
+        let foreign = self.foreign_workspace_present(connection).await;
+        self.state
+            .content_denied
+            .store(before || foreign, Ordering::SeqCst);
+        if foreign {
+            return Err(sqlx::Error::Protocol(
+                "aspc.wrong_workspace: not authorized (a webview write may not create another workspace's rows)".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -291,7 +593,7 @@ unsafe extern "C" fn authorizer_callback(
 /// releasing clears the authorizer in a background task.
 pub struct AuthorizedConnection {
     connection: Option<PoolConnection<Sqlite>>,
-    policy: Arc<WebviewSqlAuthorizer>,
+    state: Arc<ConnectionState>,
     installed: bool,
 }
 
@@ -301,9 +603,16 @@ impl AuthorizedConnection {
         policy: &Arc<WebviewSqlAuthorizer>,
     ) -> Result<Self, sqlx::Error> {
         let connection = pool.acquire().await?;
+        let guarded = policy.workspace_guard_enabled();
         let mut this = Self {
             connection: Some(connection),
-            policy: Arc::clone(policy),
+            state: Arc::new(ConnectionState {
+                policy: Arc::clone(policy),
+                guarded,
+                content_denied: AtomicBool::new(guarded),
+                transaction_control: AtomicBool::new(false),
+                allowed_only: std::sync::Mutex::new(None),
+            }),
             installed: false,
         };
         this.install().await?;
@@ -314,7 +623,7 @@ impl AuthorizedConnection {
         let connection = self.connection.as_mut().expect("connection present");
         let mut handle = connection.lock_handle().await?;
         let raw = handle.as_raw_handle().as_ptr();
-        let context = Arc::as_ptr(&self.policy) as *mut c_void;
+        let context = Arc::as_ptr(&self.state) as *mut c_void;
         // Mark installed before the call so a failure path still closes the
         // connection rather than returning a half-configured handle.
         self.installed = true;
@@ -327,6 +636,13 @@ impl AuthorizedConnection {
             )));
         }
         Ok(())
+    }
+
+    /// The C1 guard for this connection, when the policy has it on.
+    pub fn workspace_guard(&self) -> Option<WorkspaceGuard> {
+        self.state.guarded.then(|| WorkspaceGuard {
+            state: Arc::clone(&self.state),
+        })
     }
 
     pub fn connection(&mut self) -> &mut SqliteConnection {
@@ -364,7 +680,9 @@ impl Drop for AuthorizedConnection {
         let Some(mut connection) = self.connection.take() else {
             return;
         };
-        let policy = Arc::clone(&self.policy);
+        let policy = Arc::clone(&self.state);
+        // A cancelled transaction's queued ROLLBACK must get through.
+        policy.transaction_control.store(true, Ordering::SeqCst);
         // Cancelled mid-statement. The worker finishes the in-flight statement
         // (still under the authorizer, with `policy` kept alive here), then the
         // authorizer is cleared before the connection returns to the pool. If

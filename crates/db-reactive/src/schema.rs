@@ -256,9 +256,25 @@ impl SchemaCatalog {
             Some(authorizer) => {
                 let mut connection =
                     anlg_db_core::AuthorizedConnection::acquire(pool, authorizer).await?;
-                let rows = sqlx::query(sqlx::AssertSqlSafe(explain))
+                // EXPLAIN reads no rows, but its plan is still checked per
+                // table: under the C1 guard, content is denied while another
+                // workspace is present (the live query then fails closed).
+                let guard = connection.workspace_guard();
+                if let Some(guard) = &guard {
+                    guard.check_read(connection.connection(), sql).await;
+                }
+                let mut rows = sqlx::query(sqlx::AssertSqlSafe(explain.clone()))
                     .fetch_all(connection.connection())
                     .await;
+                if let (Some(guard), Err(error)) = (&guard, &rows)
+                    && (error.to_string().contains("not authorized")
+                        || error.to_string().contains("prohibited"))
+                {
+                    guard.check(connection.connection()).await;
+                    rows = sqlx::query(sqlx::AssertSqlSafe(explain))
+                        .fetch_all(connection.connection())
+                        .await;
+                }
                 connection.release().await?;
                 rows?
             }

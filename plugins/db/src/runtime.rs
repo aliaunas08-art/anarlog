@@ -173,6 +173,9 @@ impl PluginDbRuntime {
         );
         let (startup_tx, _) = tokio::sync::watch::channel(None);
         let webview_sql = anlg_db_core::WebviewSqlAuthorizer::new();
+        // ASPC C1 interim: webview SQL reaches content only while the device
+        // holds a single workspace (see `anlg_db_core::WorkspaceGuard`).
+        webview_sql.enable_workspace_guard();
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
@@ -525,8 +528,9 @@ impl PluginDbRuntime {
         self.ensure_app_schema().await?;
         let mut authorized =
             anlg_db_core::AuthorizedConnection::acquire(self.db.pool(), &self.webview_sql).await?;
+        let guard = authorized.workspace_guard();
         let result = self
-            .run_webview_transaction(authorized.connection(), statements)
+            .run_webview_transaction(authorized.connection(), statements, guard.as_ref())
             .await;
         authorized.release().await?;
         result
@@ -539,10 +543,26 @@ impl PluginDbRuntime {
         &self,
         connection: &mut sqlx::SqliteConnection,
         statements: Vec<TransactionStatement>,
+        guard: Option<&anlg_db_core::WorkspaceGuard>,
     ) -> Result<Vec<u64>> {
         use sqlx::Connection as _;
 
-        let mut transaction = connection.begin_with("BEGIN IMMEDIATE").await?;
+        // ASPC C1 guard: only Rust's BEGIN/COMMIT/ROLLBACK pass the
+        // authorizer, and the census runs inside the write transaction.
+        let control = |allowed: bool| {
+            if let Some(guard) = guard {
+                guard.allow_transaction_control(allowed);
+            }
+        };
+        control(true);
+        let begun = connection.begin_with("BEGIN IMMEDIATE").await;
+        control(false);
+        let mut transaction = begun?;
+        let mut changes_before = 0;
+        if let Some(guard) = guard {
+            guard.check(&mut transaction).await;
+            changes_before = guard.changes(&mut transaction).await?;
+        }
         #[cfg(test)]
         if self
             .pause_transaction_after_begin
@@ -563,7 +583,10 @@ impl PluginDbRuntime {
             {
                 Ok(result) => result,
                 Err(error) => {
-                    if let Err(rollback_error) = transaction.rollback().await {
+                    control(true);
+                    let rolled_back = transaction.rollback().await;
+                    control(false);
+                    if let Err(rollback_error) = rolled_back {
                         tracing::error!(
                             %rollback_error,
                             "sqlite_failed_transaction_rollback_failed"
@@ -581,7 +604,10 @@ impl PluginDbRuntime {
                     expected,
                     actual,
                 };
-                if let Err(rollback_error) = transaction.rollback().await {
+                control(true);
+                let rolled_back = transaction.rollback().await;
+                control(false);
+                if let Err(rollback_error) = rolled_back {
                     tracing::error!(
                         %rollback_error,
                         "sqlite_mismatched_transaction_rollback_failed"
@@ -592,7 +618,18 @@ impl PluginDbRuntime {
             rows_affected.push(actual);
         }
 
-        transaction.commit().await?;
+        if let Some(guard) = guard
+            && let Err(error) = guard.check_writes(&mut transaction, changes_before).await
+        {
+            control(true);
+            let _ = transaction.rollback().await;
+            control(false);
+            return Err(error.into());
+        }
+        control(true);
+        let committed = transaction.commit().await;
+        control(false);
+        committed?;
         Ok(rows_affected)
     }
 
