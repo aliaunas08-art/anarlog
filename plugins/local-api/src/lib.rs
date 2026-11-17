@@ -86,6 +86,33 @@ mod test {
         db.pool().clone()
     }
 
+    /// ASPC C1.4 for the local-api: another workspace's meeting is never
+    /// exported, snapshotted or sent in a webhook payload.
+    #[tokio::test]
+    async fn exports_only_the_local_workspace() {
+        let pool = seeded_pool().await;
+        sqlx::raw_sql(
+            "INSERT INTO sessions (id, workspace_id, title) VALUES ('foreign', 'team-ws', 'TEAM-MARKER');
+             INSERT INTO session_documents (id, workspace_id, session_id, kind, body_format, body)
+               VALUES ('foreign-note', 'team-ws', 'foreign', 'note', 'markdown', 'TEAM-MARKER');",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let error = crate::commands::scoped_meeting_export(&pool, "foreign".to_string())
+            .await
+            .unwrap_err();
+        assert!(error.contains("not found"), "{error}");
+        let local = crate::commands::scoped_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        assert!(
+            !serde_json::to_string(&local)
+                .unwrap()
+                .contains("TEAM-MARKER")
+        );
+    }
+
     #[tokio::test]
     async fn drive_export_requires_summary_and_preserves_transcript_and_metadata() {
         let pool = seeded_pool().await;
