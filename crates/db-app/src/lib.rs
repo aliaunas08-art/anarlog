@@ -621,6 +621,13 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20261114120000_meeting_minutes_template.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20261116120000_session_private",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20261116120000_session_private.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

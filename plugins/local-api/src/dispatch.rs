@@ -187,6 +187,23 @@ pub async fn create_endpoint(
     })
 }
 
+/// ASPC C6.4: whether a meeting is marked Private. Fails closed: a meeting
+/// whose flag can't be read counts as Private, so it is not sent anywhere.
+pub(crate) async fn is_private_meeting(pool: &SqlitePool, meeting_id: &str) -> bool {
+    match sqlx::query_scalar::<_, i64>("SELECT private FROM sessions WHERE id = ?")
+        .bind(meeting_id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(flag)) => flag != 0,
+        Ok(None) => false,
+        Err(error) => {
+            tracing::warn!("[local-api] could not read the private flag: {error}");
+            true
+        }
+    }
+}
+
 /// Fans an event out to every active endpoint subscribed to it. Deliveries run
 /// in background tasks; the returned count is the number of endpoints targeted.
 pub async fn dispatch_event(
@@ -194,6 +211,10 @@ pub async fn dispatch_event(
     event: &str,
     meeting_id: &str,
 ) -> Result<usize, String> {
+    // ASPC C6.4: a Private meeting is never sent to a webhook.
+    if is_private_meeting(pool, meeting_id).await {
+        return Ok(0);
+    }
     let fanout_permit = acquire_fanout_slot().await?;
     let mut endpoints = anlg_db_app::list_active_webhook_endpoints(pool)
         .await
@@ -546,6 +567,56 @@ mod tests {
             .unwrap();
 
         assert_eq!(targeted, 0);
+    }
+
+    /// C6.4: a Private meeting is neither sent to webhooks nor written by
+    /// the Markdown export automation.
+    #[tokio::test]
+    async fn private_meetings_are_not_dispatched_or_auto_exported() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::insert_webhook_endpoint(
+            db.pool(),
+            "webhook-1",
+            "https://example.com",
+            "whsec_test",
+            "[]",
+        )
+        .await
+        .unwrap();
+        let dir = std::env::temp_dir().join(format!("anlg-private-export-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (id, value) in [
+            ("automation_markdown_export_enabled", "true".to_string()),
+            (
+                "automation_markdown_export_directory",
+                serde_json::Value::String(dir.display().to_string()).to_string(),
+            ),
+        ] {
+            sqlx::query("INSERT OR REPLACE INTO app_settings (id, value_json) VALUES (?, ?)")
+                .bind(id)
+                .bind(value)
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+        sqlx::query(
+            "INSERT INTO sessions (id, title, private, workspace_id)
+             SELECT 'secret', 'Secret meeting', 1,
+               json_extract(value_json, '$.workspace_id')
+             FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let targeted = dispatch_event(db.pool(), EVENT_MEETING_COMPLETED, "secret")
+            .await
+            .unwrap();
+        assert_eq!(targeted, 0);
+        crate::commands::run_markdown_export_automation(db.pool(), "secret").await;
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]

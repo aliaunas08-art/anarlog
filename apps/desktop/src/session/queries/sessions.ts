@@ -25,6 +25,7 @@ type SessionSqlRow = {
   raw_body_format: string;
   raw_template_id: string;
   locked: boolean | number;
+  private: boolean | number;
 };
 
 type SessionSummarySqlRow = {
@@ -60,6 +61,7 @@ const SESSION_SELECT_SQL = `
     sessions.event_json,
     sessions.title,
     sessions.locked,
+    sessions.private,
     COALESCE(note.body, '') AS raw_body,
     COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format,
     COALESCE(note.template_id, '') AS raw_template_id
@@ -305,6 +307,10 @@ export function updateSession(
         "locked",
         changes.locked === undefined ? undefined : Number(changes.locked),
       ],
+      [
+        "private",
+        changes.private === undefined ? undefined : Number(changes.private),
+      ],
     ] as const) {
       if (value === undefined) continue;
       assignments.push(`${column} = ?`);
@@ -456,5 +462,6 @@ function mapSessionRow(row: SessionSqlRow): SessionRecord {
     raw_md: rawMd,
     raw_template_id: row.raw_template_id,
     locked: isLockedFlag(row.locked),
+    private: isLockedFlag(row.private),
   };
 }

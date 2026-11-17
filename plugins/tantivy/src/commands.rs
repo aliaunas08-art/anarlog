@@ -22,6 +22,15 @@ pub(crate) async fn search<R: tauri::Runtime>(
         .try_state::<std::sync::Arc<anlg_aspc::AspcState>>()
         .and_then(|state| state.scope())
         .ok_or_else(|| "aspc.no_context: no workspace".to_string())?;
+    let mut request = request;
+    request.filters.exclude_session_ids.clear();
+    if request.filters.session_id.is_none() && !request.filters.include_private {
+        let source = app
+            .try_state::<crate::PrivateSessionSource>()
+            .map(|state| state.inner().clone())
+            .ok_or_else(|| "aspc.private_filter_unavailable".to_string())?;
+        request.filters.exclude_session_ids = (source.0)().await?;
+    }
     app.tantivy()
         .search(&scope, request)
         .await

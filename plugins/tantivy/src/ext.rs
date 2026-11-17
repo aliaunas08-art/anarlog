@@ -616,6 +616,21 @@ pub(crate) fn search_collection(
         ]));
     }
 
+    // Private meetings (C6.4), resolved by the command in Rust.
+    if request.filters.session_id.is_none() && !request.filters.exclude_session_ids.is_empty() {
+        let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, combined_query)];
+        for session_id in &request.filters.exclude_session_ids {
+            clauses.push((
+                Occur::MustNot,
+                Box::new(TermQuery::new(
+                    Term::from_field_text(fields.session_id, session_id),
+                    IndexRecordOption::Basic,
+                )),
+            ));
+        }
+        combined_query = Box::new(BooleanQuery::new(clauses));
+    }
+
     // Apply doc_type filter
     if let Some(ref doc_type) = request.filters.doc_type {
         let doc_type_term = Term::from_field_text(fields.doc_type, doc_type);
@@ -779,6 +794,43 @@ mod scoped_search_tests {
         .collect();
         ids.sort();
         ids
+    }
+
+    /// C6.4: excluded (Private) meetings drop out of an all-meetings search
+    /// but are still found by a "This meeting" search on themselves.
+    #[test]
+    fn excluded_sessions_drop_out_unless_scoped_to_them() {
+        let collection = collection(&[
+            document("open", "w1", "open", "markerone"),
+            document("secret", "w1", "secret", "markerone"),
+        ]);
+        let scope = WorkspaceScope::local("w1").unwrap();
+        let search = |session: Option<&str>| {
+            let mut ids: Vec<String> = search_collection(
+                &collection,
+                &scope,
+                SearchRequest {
+                    query: "markerone".to_string(),
+                    collection: None,
+                    filters: SearchFilters {
+                        session_id: session.map(str::to_string),
+                        exclude_session_ids: vec!["secret".to_string()],
+                        ..SearchFilters::default()
+                    },
+                    limit: 100,
+                    options: Default::default(),
+                },
+            )
+            .unwrap()
+            .hits
+            .into_iter()
+            .map(|hit| hit.document.id)
+            .collect();
+            ids.sort();
+            ids
+        };
+        assert_eq!(search(None), vec!["open".to_string()]);
+        assert_eq!(search(Some("secret")), vec!["secret".to_string()]);
     }
 
     /// C1.4 at the search layer: workspace 1 never sees workspace 2.

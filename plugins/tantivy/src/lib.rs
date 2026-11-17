@@ -81,7 +81,29 @@ pub struct SearchFilters {
     /// Only documents of this meeting (B4.1, "This meeting" scope).
     #[serde(default)]
     pub session_id: Option<String>,
+    /// ASPC C6.4: an all-meetings search leaves Private meetings out unless
+    /// the user includes them for this one search. Ignored with
+    /// `session_id` ("This meeting" on a Private meeting still works).
+    #[serde(default)]
+    pub include_private: bool,
+    /// Meetings to leave out, filled in Rust by the `search` command from
+    /// the database (never taken from the webview).
+    #[serde(skip)]
+    #[specta(skip)]
+    pub exclude_session_ids: Vec<String>,
 }
+
+/// Where the `search` command reads the Private meeting ids from (ASPC
+/// C6.4). The desktop app installs one backed by the database; without it an
+/// all-meetings search fails closed.
+pub type PrivateSessionsFuture = std::pin::Pin<
+    Box<dyn std::future::Future<Output = std::result::Result<Vec<String>, String>> + Send>,
+>;
+
+#[derive(Clone)]
+pub struct PrivateSessionSource(
+    pub std::sync::Arc<dyn Fn() -> PrivateSessionsFuture + Send + Sync>,
+);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
 pub struct SearchOptions {

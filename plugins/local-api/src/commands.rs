@@ -157,6 +157,11 @@ pub(crate) async fn run_markdown_export_automation(pool: &sqlx::SqlitePool, meet
     if !enabled || directory.is_empty() {
         return;
     }
+    // ASPC C6.4: the automatic export is a bulk export; Private meetings are
+    // left out.
+    if crate::dispatch::is_private_meeting(pool, meeting_id).await {
+        return;
+    }
 
     let result = match scoped_meeting_export(pool, meeting_id.to_string()).await {
         Ok(export) => write_markdown_export(std::path::Path::new(&directory), &export),

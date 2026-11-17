@@ -36,6 +36,22 @@ enum DrainOutcome {
     Deferred,
 }
 
+/// ASPC C6.4: `tantivy:search` reads the Private meeting ids from here for
+/// every all-meetings search.
+pub fn install_private_session_source(app: &AppHandle, db: Arc<anlg_db_core::Db>) {
+    app.manage(tauri_plugin_tantivy::PrivateSessionSource(Arc::new(
+        move || {
+            let db = db.clone();
+            Box::pin(async move {
+                sqlx::query_scalar::<_, String>("SELECT id FROM sessions WHERE private <> 0")
+                    .fetch_all(db.pool())
+                    .await
+                    .map_err(|error| format!("aspc.private_filter_unavailable: {error}"))
+            })
+        },
+    )));
+}
+
 pub fn spawn(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     tauri::async_runtime::spawn(async move {
         run(app, db).await;

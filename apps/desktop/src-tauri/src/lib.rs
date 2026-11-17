@@ -523,6 +523,7 @@ pub fn main() {
                 supervisor::monitor_supervisor(handle, ctx.is_exiting.clone(), app_handle.clone());
             }
 
+            search_index::install_private_session_source(&app_handle, db.clone());
             search_index::spawn(app_handle.clone(), db.clone());
 
             #[cfg(not(feature = "app-store"))]

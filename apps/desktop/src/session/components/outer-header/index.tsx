@@ -3,6 +3,7 @@ import { cn, safeParseDate } from "@anlg/utils";
 import { FolderPicker } from "../folder-picker";
 import { useHasTranscript } from "../shared";
 import { OverflowButton } from "./overflow";
+import { PrivateIndicator } from "./overflow/private-note";
 
 import { useAudioPlayer } from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
@@ -65,6 +66,7 @@ export function OuterHeader({
         // Board: quiet 32px icon buttons, 4px apart, 20px from the edge.
         className="relative z-10 flex shrink-0 items-center gap-1 pr-3"
       >
+        <PrivateIndicator sessionId={sessionId} />
         <FolderPicker sessionId={sessionId} align="end" appearance="toolbar" />
         {showShare ? (
           <SessionShareButton

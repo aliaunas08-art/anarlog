@@ -14,7 +14,11 @@ vi.mock("~/db", () => ({
   useLiveQuery: vi.fn(),
 }));
 
-import { loadSessionShareSource } from "./source";
+import {
+  assertShareable,
+  loadSessionShareSource,
+  PrivateMeetingShareError,
+} from "./source";
 
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
@@ -89,6 +93,23 @@ describe("loadSessionShareSource", () => {
     ).resolves.toMatchObject({ workspaceId: ACCOUNT_ID });
   });
 
+  it("marks Private meetings, which need an explicit include to share (C6.4)", async () => {
+    mocks.execute.mockResolvedValueOnce([{ ...sourceRow(), private: 1 }]);
+    const source = await loadSessionShareSource("session-1", ACCOUNT_ID);
+    expect(source.isPrivate).toBe(true);
+    expect(() => assertShareable(source, { includePrivate: false })).toThrow(
+      PrivateMeetingShareError,
+    );
+    expect(() =>
+      assertShareable(source, { includePrivate: true }),
+    ).not.toThrow();
+    mocks.execute.mockResolvedValueOnce([sourceRow()]);
+    const open = await loadSessionShareSource("session-1", ACCOUNT_ID);
+    expect(() =>
+      assertShareable(open, { includePrivate: false }),
+    ).not.toThrow();
+  });
+
   it("rejects a library connected to another account even when the personal workspace exists", async () => {
     mocks.execute.mockResolvedValueOnce([
       sourceRow({
@@ -126,6 +147,7 @@ describe("loadSessionShareSource", () => {
       },
       rawBody: sourceRow().body,
       bodyFormat: "prosemirror_json",
+      isPrivate: false,
     });
 
     const [, params] = mocks.execute.mock.calls[0]!;

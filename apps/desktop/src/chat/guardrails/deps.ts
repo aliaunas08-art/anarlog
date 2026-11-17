@@ -59,7 +59,8 @@ export async function listMeetingTitles(): Promise<
     `
       SELECT id, title
       FROM sessions
-      WHERE deleted_at IS NULL AND title IS NOT NULL AND trim(title) != ''
+      WHERE deleted_at IS NULL AND private = 0
+        AND title IS NOT NULL AND trim(title) != ''
       ORDER BY created_at DESC
       LIMIT 500
     `,

@@ -233,6 +233,8 @@ export const sessions = sqliteTable(
     metadataJson: text("metadata_json").notNull().default("{}"),
     shareActivationJson: text("share_activation_json").notNull().default("{}"),
     deletionContext: text("deletion_context").notNull().default(""),
+    // ASPC C6.4 Private flag (migration 20261116120000_session_private).
+    private: integer("private").notNull().default(0),
     deletedAt: text("deleted_at"),
   },
   (table) => [

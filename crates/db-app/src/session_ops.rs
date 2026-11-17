@@ -34,7 +34,7 @@ const SESSION_COLUMNS: &str = "
     SELECT id, workspace_id, owner_user_id, title, kind, status, created_at, updated_at,
            started_at, ended_at, timezone, language, event_id, external_event_id,
            external_provider, series_id, source_apps_json, event_json, folder_path, slug,
-           metadata_json, locked
+           metadata_json, locked, private
     FROM sessions
 ";
 
@@ -89,6 +89,11 @@ pub async fn list_sessions(
     let mut query = QueryBuilder::<Sqlite>::new(SESSION_LIST_COLUMNS);
     query.push(" WHERE deleted_at IS NULL");
     push_workspace_scope(&mut query, "workspace_id", input.scope);
+    // ASPC C6.4: an all-meetings listing leaves Private meetings out unless
+    // the caller includes them for this one action.
+    if !input.include_private {
+        query.push(" AND private = 0");
+    }
 
     if let Some(search) = input.query.map(str::trim).filter(|query| !query.is_empty()) {
         query.push(" AND (instr(lower(title), lower(");
@@ -303,6 +308,7 @@ pub async fn list_recurring_sessions(
         pool,
         ListSessions {
             scope,
+            include_private: false,
             query: None,
             series_id: Some(&series_id),
             folder_path: None,
@@ -510,6 +516,7 @@ mod tests {
             db.pool(),
             ListSessions {
                 scope: &scope(),
+                include_private: false,
                 query: Some(" alpha "),
                 series_id: Some("series-a"),
                 folder_path: None,
@@ -523,6 +530,7 @@ mod tests {
             db.pool(),
             ListSessions {
                 scope: &scope(),
+                include_private: false,
                 query: Some("alpha"),
                 series_id: Some("series-a"),
                 folder_path: None,
@@ -536,6 +544,7 @@ mod tests {
             db.pool(),
             ListSessions {
                 scope: &scope(),
+                include_private: false,
                 query: Some("old"),
                 series_id: None,
                 folder_path: None,
@@ -549,6 +558,49 @@ mod tests {
         assert_eq!(first[0].id, "alpha-new");
         assert_eq!(second[0].id, "alpha-old");
         assert_eq!(by_id[0].id, "alpha-old");
+    }
+
+    /// C6.4: Private meetings are left out of all-meetings listings unless
+    /// the caller includes them.
+    #[tokio::test]
+    async fn list_sessions_excludes_private_meetings_unless_included() {
+        let db = test_db().await;
+        insert_session(db.pool(), "open", "Open", "2026-01-02", "").await;
+        insert_session(db.pool(), "secret", "Secret", "2026-01-01", "").await;
+        sqlx::query("UPDATE sessions SET private = 1 WHERE id = 'secret'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let list = |include_private| {
+            let pool = db.pool().clone();
+            async move {
+                list_sessions(
+                    &pool,
+                    ListSessions {
+                        scope: &scope(),
+                        include_private,
+                        query: None,
+                        series_id: None,
+                        folder_path: None,
+                        limit: 10,
+                        offset: 0,
+                    },
+                )
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|session| session.id)
+                .collect::<Vec<_>>()
+            }
+        };
+        assert_eq!(list(false).await, vec!["open".to_string()]);
+        assert_eq!(list(true).await, vec!["open".to_string(), "secret".into()]);
+        // The meeting itself is still readable by id ("This meeting").
+        let one = get_session(db.pool(), &scope(), "secret")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(one.private, 1);
     }
 
     #[tokio::test]
@@ -577,6 +629,7 @@ mod tests {
             db.pool(),
             ListSessions {
                 scope: &scope(),
+                include_private: false,
                 query: None,
                 series_id: None,
                 folder_path: Some("Projects/Launch"),

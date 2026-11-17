@@ -329,10 +329,32 @@ pub struct Speaker {
     pub is_self: bool,
 }
 
+/// Lists meetings, leaving Private ones out (ASPC C6.4). This is what MCP,
+/// Ask, the local API and bulk exports use.
 pub async fn list_meetings(
     pool: &SqlitePool,
     scope: &WorkspaceScope,
     input: ListMeetingsInput,
+) -> Result<MeetingPage> {
+    list_meetings_with_privacy(pool, scope, input, false).await
+}
+
+/// Like [`list_meetings`] but including Private meetings. Only for an action
+/// the user explicitly widened (the CLI's `--include-private`); never from
+/// an AI tool or an automatic job.
+pub async fn list_meetings_including_private(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: ListMeetingsInput,
+) -> Result<MeetingPage> {
+    list_meetings_with_privacy(pool, scope, input, true).await
+}
+
+async fn list_meetings_with_privacy(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: ListMeetingsInput,
+    include_private: bool,
 ) -> Result<MeetingPage> {
     let limit = input
         .limit
@@ -352,6 +374,7 @@ pub async fn list_meetings(
         pool,
         anlg_db_app::ListSessions {
             scope,
+            include_private,
             query: input.query.as_deref(),
             series_id: input.series_id.as_deref(),
             folder_path: folder_path.as_deref(),
@@ -1102,6 +1125,47 @@ mod tests {
         .await
         .unwrap();
         db
+    }
+
+    /// C6.4: MCP, Ask, the local API and bulk exports never list a Private
+    /// meeting; only an explicit include does. A single read by id still
+    /// works for its owner.
+    #[tokio::test]
+    async fn private_meetings_are_left_out_of_listings() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, title, workspace_id, private) VALUES
+             ('open', 'Open meeting', 'test-workspace', 0),
+             ('secret', 'Secret meeting', 'test-workspace', 1)",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let ids = |page: MeetingPage| {
+            page.meetings
+                .into_iter()
+                .map(|meeting| meeting.id)
+                .collect::<Vec<_>>()
+        };
+        let listed = list_meetings(db.pool(), &test_scope(), ListMeetingsInput::default())
+            .await
+            .unwrap();
+        assert_eq!(ids(listed), vec!["open".to_string()]);
+        let included =
+            list_meetings_including_private(db.pool(), &test_scope(), ListMeetingsInput::default())
+                .await
+                .unwrap();
+        assert_eq!(included.meetings.len(), 2);
+        let one = get_meeting(
+            db.pool(),
+            &test_scope(),
+            GetMeetingInput {
+                meeting_id: "secret".into(),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(one.id, "secret");
     }
 
     #[test]

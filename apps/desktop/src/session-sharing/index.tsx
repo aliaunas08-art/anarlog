@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { useRef, useState } from "react";
 
 import { ShareNetwork, Users } from "@anlg/ui/components/icons";
@@ -56,7 +57,11 @@ import {
   hashSessionShareProjection,
   recordPublishedSessionShareState,
 } from "./reconciliation";
-import { loadSessionShareSource, useAvailableShareWorkspaces } from "./source";
+import {
+  assertShareable,
+  loadSessionShareSource,
+  useAvailableShareWorkspaces,
+} from "./source";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
@@ -207,6 +212,16 @@ export function SessionShareButton({
         context = requireActivePrepareContext(identity, signal);
         if (source.sessionId !== identity.sessionId) {
           throw new ShareManagementError();
+        }
+        // ASPC C6.4: sharing a Private meeting needs an explicit include
+        // for this one share.
+        if (source.isPrivate) {
+          const includePrivate = await ask(
+            t`This meeting is marked Private. Share it anyway? Only this share includes it.`,
+            { title: t`Share a Private meeting`, kind: "warning" },
+          ).catch(() => false);
+          assertShareable(source, { includePrivate });
+          context = requireActivePrepareContext(identity, signal);
         }
         const share = await createOrReuseSessionShare(context, {
           workspaceId: source.workspaceId,
@@ -474,6 +489,10 @@ export function SessionShareButton({
         latestSessionIdRef.current !== variables.identity.sessionId
       ) {
         clearAbandonedSharePreparation(variables.identity);
+        return;
+      }
+      if (error instanceof Error && error.name === "PrivateMeetingShareError") {
+        toast.info(t`Not shared: this meeting is Private.`);
         return;
       }
       console.error("[session-sharing] could not activate share", error);

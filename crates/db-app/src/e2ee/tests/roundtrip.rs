@@ -332,3 +332,33 @@ async fn copied_link_activation_survives_encrypted_restore_without_local_cache()
             .unwrap();
     assert_eq!(retained, activation);
 }
+
+/// ASPC C6.4: the Private flag syncs to other devices like `locked` (the
+/// replica seals every `sessions` column), so a meeting marked Private on one
+/// Mac is also left out of All-meetings Ask on the others.
+#[tokio::test]
+async fn private_flag_reaches_other_devices() {
+    let source = test_db().await;
+    let target = test_db().await;
+    let workspace_keys = keys("workspace-a");
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, private)
+        VALUES ('secret', 'workspace-a', 1), ('open', 'workspace-a', 0)",
+    )
+    .execute(source.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    copy_replica(source.pool(), target.pool()).await;
+    apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let received: Vec<(String, i64)> =
+        sqlx::query_as("SELECT id, private FROM sessions ORDER BY id")
+            .fetch_all(target.pool())
+            .await
+            .unwrap();
+    assert_eq!(received, [("open".into(), 0), ("secret".into(), 1)]);
+}

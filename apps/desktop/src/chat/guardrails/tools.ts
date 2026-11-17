@@ -1,5 +1,6 @@
 import type { ToolSet } from "ai";
 
+import { excludePrivateMeetings } from "./private";
 import type { AskScope } from "./scope";
 
 // Read tools that can be pinned to one meeting id.
@@ -125,6 +126,8 @@ function pick(tools: ToolSet, names: readonly string[]): ToolSet {
  * - meeting: read tools pinned to the current meeting, plus edit tools for that
  *   meeting only when the user explicitly asked to edit.
  * - library: read/search tools; write tools only when explicitly asked.
+ *   Private meetings (C6.4) are left out unless `includePrivate` is set for
+ *   this one request.
  */
 export function selectToolsForScope(
   tools: ToolSet,
@@ -132,7 +135,13 @@ export function selectToolsForScope(
     scope,
     meetingId,
     explicitEdit,
-  }: { scope: AskScope; meetingId?: string | null; explicitEdit: boolean },
+    includePrivate = false,
+  }: {
+    scope: AskScope;
+    meetingId?: string | null;
+    explicitEdit: boolean;
+    includePrivate?: boolean;
+  },
 ): ToolSet {
   if (scope === "meeting") {
     if (!meetingId) return {};
@@ -147,10 +156,16 @@ export function selectToolsForScope(
     return pinned;
   }
 
-  return pick(
+  const selected = pick(
     tools,
     explicitEdit
       ? [...LIBRARY_READ_TOOLS, ...LIBRARY_WRITE_TOOLS]
       : [...LIBRARY_READ_TOOLS],
   );
+  if (includePrivate) return selected;
+  const guarded: ToolSet = {};
+  for (const [name, tool] of Object.entries(selected)) {
+    guarded[name] = excludePrivateMeetings(tool);
+  }
+  return guarded;
 }

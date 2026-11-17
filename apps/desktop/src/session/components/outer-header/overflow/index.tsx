@@ -38,6 +38,7 @@ import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
 import { LockNote } from "./lock-note";
+import { PrivateNote } from "./private-note";
 
 import { useAudioPlayer } from "~/audio-player";
 import { DEVICE_AUTH_REASON } from "~/lock/auth";
@@ -297,6 +298,7 @@ export function OverflowButton({
             <AlwaysOnTop />
             <DropdownMenuSeparator />
             <LockNote sessionId={sessionId} />
+            <PrivateNote sessionId={sessionId} />
             <DeleteNote sessionId={sessionId} />
           </AppFloatingPanel>
         </DropdownMenuContent>
