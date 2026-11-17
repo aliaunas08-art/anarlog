@@ -637,8 +637,14 @@ fn sync_events(
             from_ms,
             to_ms,
         ) {
+            // Half-open, like the providers' own windows: Google and Graph
+            // return events with start < range end and end > range start. An
+            // inclusive check counted an event starting exactly at the range
+            // end (an all-day event two days out) as in range, deleted it
+            // because the provider didn't return it, and the month view's
+            // wider sync added it back, so it flickered in and out.
             (Some(start), Some(end), Some(from_ms), Some(to_ms)) => {
-                start <= to_ms && end >= from_ms
+                start < to_ms && end > from_ms
             }
             _ => false,
         };
@@ -1000,6 +1006,33 @@ mod tests {
         assert_eq!(result.to_update.len(), 1);
         assert!(result.to_add.is_empty());
         assert!(result.to_delete.is_empty());
+    }
+
+    #[test]
+    fn keeps_events_that_only_touch_the_edge_of_the_sync_window() {
+        // Starts exactly at the window end (the provider leaves it out).
+        let at_end = existing_event(|event| {
+            event.id = "at-end".to_string();
+            event.started_at = TO.to_string();
+            event.ended_at = "2024-02-02T00:00:00Z".to_string();
+            event.is_all_day = true;
+        });
+        // Ends exactly at the window start.
+        let before = existing_event(|event| {
+            event.id = "before".to_string();
+            event.tracking_id_event = "existing-2".to_string();
+            event.started_at = "2023-12-31T23:00:00Z".to_string();
+            event.ended_at = FROM.to_string();
+        });
+        let result = sync_events(
+            &ctx(),
+            &[],
+            &[at_end, before, existing_event(|_| {})],
+            &no_participants(),
+            FROM,
+            TO,
+        );
+        assert_eq!(result.to_delete, ["event-1"]);
     }
 
     #[test]
