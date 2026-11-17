@@ -272,6 +272,10 @@ msgstr "{remaining} days left"
 msgid "{title} deleted"
 msgstr "{title} deleted"
 
+#: src/settings/audit/index.tsx
+msgid "{total} entries"
+msgstr "{total} entries"
+
 #: src/settings/general/billing.tsx
 msgid "{trialDaysRemaining} day left"
 msgstr "{trialDaysRemaining} day left"
@@ -444,6 +448,7 @@ msgstr "Account"
 msgid "Acme"
 msgstr "Acme"
 
+#: src/settings/audit/index.tsx
 #: src/settings/automations/index.tsx
 #: src/settings/automations/workflow-builder.tsx
 msgid "Action"
@@ -908,6 +913,11 @@ msgstr "Audio saved to this Mac"
 #: src/main/home.tsx
 msgid "Audio was saved up to the second · not transcribed yet"
 msgstr "Audio was saved up to the second · not transcribed yet"
+
+#: src/settings/audit/index.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Audit"
+msgstr "Audit"
 
 #: src/lock/screen.tsx
 msgid "Authenticate to continue."
@@ -2292,6 +2302,14 @@ msgstr "Date and time are required"
 msgid "Date range"
 msgstr "Date range"
 
+#: src/settings/privacy/retention.tsx
+msgid "days"
+msgstr "days"
+
+#: src/settings/privacy/retention.tsx
+msgid "Days to keep meetings"
+msgstr "Days to keep meetings"
+
 #: src/edit/tab-content.tsx
 #: src/settings/team/index.tsx
 msgid "Decline"
@@ -2353,6 +2371,10 @@ msgstr "Delete comment"
 msgid "Delete Event"
 msgstr "Delete Event"
 
+#: src/settings/privacy/retention.tsx
+msgid "Delete meetings older than…"
+msgstr "Delete meetings older than…"
+
 #: src/settings/ai/stt/select.tsx
 msgid "Delete model"
 msgstr "Delete model"
@@ -2406,6 +2428,10 @@ msgstr "Describe the template purpose..."
 #: src/session-sharing/management-panel.tsx
 msgid "Desktop edits published. Sharing resumed."
 msgstr "Desktop edits published. Sharing resumed."
+
+#: src/settings/audit/index.tsx
+msgid "Details"
+msgstr "Details"
 
 #: src/settings/general/notification.tsx
 msgid "Detect meetings from microphone activity."
@@ -3450,6 +3476,10 @@ msgstr "Keep desktop edits"
 msgid "Keep forever"
 msgstr "Keep forever"
 
+#: src/settings/privacy/retention.tsx
+msgid "Keep meetings forever"
+msgstr "Keep meetings forever"
+
 #: src/settings/sync/index.tsx
 msgid "Keep notes current automatically."
 msgstr "Keep notes current automatically."
@@ -3626,6 +3656,10 @@ msgstr "Live transcript preview"
 msgid "Living Library"
 msgstr "Living Library"
 
+#: src/settings/audit/index.tsx
+msgid "Load older entries"
+msgstr "Load older entries"
+
 #: src/templates/auto-form.tsx
 msgid "Loading Auto format..."
 msgstr "Loading Auto format..."
@@ -3732,6 +3766,14 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 #: src/settings/general/main-language.tsx
 msgid "Main language"
 msgstr "Main language"
+
+#: src/session/components/outer-header/overflow/private-note.tsx
+msgid "Make Not Private"
+msgstr "Make Not Private"
+
+#: src/session/components/outer-header/overflow/private-note.tsx
+msgid "Make Private"
+msgstr "Make Private"
 
 #: src/chat/components/body/empty.tsx
 msgid "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
@@ -3871,6 +3913,10 @@ msgstr "Meeting notes sent to #{0}."
 #: src/session-sharing/index.tsx
 msgid "Meeting notes sent."
 msgstr "Meeting notes sent."
+
+#: src/settings/privacy/retention.tsx
+msgid "Meeting retention"
+msgstr "Meeting retention"
 
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
@@ -4397,6 +4443,10 @@ msgstr "Not set up"
 msgid "Not shared with a Team"
 msgstr "Not shared with a Team"
 
+#: src/session-sharing/index.tsx
+msgid "Not shared: this meeting is Private."
+msgstr "Not shared: this meeting is Private."
+
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "note"
 msgstr "note"
@@ -4469,13 +4519,26 @@ msgstr "Notion update"
 msgid "Now"
 msgstr "Now"
 
+#: src/settings/audit/index.tsx
+msgid "Object"
+msgstr "Object"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Objects"
 msgstr "Objects"
 
+#. placeholder {0}: report.entries
+#: src/settings/audit/index.tsx
+msgid "OK: {0} entries, chain intact."
+msgstr "OK: {0} entries, chain intact."
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Older files that differ from your current data were kept as recovery copies. No action is required."
 msgstr "Older files that differ from your current data were kept as recovery copies. No action is required."
+
+#: src/settings/privacy/retention.tsx
+msgid "Older meetings are deleted permanently, with their notes, transcripts, audio and attachments, at startup and every 6 hours. A meeting being recorded is never deleted."
+msgstr "Older meetings are deleted permanently, with their notes, transcripts, audio and attachments, at startup and every 6 hours. A meeting being recorded is never deleted."
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
@@ -4923,6 +4986,10 @@ msgstr "Primary recording device"
 #: src/settings/general/app-settings.tsx
 msgid "Privacy"
 msgstr "Privacy"
+
+#: src/session/components/outer-header/overflow/private-note.tsx
+msgid "Private"
+msgstr "Private"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Pro"
@@ -5824,6 +5891,10 @@ msgstr "Send to Slack"
 msgid "Sending and receiving your latest changes."
 msgstr "Sending and receiving your latest changes."
 
+#: src/settings/audit/index.tsx
+msgid "Sensitive actions are recorded here: unlocking the app, opening, exporting or deleting meetings, Ask queries, settings and key changes, and denied requests. Entries hold ids and counts only, never meeting content. The log is append-only and hash-chained."
+msgstr "Sensitive actions are recorded here: unlocking the app, opening, exporting or deleting meetings, Ask queries, settings and key changes, and denied requests. Entries hold ids and counts only, never meeting content. The log is append-only and hash-chained."
+
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "sent"
 msgstr "sent"
@@ -5894,6 +5965,10 @@ msgstr "Share {title}"
 #: src/automations/starters.tsx
 msgid "Share a meeting recap in Slack"
 msgstr "Share a meeting recap in Slack"
+
+#: src/session-sharing/index.tsx
+msgid "Share a Private meeting"
+msgstr "Share a Private meeting"
 
 #: src/session-sharing/attachment-controls.tsx
 msgid "Share audio"
@@ -6285,6 +6360,10 @@ msgstr "Sort options"
 msgid "Sound"
 msgstr "Sound"
 
+#: src/settings/audit/index.tsx
+msgid "Source"
+msgstr "Source"
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Source: {provider} (AI model provider)"
 msgstr "Source: {provider} (AI model provider)"
@@ -6630,6 +6709,12 @@ msgstr "Take the enhanced note with decisions and follow-ups."
 msgid "Talk to sales"
 msgstr "Talk to sales"
 
+#. placeholder {0}: report.first_bad_seq ?? "?"
+#. placeholder {1}: report.reason ?? ""
+#: src/settings/audit/index.tsx
+msgid "Tampering detected at entry {0}: {1}"
+msgstr "Tampering detected at entry {0}: {1}"
+
 #: src/task/tasks-view.tsx
 msgid "Task"
 msgstr "Task"
@@ -6801,6 +6886,10 @@ msgstr "This meeting"
 msgid "This meeting · separate thread. Answers use only this meeting."
 msgstr "This meeting · separate thread. Answers use only this meeting."
 
+#: src/session-sharing/index.tsx
+msgid "This meeting is marked Private. Share it anyway? Only this share includes it."
+msgstr "This meeting is marked Private. Share it anyway? Only this share includes it."
+
 #: src/settings/ai/engine/index.tsx
 msgid "This month:"
 msgstr "This month:"
@@ -6842,6 +6931,10 @@ msgstr "This will remove {0} legacy files and free {1}. Your app data will not b
 #: src/settings/todo/index.tsx
 msgid "Ticket"
 msgstr "Ticket"
+
+#: src/settings/audit/index.tsx
+msgid "Time"
+msgstr "Time"
 
 #: src/settings/general/timezone.tsx
 msgid "Timezone"
@@ -7262,6 +7355,10 @@ msgstr "Used for transcription and automatic summary language detection."
 #: src/settings/general/voice-profile.tsx
 msgid "Used to label your lines in transcripts."
 msgstr "Used to label your lines in transcripts."
+
+#: src/settings/audit/index.tsx
+msgid "Verify"
+msgstr "Verify"
 
 #: src/settings/team/index.tsx
 msgid "Verify domain"
