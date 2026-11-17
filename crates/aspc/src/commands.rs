@@ -545,6 +545,11 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("session", "resolve_session_conflicts", Notes, Edit),
     // D2.2 permanent delete after the undo window (soft-deleted meetings only).
     guarded!("session", "purge_deleted_session", Notes, Delete),
+    // C5 backup (the whole library leaves the app: Export) and restore
+    // (replaces the library on the next launch: Administer). Main window
+    // only (capabilities/main.json); both confirm in a native dialog.
+    guarded!("session", "backup_library", Notes, Export),
+    guarded!("session", "restore_library", Settings, Administer),
     guarded!("session", "restore_deleted_session", Notes, Edit),
     pending!(
         "session",

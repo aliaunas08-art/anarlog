@@ -1,6 +1,7 @@
 use tauri::Wry;
 
 mod attachments;
+pub mod backup;
 mod commands;
 mod conflicts;
 mod creation;
@@ -51,6 +52,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::update_folder_instructions::<Wry>,
             commands::update_folder_workspace::<Wry>,
             commands::update_folder_icon::<Wry>,
+            commands::backup_library::<Wry>,
+            commands::restore_library::<Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

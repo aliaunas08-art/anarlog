@@ -867,6 +867,22 @@ Nothing below was run in the app; see "Phase 5 runtime check".
 - **Tests:** `parses_fdesetup_output`, `protected_names_cover_databases_and_stores`, `startup_tightens_the_data_dir_and_its_files` (`crates/aspc`), `filevault-warning.test.tsx`.
 - **Gaps:** the vault can be moved to a custom folder outside the app data dir (`settings` vault base); that folder's mode is not changed. Files created later by SQLite take the database file's mode, so they stay `0600`; other new JSON files are fixed at the next launch. SQLCipher: deferred gate C2.3.
 
+### C5 backup and restore: EXISTS (plaintext; was MISSING)
+
+- **Core** `plugins/session/src/backup.rs`: `write_backup` (work folder next to the target, `VACUUM INTO`, meeting count, `collect_files` skips symlinks, tar written to `archive.partial` then renamed, `0600`), `allowed_entry`, `check_database` (read-only, `integrity_check`, `sessions` table), `stage_restore` (unpack into a temp folder in the data dir, manifest format check, marker with the vault's `sessions/` path from the settings, rename to `restore-pending/`), `apply_pending_restore` (moves `app.db`, `-wal`, `-shm` and `sessions/` to `*.<UTC time>.pre-restore`, moves the restored ones in; copies across volumes for a custom vault).
+- **Commands** `plugins/session/src/commands.rs` (`backup_library`, `restore_library`, `confirm` native dialog via `tauri-plugin-dialog`, `database_dir` from `pragma_database_list`): `aspc::require` first, then `fs2().authorize_write` / `authorize_read` (dialog grant, single use), then the Rust confirmation, then the work, then the audit entry. Registry `crates/aspc/src/commands.rs` (session block); capability `apps/desktop/src-tauri/capabilities/main.json` only (`session:allow-backup-library`, `session:allow-restore-library`; not in `session:default`, so the composer doesn't get them).
+- **Startup** `apps/desktop/src-tauri/src/db.rs` (`open_desktop_db`): applies a staged restore right after the existing reset marker, before the pool opens.
+- **UI** `apps/desktop/src/settings/privacy/backup.tsx`: "Back up library…" / "Restore from backup…"; after staging a toast offers "Restart now" (refused while recording).
+- **New dependencies** (plugin `tauri-plugin-session`): `tar` 0.4 (MIT OR Apache-2.0, already in `Cargo.lock`), `tauri-plugin-dialog` and `tauri-plugin-fs2` (workspace), `tempfile` moved from dev to normal. `Cargo.lock` gains three dependency edges, no new crates.
+- **Tests:** `backup_restores_into_a_clean_library` (two meetings with a transcript, audio, an attachment and a memo; wipe; stage; nothing changes before the restart; apply; rows and file bytes match; the replaced library is kept; a second apply is a no-op), `hostile_or_foreign_archives_are_refused_and_change_nothing` (`..`, absolute path, unknown file, symlink, non-SQLite `app.db`, newer format), `settings/privacy/backup.test.tsx`.
+- **Gaps:**
+  - not encrypted (C5.1's default needs `age` or similar: a dependency decision for the user);
+  - the `sessions/` copy is not a snapshot: a recording in progress during a backup may be copied half-written (the database snapshot is consistent);
+  - a restore on another Mac brings the database but not the Keychain items (Engine key, E2EE recovery key, calendar tokens), and the restored library keeps its workspace binding; sync after such a restore was not tested;
+  - `backup.restored` is recorded when the restore is staged, not again when it is applied at launch;
+  - the vault `sessions/` path is taken when staging; if the vault moves before the restart, the restored folder goes to the old place;
+  - not run in CI as a separate job (C5.3): it runs with the `tauri-plugin-session` tests.
+
 ## Not verified
 
 - No runtime test was run for any of this; it's a read-only audit.

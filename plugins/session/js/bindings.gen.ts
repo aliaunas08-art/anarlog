@@ -218,6 +218,33 @@ async updateFolderIcon(request: UpdateFolderIconRequest) : Promise<Result<null, 
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * ASPC C5: writes a backup of the library to `path`, which the user just
+ * picked in `fs2:pick_save_path` (A3.6, single use). Rust asks the user to
+ * confirm that the backup is not encrypted.
+ */
+async backupLibrary(path: string) : Promise<Result<BackupSummary, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|backup_library", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * ASPC C5: checks the backup at `path` (picked by the user in
+ * `fs2:pick_open_paths`, single use) and, after a confirmation shown by
+ * Rust, stages it. It replaces the library on the next launch; the current
+ * library is kept beside it.
+ */
+async restoreLibrary(path: string) : Promise<Result<RestoreSummary, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|restore_library", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -232,6 +259,7 @@ async updateFolderIcon(request: UpdateFolderIconRequest) : Promise<Result<null, 
 /** user-defined types **/
 
 export type AddSessionParticipantRequest = { session_id: string; human_id: string; source: string }
+export type BackupSummary = { meetings: number; files: number; bytes: number }
 export type CatalogFolderMaterialRequest = { folder_path: string; attachment_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
 export type CatalogNoteAttachmentRequest = { session_id: string; attachment_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
 export type CatalogSessionAudioRequest = { session_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
@@ -262,6 +290,11 @@ export type RenameFolderCatalogRequest = { old_path: string; new_path: string }
 export type ResolveSessionConflictRequest = { conflict_id: string }
 export type ResolveSessionConflictsRequest = { session_id: string }
 export type RestoreDeletedSessionOutcome = "restored" | "alive" | "not_deleted"
+export type RestoreSummary = { meetings: number; files: number; created_at: string; 
+/**
+ * The restore is applied when the app next starts.
+ */
+restart_required: boolean }
 export type SessionAudioRequest = { session_id: string }
 export type SetAttachmentCloudSyncEnabledRequest = { session_id: string; attachment_id: string; enabled: boolean }
 export type SetSessionProposalStatusRequest = { proposal_id: string; status: string }

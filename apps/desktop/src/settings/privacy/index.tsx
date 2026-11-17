@@ -3,6 +3,7 @@ import { platform } from "@tauri-apps/plugin-os";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { BackupSettings } from "./backup";
 import { RetentionSetting } from "./retention";
 
 import { DiskEncryptionRow } from "~/data-protection/disk-encryption-row";
@@ -118,6 +119,8 @@ export function SettingsPrivacy() {
           }}
         />
       </section>
+
+      <BackupSettings />
     </div>
   );
 }

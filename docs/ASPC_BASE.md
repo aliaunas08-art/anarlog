@@ -195,8 +195,10 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### C5. Backup and recovery
 
-- **C5.1** "Back up library" writes one archive containing the database (via the SQLite backup API), audio and attachments. By default it is encrypted with a passphrase the user chooses (age/XChaCha20). A plaintext backup needs an explicit confirmation that says it is unencrypted.
-- **C5.2** "Restore" checks the archive and restores into an empty library. Test: back up, wipe, restore, then open every meeting and compare it with the original.
+**Status: BUILT (Phase 5, 2026-11-16), plaintext only.** Core `plugins/session/src/backup.rs`, commands `session:backup_library` `(Notes, Export)` and `session:restore_library` `(Settings, Administer)`, both guarded and given only to the main window. UI: Settings → Privacy → Backup.
+
+- **C5.1** "Back up library" writes one archive containing the database (via the SQLite backup API), audio and attachments. By default it is encrypted with a passphrase the user chooses (age/XChaCha20). A plaintext backup needs an explicit confirmation that says it is unencrypted. Built: a tar archive (`.anarlogbackup`, mode `0600`) with `manifest.json` (format, time, app version, counts), `app.db` (`VACUUM INTO`, a consistent snapshot while the app runs) and the vault's `sessions/` folder; never the audit log or Keychain items. The path must come from `fs2:pick_save_path` (A3.6, single use). **Passphrase encryption is NOT BUILT** (it needs a new dependency such as `age`, not yet approved); every backup is plaintext and Rust shows a native confirmation that says so before writing. Each backup writes `backup.created` (counts, `encrypted: false`) to the audit log.
+- **C5.2** "Restore" checks the archive and restores into an empty library. Test: back up, wipe, restore, then open every meeting and compare it with the original. Built: the archive path must come from `fs2:pick_open_paths`; Rust shows a native confirmation; the archive is checked (format 1; only `manifest.json`, `app.db` and plain paths under `sessions/`; no absolute paths, `..`, links or special files; `PRAGMA integrity_check` and a `sessions` table) and unpacked into `<app data>/restore-pending/`. On the next launch, before the database opens, the current `app.db` and `sessions/` are renamed `*.<time>.pre-restore` (kept, not deleted) and the restored ones put in place. Staging writes `backup.restored` (counts, `staged: true`). Tests: `backup_restores_into_a_clean_library`, `hostile_or_foreign_archives_are_refused_and_change_nothing` (`plugins/session/src/backup/tests.rs`), `settings/privacy/backup.test.tsx`.
 - **C5.3** A backup format doesn't count as supported until its restore test passes in CI.
 
 ### C6. Recording
@@ -256,7 +258,7 @@ The rules:
   - permission denials (rate-limited, see §0);
   - data deletion;
   - retention runs;
-  - backups and restores (the API exists: `actions::BACKUP_CREATED` / `BACKUP_RESTORED`; nothing calls it until C5 is built);
+  - backups and restores (`backup.created`, `backup.restored` from `session:backup_library` / `restore_library`; counts and flags only);
   - CLI actions with source `cli` (meeting delete, local export).
 - **D1.5** It never contains meeting content. Enforced in code: action names are lower-case dotted names, and every id or detail value must be an identifier (no whitespace, at most 160 characters), so a title, query or transcript line is refused (`content_shaped_values_are_refused`, `content_is_refused_and_nothing_is_written`).
 - **D1.6** Settings → Audit shows the entries (paged, newest first) and runs "Verify". Reading the log is `(Settings, Administer)`. Test: editing, deleting or reordering a row directly in `audit.db`, or truncating it, makes Verify fail and points to the first bad entry (`crates/audit-log/src/tests.rs`).
@@ -368,7 +370,7 @@ These tests must exist and pass; each item is true or false:
 - [x] Audit log detects tampering, and app code has no update/delete path to it (D1.6, D1.1): `crates/audit-log/src/tests.rs`, `tests/isolation.rs`, `webview_sql_cannot_reach_the_audit_log`
 - [ ] Marker string appears in no log, error or analytics output (C4.2)
 - [x] Deleting a meeting removes every trace (D2.2): `a_purged_meeting_leaves_no_marker_in_the_database_wal_vault_or_cache` and `purged_sessions_leave_no_bytes_in_the_index_directory` (two tests; see ASPC_AUDIT Phase 4 gaps)
-- [ ] Backup restores into a clean install (C5.2)
+- [x] Backup restores into a clean install (C5.2): `backup_restores_into_a_clean_library` (`plugins/session`; a library wiped and recreated in place, not a separate install)
 - [ ] No secret in the repo or a fresh DB: `scripts/check-secrets` runs `git grep` for key patterns and scans a fresh `app.db` (C3.1)
 - [ ] Existing tests and Efficiency Engine tests pass: one call per meeting, model locked, no AI call site outside the Engine (C7.1, C7.2, C7.5)
 - [ ] `scripts/check-secrets --require-bundle` finds no key in the sources or the built bundle (C7.7)

@@ -69,6 +69,32 @@ Denies the add_session_participant command without any pre-configured scope.
 <tr>
 <td>
 
+`session:allow-backup-library`
+
+</td>
+<td>
+
+Enables the backup_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-backup-library`
+
+</td>
+<td>
+
+Denies the backup_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `session:allow-catalog-folder-material`
 
 </td>
@@ -504,6 +530,32 @@ Enables the restore_deleted_session command without any pre-configured scope.
 <td>
 
 Denies the restore_deleted_session command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:allow-restore-library`
+
+</td>
+<td>
+
+Enables the restore_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-restore-library`
+
+</td>
+<td>
+
+Denies the restore_library command without any pre-configured scope.
 
 </td>
 </tr>

@@ -25,6 +25,8 @@ const COMMANDS: &[&str] = &[
     "update_folder_instructions",
     "update_folder_workspace",
     "update_folder_icon",
+    "backup_library",
+    "restore_library",
 ];
 
 fn main() {

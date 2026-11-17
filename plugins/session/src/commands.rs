@@ -247,3 +247,144 @@ session_write_command!(
     folder_catalog::UpdateFolderIconRequest,
     ()
 );
+
+/// The folder that holds `app.db` (where a restore is staged and applied).
+async fn database_dir(pool: &sqlx::SqlitePool) -> Result<std::path::PathBuf, String> {
+    let file: String =
+        sqlx::query_scalar("SELECT file FROM pragma_database_list WHERE name = 'main'")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    std::path::Path::new(&file)
+        .parent()
+        .filter(|_| !file.is_empty())
+        .map(std::path::Path::to_path_buf)
+        .ok_or_else(|| "backup.no_database_file".to_string())
+}
+
+fn vault_sessions_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<std::path::PathBuf> {
+    use tauri_plugin_settings::SettingsPluginExt;
+    app.settings()
+        .vault_base()
+        .ok()
+        .map(|base| base.join("sessions").into_std_path_buf())
+}
+
+/// A native OK/Cancel dialog shown by Rust, so a webview can't confirm for
+/// the user (ASPC C5).
+async fn confirm<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    title: &str,
+    message: &str,
+    ok: &str,
+) -> bool {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .message(message)
+        .title(title)
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            ok.to_string(),
+            "Cancel".to_string(),
+        ))
+        .show(move |confirmed| {
+            let _ = tx.send(confirmed);
+        });
+    rx.await.unwrap_or(false)
+}
+
+/// ASPC C5: writes a backup of the library to `path`, which the user just
+/// picked in `fs2:pick_save_path` (A3.6, single use). Rust asks the user to
+/// confirm that the backup is not encrypted.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn backup_library<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    path: String,
+) -> Result<crate::backup::BackupSummary, String> {
+    use tauri_plugin_fs2::Fs2PluginExt;
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Export,
+    )?;
+    let path = app
+        .fs2()
+        .authorize_write(std::path::Path::new(&path))
+        .map_err(|e| e.to_string())?;
+    let runtime = db_runtime(&app)?;
+    if !confirm(
+        &app,
+        "Back up library",
+        "This backup is not encrypted. Anyone who can open the file can read your meetings, transcripts and recordings. Keep it somewhere only you can reach.",
+        "Back Up",
+    )
+    .await
+    {
+        return Err("backup.cancelled".into());
+    }
+    let summary = crate::backup::write_backup(
+        runtime.pool(),
+        vault_sessions_dir(&app).as_deref(),
+        &path,
+        &app.package_info().version.to_string(),
+    )
+    .await?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(anlg_audit_log::actions::BACKUP_CREATED, "library", "")
+            .flag("encrypted", false)
+            .count("meetings", summary.meetings)
+            .count("files", summary.files as i64),
+    );
+    Ok(summary)
+}
+
+/// ASPC C5: checks the backup at `path` (picked by the user in
+/// `fs2:pick_open_paths`, single use) and, after a confirmation shown by
+/// Rust, stages it. It replaces the library on the next launch; the current
+/// library is kept beside it.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn restore_library<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    path: String,
+) -> Result<crate::backup::RestoreSummary, String> {
+    use tauri_plugin_fs2::Fs2PluginExt;
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )?;
+    let path = app
+        .fs2()
+        .authorize_read(std::path::Path::new(&path))
+        .map_err(|e| e.to_string())?;
+    let runtime = db_runtime(&app)?;
+    let data_dir = database_dir(runtime.pool()).await?;
+    if !confirm(
+        &app,
+        "Restore library",
+        "Replace your library with this backup? Your current meetings are not deleted: they are kept in the app's data folder, renamed with \".pre-restore\". The restore finishes when the app restarts.",
+        "Restore",
+    )
+    .await
+    {
+        return Err("backup.cancelled".into());
+    }
+    let summary =
+        crate::backup::stage_restore(&path, &data_dir, vault_sessions_dir(&app).as_deref()).await?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(anlg_audit_log::actions::BACKUP_RESTORED, "library", "")
+            .flag("staged", true)
+            .count("meetings", summary.meetings)
+            .count("files", summary.files as i64),
+    );
+    Ok(summary)
+}

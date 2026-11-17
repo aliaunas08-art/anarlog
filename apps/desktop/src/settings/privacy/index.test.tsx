@@ -24,6 +24,10 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("./backup", () => ({
+  BackupSettings: () => null,
+}));
+
 vi.mock("~/data-protection/disk-encryption-row", () => ({
   DiskEncryptionRow: () => null,
 }));

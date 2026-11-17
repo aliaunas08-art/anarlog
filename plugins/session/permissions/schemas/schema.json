@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the add_session_participant command without any pre-configured scope."
         },
         {
+          "description": "Enables the backup_library command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-backup-library",
+          "markdownDescription": "Enables the backup_library command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the backup_library command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-backup-library",
+          "markdownDescription": "Denies the backup_library command without any pre-configured scope."
+        },
+        {
           "description": "Enables the catalog_folder_material command without any pre-configured scope.",
           "type": "string",
           "const": "allow-catalog-folder-material",
@@ -509,6 +521,18 @@
           "type": "string",
           "const": "deny-restore-deleted-session",
           "markdownDescription": "Denies the restore_deleted_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the restore_library command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-restore-library",
+          "markdownDescription": "Enables the restore_library command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the restore_library command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-restore-library",
+          "markdownDescription": "Denies the restore_library command without any pre-configured scope."
         },
         {
           "description": "Enables the set_attachment_cloud_sync_enabled command without any pre-configured scope.",

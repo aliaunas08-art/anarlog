@@ -65,6 +65,8 @@
     "transcription:default",
     "template:default",
     "session:default",
+    "session:allow-backup-library",
+    "session:allow-restore-library",
     "todo:default",
     "notification:default",
     "overlay:default",
