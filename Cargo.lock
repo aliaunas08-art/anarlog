@@ -18076,6 +18076,7 @@ dependencies = [
  "insta",
  "minijinja",
  "serde",
+ "serde_json",
  "specta",
  "template-eval",
  "thiserror 2.0.18",
