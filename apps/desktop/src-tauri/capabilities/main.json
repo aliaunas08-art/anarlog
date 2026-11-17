@@ -50,6 +50,7 @@
     "analytics:default",
     "attachment-sync:default",
     "agent:default",
+    "ai-engine:default",
     "bedrock:default",
     "updater:default",
     "updater2:default",

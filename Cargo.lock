@@ -278,6 +278,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-engine"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "futures-util",
+ "local-accounts",
+ "regex",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "toml 0.8.2",
+ "tracing",
+ "url",
+ "wiremock",
+]
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4734,6 +4757,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-accounts",
  "tauri-plugin-agent",
+ "tauri-plugin-ai-engine",
  "tauri-plugin-analytics",
  "tauri-plugin-anlg-tray",
  "tauri-plugin-attachment-sync",
@@ -16556,6 +16580,22 @@ dependencies = [
  "tauri-plugin",
  "tauri-specta",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tauri-plugin-ai-engine"
+version = "0.1.0"
+dependencies = [
+ "ai-engine",
+ "aspc",
+ "local-accounts",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+ "tracing",
 ]
 
 [[package]]

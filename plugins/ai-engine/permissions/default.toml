@@ -1,0 +1,11 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-request",
+  "allow-cancel-request",
+  "allow-status",
+  "allow-key-status",
+  "allow-set-api-key",
+  "allow-clear-api-key",
+  "allow-set-quotas",
+]

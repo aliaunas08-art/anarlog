@@ -121,6 +121,14 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("agent", "health_check", BUILD),
     pending!("agent", "install_cli", Settings, Administer),
     pending!("agent", "uninstall_cli", Settings, Administer),
+    // ai-engine: the Efficiency Engine (C7). The key never leaves Rust.
+    public!("ai-engine", "cancel_request", FLOW),
+    guarded!("ai-engine", "clear_api_key", Keys, Edit),
+    guarded!("ai-engine", "key_status", Keys, Read),
+    guarded!("ai-engine", "request", Notes, Read),
+    guarded!("ai-engine", "set_api_key", Keys, Edit),
+    guarded!("ai-engine", "set_quotas", Settings, Administer),
+    guarded!("ai-engine", "status", Settings, Read),
     // analytics
     public!("analytics", "clear_groups", TELEMETRY),
     public!("analytics", "event", TELEMETRY),

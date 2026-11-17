@@ -206,7 +206,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 
 ### C7. Cost protection (Efficiency Engine)
 
-**Status: not built. Decision pending.**
+**Status: in progress (2026-11-16).** The Rust gateway exists (`crates/ai-engine`, `plugins/ai-engine`); the frontend is wired to it in the following commits. Decision 1 is below.
 
 - **C7.1** All AI calls go through one Rust gateway, the Efficiency Engine. No webview code calls a model provider directly. Test: grep or lint finds no provider SDK or provider URL in `apps/desktop/src` outside the gateway client.
 - **C7.2** The Engine fixes the model (Haiku). The model id is a constant in the Engine and isn't taken from settings.

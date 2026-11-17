@@ -24,6 +24,7 @@ tauri = { workspace = true, features = ["specta", "protocol-asset"] }
 
 tauri-plugin-accounts = { workspace = true }
 tauri-plugin-agent = { workspace = true }
+tauri-plugin-ai-engine = { workspace = true }
 tauri-plugin-analytics = { workspace = true }
 tauri-plugin-attachment-sync = { workspace = true }
 tauri-plugin-audio-priority = { workspace = true }

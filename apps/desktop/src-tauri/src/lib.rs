@@ -337,6 +337,7 @@ pub fn main() {
         .plugin(tauri_plugin_messenger::init())
         .plugin(tauri_plugin_misc::init())
         .plugin(tauri_plugin_template::init())
+        .plugin(tauri_plugin_ai_engine::init())
         .plugin(tauri_plugin_session::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_detect::init())
