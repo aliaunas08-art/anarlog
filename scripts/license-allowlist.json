@@ -1,4 +1,14 @@
 {
   "_comment": "Packages allowed despite a missing or GPL-family licence. Only the project owner adds entries. Each entry: ecosystem (cargo|npm), name, optional version, the exact licence string it approves, reason, approved_by, approved_on (YYYY-MM-DD). An entry without approved_by does not count.",
-  "allow": []
+  "allow": [
+    {
+      "ecosystem": "npm",
+      "name": "khroma",
+      "version": "2.1.0",
+      "license": "Unknown",
+      "reason": "MIT. The bundled licence file (node_modules/khroma/license) is the standard MIT text, 'Copyright (c) 2019-present Fabio Spampinato, Andrew Maney'; only package.json lacks a licence field. Pulled in by mermaid via streamdown (desktop Markdown renderer).",
+      "approved_by": "Ali Aunas",
+      "approved_on": "2026-11-17"
+    }
+  ]
 }

@@ -404,9 +404,6 @@ importers:
       react-hotkeys-hook:
         specifier: ^4.6.2
         version: 4.6.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      react-scan:
-        specifier: 0.5.7
-        version: 0.5.7(patch_hash=040b19ffe77a486ebd4ebf4ad8292c3e4b0f8266b6ae4f97c6459efd8058a365)(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(rolldown@1.1.5)(vite@8.1.6(@types/node@24.12.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       retext-english:
         specifier: ^5.0.0
         version: 5.0.0
@@ -486,6 +483,9 @@ importers:
       postcss:
         specifier: ^8.5.23
         version: 8.5.26
+      react-scan:
+        specifier: 0.5.7
+        version: 0.5.7(patch_hash=040b19ffe77a486ebd4ebf4ad8292c3e4b0f8266b6ae4f97c6459efd8058a365)(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(rolldown@1.1.5)(vite@8.1.6(@types/node@24.12.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
