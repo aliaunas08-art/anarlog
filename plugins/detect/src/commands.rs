@@ -131,6 +131,21 @@ pub(crate) async fn list_default_ignored_bundle_ids<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn inspect_meeting_accessibility<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+) -> Result<Vec<anlg_detect::MeetingAccessibilityInspection>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
+    run_meeting_accessibility_inspection(app).await
+}
+
+/// The command body without the guard, for the AX worker tests.
+pub(crate) async fn run_meeting_accessibility_inspection<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
 ) -> Result<Vec<anlg_detect::MeetingAccessibilityInspection>, String> {
     app.state::<AxWorker>().inspect().await
 }
@@ -158,7 +173,15 @@ pub(crate) async fn send_meeting_chat_message<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn capture_meeting_chat_messages<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<anlg_detect::MeetingChatCaptureResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let current_mic_apps = app
         .detect()
         .list_mic_using_applications()
@@ -190,8 +213,16 @@ pub(crate) struct MeetingScreenShareCapture {
 #[specta::specta]
 pub(crate) async fn capture_meeting_screen_share<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     reset: bool,
 ) -> Result<MeetingScreenShareCapture, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let sampler = app.state::<ScreenShareSamplerState>().inner().clone();
     app.state::<AxWorker>()
         .run(move || {
@@ -358,7 +389,15 @@ mod tests {
 #[specta::specta]
 pub(crate) async fn start_active_speaker_tracking<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     use crate::active_speakers::{ActiveSpeakerTrackerState, SAMPLE_INTERVAL, now_ms};
 
     let tracker = app.state::<ActiveSpeakerTrackerState>().inner().clone();
@@ -394,7 +433,15 @@ pub(crate) async fn start_active_speaker_tracking<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn stop_active_speaker_tracking<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<crate::active_speakers::ActiveSpeakerTimeline>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     Ok(app
         .state::<crate::active_speakers::ActiveSpeakerTrackerState>()
         .stop())

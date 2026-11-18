@@ -265,8 +265,16 @@ pub(crate) async fn delete_folder<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_exist<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     crate::audio::exists(&session_dir).map_err(|e| e.to_string())
 }
@@ -275,8 +283,16 @@ pub(crate) async fn audio_exist<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_delete<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     app.fs_sync().delete_session_audio_locked(&session_id)
 }
@@ -285,8 +301,16 @@ pub(crate) async fn audio_delete<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_metadata<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Option<crate::audio::AudioFileMetadata>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     spawn_blocking!({ crate::audio::metadata(&session_dir).map_err(|e| e.to_string()) })
 }
@@ -445,9 +469,17 @@ pub(crate) async fn audio_import_data<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn audio_source_metadata(
+pub(crate) async fn audio_source_metadata<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     source_path: String,
 ) -> Result<crate::audio::AudioSourceMetadata, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         crate::audio::source_metadata(&PathBuf::from(source_path)).map_err(|e| e.to_string())
     })
@@ -457,8 +489,16 @@ pub(crate) async fn audio_source_metadata(
 #[specta::specta]
 pub(crate) async fn audio_has_speech<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     spawn_blocking!({
         let path = crate::audio::path(&session_dir).ok_or("audio_not_found")?;
@@ -470,8 +510,16 @@ pub(crate) async fn audio_has_speech<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_path<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<String, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let path = crate::audio::path(&session_dir)
         .map(|p| p.to_string_lossy().to_string())
@@ -493,8 +541,16 @@ pub(crate) async fn audio_path<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_peaks<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<crate::audio::AudioPeaks, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let cache_path = audio_peaks_cache_path(&app, &session_id)?;
     spawn_blocking!({
@@ -529,9 +585,17 @@ fn audio_peaks_cache_path<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_copy<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     source_session_id: String,
     target_session_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     if source_session_id == target_session_id {
         return Err("audio_copy_same_session".into());
     }

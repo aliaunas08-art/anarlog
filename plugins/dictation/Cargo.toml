@@ -13,6 +13,7 @@ specta-typescript = { workspace = true }
 tokio-tungstenite = { workspace = true }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-audio = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }

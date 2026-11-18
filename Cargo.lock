@@ -16924,6 +16924,7 @@ dependencies = [
 name = "tauri-plugin-detect"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "base64 0.22.1",
  "detect",
  "notification-interface",
@@ -16969,6 +16970,7 @@ dependencies = [
 name = "tauri-plugin-dictation"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "atspi",
  "audio",
  "dictation-ui-macos",

@@ -67,6 +67,7 @@ const SYNC_BACKGROUND: &str = "background cloud sync (key setup, device enrollme
 const CAPTURE_TOKEN: &str = "a timer refreshes the transcription token during an active recording, which keeps running while the app is locked; role and window are still checked";
 const MEETING_BACKGROUND: &str = "meeting work that keeps running behind the lock screen after a relock (scheduled auto-start, enhance results, screen-record cataloguing); role and window are still checked, and only the main window runs it";
 const TRANSCRIPT_PIPELINE: &str = "live, batch and dictation transcription keep running behind the lock screen after a relock and must save what they captured; role and window are still checked";
+const CAPTURE_PIPELINE: &str = "recording, meeting detection, system dictation and the end-of-recording audio save and cleanup keep running behind the lock screen (a scheduled recording can start after a relock); role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -276,7 +277,7 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("db", "begin_cloudsync_activity", Settings, Edit),
     pending!("db", "bind_cloudsync_account", Settings, Administer),
     pending!("db", "cleanup_legacy_files", Settings, Administer),
-    pending!("db", "cleanup_recording_imports", Recording, Delete),
+    guarded!("db", "cleanup_recording_imports", Recording, Delete),
     pending!("db", "configure_cloudsync", Settings, Administer),
     lock_exempt!(
         "db",
@@ -372,12 +373,30 @@ pub static COMMANDS: &[CommandEntry] = &[
         "pending deep-link payloads the OS delivered; no stored data"
     ),
     // detect
-    pending!("detect", "capture_meeting_chat_messages", Recording, Create),
-    pending!("detect", "capture_meeting_screen_share", Recording, Create),
+    lock_exempt!(
+        "detect",
+        "capture_meeting_chat_messages",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
+    lock_exempt!(
+        "detect",
+        "capture_meeting_screen_share",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     public!("detect", "get_current_locale_identifier", DEVICE),
     public!("detect", "get_installed_application_icons", DEVICE),
     public!("detect", "get_preferred_languages", DEVICE),
-    pending!("detect", "inspect_meeting_accessibility", Recording, Create),
+    lock_exempt!(
+        "detect",
+        "inspect_meeting_accessibility",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     public!("detect", "list_default_ignored_bundle_ids", DEVICE),
     public!("detect", "list_installed_applications", DEVICE),
     public!("detect", "list_mic_using_applications", DEVICE),
@@ -386,8 +405,20 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("detect", "set_included_bundle_ids", Settings, Edit),
     pending!("detect", "set_mic_active_threshold", Settings, Edit),
     pending!("detect", "set_respect_do_not_disturb", Settings, Edit),
-    pending!("detect", "start_active_speaker_tracking", Recording, Create),
-    pending!("detect", "stop_active_speaker_tracking", Recording, Create),
+    lock_exempt!(
+        "detect",
+        "start_active_speaker_tracking",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
+    lock_exempt!(
+        "detect",
+        "stop_active_speaker_tracking",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     // dictation
     public!("dictation", "cancel_recording", FLOW),
     public!("dictation", "capture_target", DEVICE),
@@ -400,9 +431,21 @@ pub static COMMANDS: &[CommandEntry] = &[
     ),
     public!("dictation", "set_phase", UI),
     public!("dictation", "show", UI),
-    pending!("dictation", "start_recording", Recording, Create),
-    pending!("dictation", "start_system_recording", Recording, Create),
-    pending!("dictation", "stop_recording", Recording, Create),
+    guarded!("dictation", "start_recording", Recording, Create),
+    lock_exempt!(
+        "dictation",
+        "start_system_recording",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
+    lock_exempt!(
+        "dictation",
+        "stop_recording",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     public!("dictation", "update_amplitude", UI),
     // export
     guarded!("export", "export", Notes, Export),
@@ -411,22 +454,46 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("fs-sync", "attachment_read", Notes, Read),
     pending!("fs-sync", "attachment_remove", Notes, Delete),
     pending!("fs-sync", "attachment_save", Notes, Create),
-    pending!("fs-sync", "audio_copy", Recording, Create),
-    pending!("fs-sync", "audio_delete", Recording, Delete),
+    guarded!("fs-sync", "audio_copy", Recording, Create),
+    lock_exempt!(
+        "fs-sync",
+        "audio_delete",
+        Recording,
+        Delete,
+        CAPTURE_PIPELINE
+    ),
     pending!(
         "fs-sync",
         "audio_delete_orphaned_expired",
         Recording,
         Delete
     ),
-    pending!("fs-sync", "audio_exist", Recording, Read),
-    pending!("fs-sync", "audio_has_speech", Recording, Read),
+    lock_exempt!("fs-sync", "audio_exist", Recording, Read, CAPTURE_PIPELINE),
+    lock_exempt!(
+        "fs-sync",
+        "audio_has_speech",
+        Recording,
+        Read,
+        CAPTURE_PIPELINE
+    ),
     guarded!("fs-sync", "audio_import", Recording, Create),
     guarded!("fs-sync", "audio_import_data", Recording, Create),
-    pending!("fs-sync", "audio_metadata", Recording, Read),
-    pending!("fs-sync", "audio_path", Recording, Read),
-    pending!("fs-sync", "audio_peaks", Recording, Read),
-    pending!("fs-sync", "audio_source_metadata", Recording, Read),
+    lock_exempt!(
+        "fs-sync",
+        "audio_metadata",
+        Recording,
+        Read,
+        CAPTURE_PIPELINE
+    ),
+    lock_exempt!("fs-sync", "audio_path", Recording, Read, CAPTURE_PIPELINE),
+    guarded!("fs-sync", "audio_peaks", Recording, Read),
+    lock_exempt!(
+        "fs-sync",
+        "audio_source_metadata",
+        Recording,
+        Read,
+        CAPTURE_PIPELINE
+    ),
     pending!("fs-sync", "chat_dir", Notes, Read),
     pending!("fs-sync", "create_folder", Notes, Create),
     guarded!("fs-sync", "delete_folder", Notes, Delete),
@@ -579,7 +646,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Create,
         MEETING_BACKGROUND
     ),
-    pending!("session", "catalog_session_audio", Recording, Create),
+    lock_exempt!(
+        "session",
+        "catalog_session_audio",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     lock_exempt!(
         "session",
         "create_session",
@@ -602,7 +675,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Create,
         MEETING_BACKGROUND
     ),
-    pending!("session", "mark_session_audio_absent", Recording, Edit),
+    lock_exempt!(
+        "session",
+        "mark_session_audio_absent",
+        Recording,
+        Edit,
+        CAPTURE_PIPELINE
+    ),
     pending!(
         "session",
         "mark_session_audio_transcription_complete",
@@ -804,7 +883,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Recording,
         Read
     ),
-    pending!("transcription", "get_capture_audio_gaps", Recording, Read),
+    lock_exempt!(
+        "transcription",
+        "get_capture_audio_gaps",
+        Recording,
+        Read,
+        CAPTURE_PIPELINE
+    ),
     pending!(
         "transcription",
         "get_capture_lifecycle_marker",
@@ -831,7 +916,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     ),
     public!("transcription", "get_current_microphone_device", DEVICE),
     public!("transcription", "get_mic_muted", DEVICE),
-    pending!("transcription", "get_stopped_capture", Recording, Read),
+    lock_exempt!(
+        "transcription",
+        "get_stopped_capture",
+        Recording,
+        Read,
+        CAPTURE_PIPELINE
+    ),
     pending!(
         "transcription",
         "improve_voice_enrollment_from_segment",
@@ -852,7 +943,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         Recording,
         Read
     ),
-    pending!("transcription", "list_capture_recoveries", Recording, Read),
+    guarded!("transcription", "list_capture_recoveries", Recording, Read),
     public!(
         "transcription",
         "list_documented_language_codes_batch",
@@ -864,14 +955,20 @@ pub static COMMANDS: &[CommandEntry] = &[
         BUILD
     ),
     public!("transcription", "list_microphone_devices", DEVICE),
-    pending!("transcription", "list_stopped_captures", Recording, Read),
+    guarded!("transcription", "list_stopped_captures", Recording, Read),
     pending!(
         "transcription",
         "list_transcription_sessions",
         Transcript,
         Read
     ),
-    pending!("transcription", "mark_capture_audio_saved", Recording, Edit),
+    lock_exempt!(
+        "transcription",
+        "mark_capture_audio_saved",
+        Recording,
+        Edit,
+        CAPTURE_PIPELINE
+    ),
     public!("transcription", "parse_subtitle", PURE),
     pending!(
         "transcription",
@@ -900,7 +997,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Read
     ),
     public!("transcription", "render_transcript_segments", PURE),
-    pending!("transcription", "retry_audio_capture", Recording, Create),
+    lock_exempt!(
+        "transcription",
+        "retry_audio_capture",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     lock_exempt!(
         "transcription",
         "save_batch_transcript",
@@ -914,9 +1017,21 @@ pub static COMMANDS: &[CommandEntry] = &[
         Recording,
         Edit
     ),
-    pending!("transcription", "set_capture_paused", Recording, Edit),
+    lock_exempt!(
+        "transcription",
+        "set_capture_paused",
+        Recording,
+        Edit,
+        CAPTURE_PIPELINE
+    ),
     public!("transcription", "set_mic_muted", DEVICE),
-    pending!("transcription", "start_capture", Recording, Create),
+    lock_exempt!(
+        "transcription",
+        "start_capture",
+        Recording,
+        Create,
+        CAPTURE_PIPELINE
+    ),
     lock_exempt!(
         "transcription",
         "start_transcription",
@@ -924,9 +1039,21 @@ pub static COMMANDS: &[CommandEntry] = &[
         Create,
         TRANSCRIPT_PIPELINE
     ),
-    pending!("transcription", "start_voice_enrollment", Recording, Create),
-    pending!("transcription", "stop_capture", Recording, Edit),
-    pending!("transcription", "stop_capture_for_session", Recording, Edit),
+    guarded!("transcription", "start_voice_enrollment", Recording, Create),
+    lock_exempt!(
+        "transcription",
+        "stop_capture",
+        Recording,
+        Edit,
+        CAPTURE_PIPELINE
+    ),
+    lock_exempt!(
+        "transcription",
+        "stop_capture_for_session",
+        Recording,
+        Edit,
+        CAPTURE_PIPELINE
+    ),
     lock_exempt!(
         "transcription",
         "stop_transcription",
@@ -944,7 +1071,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         "suggest_providers_for_languages_live",
         BUILD
     ),
-    pending!("transcription", "update_capture_config", Recording, Edit),
+    lock_exempt!(
+        "transcription",
+        "update_capture_config",
+        Recording,
+        Edit,
+        CAPTURE_PIPELINE
+    ),
     lock_exempt!(
         "transcription",
         "update_capture_credentials",
@@ -952,7 +1085,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         Edit,
         CAPTURE_TOKEN
     ),
-    pending!("transcription", "voice_enrollment_status", Recording, Read),
+    guarded!("transcription", "voice_enrollment_status", Recording, Read),
     // tray
     public!("tray", "set_tray_icon_visible", UI),
     public!("tray", "set_tray_recording_title", UI),

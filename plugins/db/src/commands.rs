@@ -54,10 +54,18 @@ async fn read_e2ee_secret_with_timeout(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn cleanup_recording_imports(
+pub(crate) async fn cleanup_recording_imports<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     vault_path: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     anlg_agent_access::cleanup_recording_imports(state.pool(), &vault_path)
         .await
         .map_err(|error| error.to_string())

@@ -146,7 +146,7 @@ mod tests {
 
         let spawn_inspect = || {
             let handle = app.handle().clone();
-            tokio::spawn(crate::commands::inspect_meeting_accessibility(handle))
+            tokio::spawn(crate::commands::run_meeting_accessibility_inspection(handle))
         };
         let hung = spawn_inspect();
         tokio::time::timeout(Duration::from_secs(2), started_rx)

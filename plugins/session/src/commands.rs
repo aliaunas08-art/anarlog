@@ -256,13 +256,23 @@ pub(crate) async fn catalog_note_attachment<R: tauri::Runtime>(
     let _guard = runtime.synced_write_guard().await;
     attachments::catalog_note_attachment(runtime.pool(), request).await
 }
-session_write_command!(
-    catalog_session_audio,
-    attachments,
-    catalog_session_audio,
-    attachments::CatalogSessionAudioRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn catalog_session_audio<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: attachments::CatalogSessionAudioRequest,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    attachments::catalog_session_audio(runtime.pool(), request).await
+}
 session_write_command!(
     mark_session_audio_transcription_complete,
     attachments,
@@ -294,13 +304,23 @@ pub(crate) async fn tombstone_session_audio<R: tauri::Runtime>(
     let _guard = runtime.synced_write_guard().await;
     attachments::tombstone_session_audio(runtime.pool(), request).await
 }
-session_write_command!(
-    mark_session_audio_absent,
-    attachments,
-    mark_session_audio_absent,
-    attachments::SessionAudioRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn mark_session_audio_absent<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: attachments::SessionAudioRequest,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    attachments::mark_session_audio_absent(runtime.pool(), request).await
+}
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn catalog_folder_material<R: tauri::Runtime>(

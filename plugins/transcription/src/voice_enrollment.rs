@@ -225,7 +225,15 @@ fn state<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Arc<VoiceEnrollmentSta
 #[specta::specta]
 pub async fn voice_enrollment_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<VoiceEnrollmentStatus, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let record = blocking(&app, load_record).await?;
     Ok(EnrollmentRecord::status(record.as_ref()))
 }
@@ -234,7 +242,15 @@ pub async fn voice_enrollment_status<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn start_voice_enrollment<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let state = state(&app);
     let mut active = state
         .active
