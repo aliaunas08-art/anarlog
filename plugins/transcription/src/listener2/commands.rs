@@ -11,8 +11,16 @@ use tauri_plugin_fs_sync::FsSyncPluginExt;
 #[specta::specta]
 pub async fn start_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     params: TranscriptionParams,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let audio_session_id = params.session_id.split(':').next().unwrap_or_default();
     let _audio_guard = app.fs_sync().lock_session_audio(audio_session_id).await;
     app.listener2()
@@ -25,8 +33,16 @@ pub async fn start_transcription<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn stop_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2().stop_transcription(session_id).await;
     Ok(())
 }
@@ -159,8 +175,16 @@ pub async fn refine_batch_transcript(
 #[specta::specta]
 pub async fn save_batch_transcript<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     request: crate::batch_transcript::SaveBatchTranscriptRequest,
 ) -> Result<crate::batch_transcript::SaveBatchTranscriptOutcome, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())

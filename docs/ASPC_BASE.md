@@ -371,7 +371,7 @@ Verify each item before a release and tick it in the release notes.
 These tests must exist and pass; each item is true or false:
 
 - [x] Viewer is denied edit, delete and export (A1.4): `viewer_reads_content_only` (`crates/aspc/src/lib.rs`) and the Viewer case of `guard_denies_locked_viewer_and_wrong_window` (`crates/aspc/src/state.rs`, every registry entry)
-- [ ] Every Tauri command rejects an unauthorised call (A2.2, A2.3): false while 224 commands are `Pending`; the 67 guarded ones are covered by `tests/command_registry.rs` and `guard_denies_locked_viewer_and_wrong_window` (see ASPC_AUDIT "Verification run")
+- [ ] Every Tauri command rejects an unauthorised call (A2.2, A2.3): false while 187 commands are `Pending`; the 103 guarded ones are covered by `tests/command_registry.rs` and `guard_denies_locked_viewer_and_wrong_window` (see ASPC_AUDIT "Verification run")
 - [ ] Two-workspace isolation, including Ask (C1.4, B4.2)
 - [x] Prompt-injection fixture causes no export, delete or cross-meeting disclosure (B3.4): `chat/guardrails/injection.test.ts` (Ask), the B3.4 case of `enhance-one-call.test.ts` (enhance), the hostile-block tests in `crates/template-app/src/escape.rs`
 - [x] Audit log detects tampering, and app code has no update/delete path to it (D1.6, D1.1): `crates/audit-log/src/tests.rs`, `tests/isolation.rs`, `webview_sql_cannot_reach_the_audit_log`

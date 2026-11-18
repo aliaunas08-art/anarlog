@@ -23,20 +23,40 @@ macro_rules! session_write_command {
     };
 }
 
-session_write_command!(
-    create_session,
-    creation,
-    create_session,
-    creation::CreateSessionRequest,
-    String
-);
-session_write_command!(
-    create_session_for_event,
-    creation,
-    create_session_for_event,
-    creation::CreateEventSessionRequest,
-    Option<creation::EventSessionResult>
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn create_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: creation::CreateSessionRequest,
+) -> Result<String, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    creation::create_session(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn create_session_for_event<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: creation::CreateEventSessionRequest,
+) -> Result<Option<creation::EventSessionResult>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    creation::create_session_for_event(runtime.pool(), request).await
+}
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn soft_delete_session<R: tauri::Runtime>(
@@ -99,63 +119,143 @@ fn db_runtime<R: tauri::Runtime>(
         .map(|state| state.inner().clone())
         .ok_or_else(|| "database is not ready yet".to_string())
 }
-session_write_command!(
-    add_session_participant,
-    participants,
-    add_session_participant,
-    participants::AddSessionParticipantRequest,
-    ()
-);
-session_write_command!(
-    remove_session_participant,
-    participants,
-    remove_session_participant,
-    participants::RemoveSessionParticipantRequest,
-    ()
-);
-session_write_command!(
-    persist_chat_session_proposal,
-    proposals,
-    persist_chat_session_proposal,
-    proposals::PersistChatSessionProposalRequest,
-    ()
-);
-session_write_command!(
-    set_session_proposal_status,
-    proposals,
-    set_session_proposal_status,
-    proposals::SetSessionProposalStatusRequest,
-    ()
-);
-session_write_command!(
-    resolve_session_conflicts,
-    conflicts,
-    resolve_session_conflicts,
-    conflicts::ResolveSessionConflictsRequest,
-    ()
-);
-session_write_command!(
-    resolve_session_conflict,
-    conflicts,
-    resolve_session_conflict,
-    conflicts::ResolveSessionConflictRequest,
-    ()
-);
-session_write_command!(
-    move_session_contents,
-    move_contents,
-    move_session_contents,
-    move_contents::MoveSessionContentsRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn add_session_participant<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: participants::AddSessionParticipantRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    participants::add_session_participant(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn remove_session_participant<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: participants::RemoveSessionParticipantRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    participants::remove_session_participant(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn persist_chat_session_proposal<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: proposals::PersistChatSessionProposalRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    proposals::persist_chat_session_proposal(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_session_proposal_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: proposals::SetSessionProposalStatusRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    proposals::set_session_proposal_status(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn resolve_session_conflicts<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: conflicts::ResolveSessionConflictsRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    conflicts::resolve_session_conflicts(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn resolve_session_conflict<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: conflicts::ResolveSessionConflictRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    conflicts::resolve_session_conflict(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn move_session_contents<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: move_contents::MoveSessionContentsRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    move_contents::move_session_contents(runtime.pool(), request).await
+}
 
-session_write_command!(
-    catalog_note_attachment,
-    attachments,
-    catalog_note_attachment,
-    attachments::CatalogNoteAttachmentRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn catalog_note_attachment<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: attachments::CatalogNoteAttachmentRequest,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    attachments::catalog_note_attachment(runtime.pool(), request).await
+}
 session_write_command!(
     catalog_session_audio,
     attachments,
@@ -201,13 +301,23 @@ session_write_command!(
     attachments::SessionAudioRequest,
     ()
 );
-session_write_command!(
-    catalog_folder_material,
-    folder_materials,
-    catalog_folder_material,
-    folder_materials::CatalogFolderMaterialRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn catalog_folder_material<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: folder_materials::CatalogFolderMaterialRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_materials::catalog_folder_material(runtime.pool(), request).await
+}
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn tombstone_folder_material<R: tauri::Runtime>(
@@ -225,20 +335,40 @@ pub(crate) async fn tombstone_folder_material<R: tauri::Runtime>(
     let _guard = runtime.synced_write_guard().await;
     folder_materials::tombstone_folder_material(runtime.pool(), request).await
 }
-session_write_command!(
-    ensure_folder_catalog,
-    folder_catalog,
-    ensure_folder_catalog,
-    folder_catalog::EnsureFolderCatalogRequest,
-    ()
-);
-session_write_command!(
-    rename_folder_catalog,
-    folder_catalog,
-    rename_folder_catalog,
-    folder_catalog::RenameFolderCatalogRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn ensure_folder_catalog<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: folder_catalog::EnsureFolderCatalogRequest,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_catalog::ensure_folder_catalog(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn rename_folder_catalog<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: folder_catalog::RenameFolderCatalogRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_catalog::rename_folder_catalog(runtime.pool(), request).await
+}
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn delete_folder_catalog<R: tauri::Runtime>(
@@ -256,27 +386,57 @@ pub(crate) async fn delete_folder_catalog<R: tauri::Runtime>(
     let _guard = runtime.synced_write_guard().await;
     folder_catalog::delete_folder_catalog(runtime.pool(), request).await
 }
-session_write_command!(
-    update_folder_instructions,
-    folder_catalog,
-    update_folder_instructions,
-    folder_catalog::UpdateFolderInstructionsRequest,
-    ()
-);
-session_write_command!(
-    update_folder_workspace,
-    folder_catalog,
-    update_folder_workspace,
-    folder_catalog::UpdateFolderWorkspaceRequest,
-    ()
-);
-session_write_command!(
-    update_folder_icon,
-    folder_catalog,
-    update_folder_icon,
-    folder_catalog::UpdateFolderIconRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn update_folder_instructions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: folder_catalog::UpdateFolderInstructionsRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_catalog::update_folder_instructions(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn update_folder_workspace<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: folder_catalog::UpdateFolderWorkspaceRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_catalog::update_folder_workspace(runtime.pool(), request).await
+}
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn update_folder_icon<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: folder_catalog::UpdateFolderIconRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    folder_catalog::update_folder_icon(runtime.pool(), request).await
+}
 
 /// The folder that holds `app.db` (where a restore is staged and applied).
 async fn database_dir(pool: &sqlx::SqlitePool) -> Result<std::path::PathBuf, String> {

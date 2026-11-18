@@ -65,6 +65,8 @@ const OPENER: &str = "hands a URL or path to the OS; paths are limited by A3.6";
 const SQL_LOCK: &str = "lock enforced per statement by the webview SQL authorizer, which lets only the lock screen's settings reads through";
 const SYNC_BACKGROUND: &str = "background cloud sync (key setup, device enrollment, token refresh) runs while the app is locked, which never pauses sync; role and window are still checked, and only the main window runs sync";
 const CAPTURE_TOKEN: &str = "a timer refreshes the transcription token during an active recording, which keeps running while the app is locked; role and window are still checked";
+const MEETING_BACKGROUND: &str = "meeting work that keeps running behind the lock screen after a relock (scheduled auto-start, enhance results, screen-record cataloguing); role and window are still checked, and only the main window runs it";
+const TRANSCRIPT_PIPELINE: &str = "live, batch and dictation transcription keep running behind the lock screen after a relock and must save what they captured; role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -276,7 +278,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("db", "cleanup_legacy_files", Settings, Administer),
     pending!("db", "cleanup_recording_imports", Recording, Delete),
     pending!("db", "configure_cloudsync", Settings, Administer),
-    lock_exempt!("db", "configure_cloudsync_token", Keys, Edit, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "configure_cloudsync_token",
+        Keys,
+        Edit,
+        SYNC_BACKGROUND
+    ),
     lock_exempt!("db", "configure_e2ee_replica", Keys, Edit, SYNC_BACKGROUND),
     pending!("db", "connect_local_library", Settings, Administer),
     lock_exempt!("db", "create_e2ee_identity", Keys, Create, SYNC_BACKGROUND),
@@ -285,21 +293,57 @@ pub static COMMANDS: &[CommandEntry] = &[
     lock_exempt!("db", "execute_proxy", Notes, Read, SQL_LOCK),
     lock_exempt!("db", "execute_transaction", Notes, Edit, SQL_LOCK),
     pending!("db", "get_cloudsync_status", Settings, Read),
-    lock_exempt!("db", "get_e2ee_identity_status", Keys, Read, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "get_e2ee_identity_status",
+        Keys,
+        Read,
+        SYNC_BACKGROUND
+    ),
     pending!("db", "get_legacy_cleanup_status", Settings, Read),
     pending!("db", "get_legacy_import_report", Settings, Read),
     guarded!("db", "get_meeting", Notes, Read),
     guarded!("db", "get_meeting_transcript", Transcript, Read),
-    lock_exempt!("db", "get_or_create_e2ee_device_identity", Keys, Create, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "get_or_create_e2ee_device_identity",
+        Keys,
+        Create,
+        SYNC_BACKGROUND
+    ),
     guarded!("db", "get_recurring_meeting_history", Notes, Read),
     public!("db", "get_startup_status", LOCK_SCREEN),
-    lock_exempt!("db", "import_e2ee_device_enrollment", Keys, Create, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "import_e2ee_device_enrollment",
+        Keys,
+        Create,
+        SYNC_BACKGROUND
+    ),
     lock_exempt!("db", "import_e2ee_identity", Keys, Create, SYNC_BACKGROUND),
-    lock_exempt!("db", "inspect_e2ee_recovery_key", Keys, Read, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "inspect_e2ee_recovery_key",
+        Keys,
+        Read,
+        SYNC_BACKGROUND
+    ),
     guarded!("db", "list_meetings", Notes, Read),
     pending!("db", "run_legacy_import", Notes, Create),
-    lock_exempt!("db", "seal_e2ee_recovery_key_for_device", Keys, Share, SYNC_BACKGROUND),
-    lock_exempt!("db", "seal_workspace_e2ee_key_for_recipients", Keys, Share, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "seal_e2ee_recovery_key_for_device",
+        Keys,
+        Share,
+        SYNC_BACKGROUND
+    ),
+    lock_exempt!(
+        "db",
+        "seal_workspace_e2ee_key_for_recipients",
+        Keys,
+        Share,
+        SYNC_BACKGROUND
+    ),
     pending!("db", "start_cloudsync", Settings, Edit),
     pending!("db", "stop_cloudsync", Settings, Edit),
     lock_exempt!("db", "subscribe", Notes, Read, SQL_LOCK),
@@ -526,14 +570,38 @@ pub static COMMANDS: &[CommandEntry] = &[
         "dev-only automation relay; not built into release"
     ),
     // session
-    pending!("session", "add_session_participant", Notes, Edit),
-    pending!("session", "catalog_folder_material", Notes, Create),
-    pending!("session", "catalog_note_attachment", Notes, Create),
+    guarded!("session", "add_session_participant", Notes, Edit),
+    guarded!("session", "catalog_folder_material", Notes, Create),
+    lock_exempt!(
+        "session",
+        "catalog_note_attachment",
+        Notes,
+        Create,
+        MEETING_BACKGROUND
+    ),
     pending!("session", "catalog_session_audio", Recording, Create),
-    pending!("session", "create_session", Notes, Create),
-    pending!("session", "create_session_for_event", Notes, Create),
+    lock_exempt!(
+        "session",
+        "create_session",
+        Notes,
+        Create,
+        MEETING_BACKGROUND
+    ),
+    lock_exempt!(
+        "session",
+        "create_session_for_event",
+        Notes,
+        Create,
+        MEETING_BACKGROUND
+    ),
     guarded!("session", "delete_folder_catalog", Notes, Delete),
-    pending!("session", "ensure_folder_catalog", Notes, Create),
+    lock_exempt!(
+        "session",
+        "ensure_folder_catalog",
+        Notes,
+        Create,
+        MEETING_BACKGROUND
+    ),
     pending!("session", "mark_session_audio_absent", Recording, Edit),
     pending!(
         "session",
@@ -541,12 +609,12 @@ pub static COMMANDS: &[CommandEntry] = &[
         Transcript,
         Edit
     ),
-    pending!("session", "move_session_contents", Notes, Edit),
-    pending!("session", "persist_chat_session_proposal", Notes, Create),
-    pending!("session", "remove_session_participant", Notes, Edit),
-    pending!("session", "rename_folder_catalog", Notes, Edit),
-    pending!("session", "resolve_session_conflict", Notes, Edit),
-    pending!("session", "resolve_session_conflicts", Notes, Edit),
+    guarded!("session", "move_session_contents", Notes, Edit),
+    guarded!("session", "persist_chat_session_proposal", Notes, Create),
+    guarded!("session", "remove_session_participant", Notes, Edit),
+    guarded!("session", "rename_folder_catalog", Notes, Edit),
+    guarded!("session", "resolve_session_conflict", Notes, Edit),
+    guarded!("session", "resolve_session_conflicts", Notes, Edit),
     // D2.2 permanent delete after the undo window (soft-deleted meetings only).
     guarded!("session", "purge_deleted_session", Notes, Delete),
     // C5 backup (the whole library leaves the app: Export) and restore
@@ -561,13 +629,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Settings,
         Edit
     ),
-    pending!("session", "set_session_proposal_status", Notes, Edit),
+    guarded!("session", "set_session_proposal_status", Notes, Edit),
     guarded!("session", "soft_delete_session", Notes, Delete),
     guarded!("session", "tombstone_folder_material", Notes, Delete),
     guarded!("session", "tombstone_session_audio", Recording, Delete),
-    pending!("session", "update_folder_icon", Notes, Edit),
-    pending!("session", "update_folder_instructions", Notes, Edit),
-    pending!("session", "update_folder_workspace", Notes, Edit),
+    guarded!("session", "update_folder_icon", Notes, Edit),
+    guarded!("session", "update_folder_instructions", Notes, Edit),
+    guarded!("session", "update_folder_workspace", Notes, Edit),
     // settings
     public!("settings", "global_base", BUILD),
     pending!("settings", "load", Settings, Read),
@@ -604,15 +672,27 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("tantivy", "update_document", Notes, Edit),
     pending!("tantivy", "update_documents", Notes, Edit),
     // template
-    pending!("template", "apply_session_content_corrections", Notes, Edit),
+    guarded!("template", "apply_session_content_corrections", Notes, Edit),
     public!("template", "compose_generated_summary", PURE),
     public!("template", "dominant_language", PURE),
     pending!("template", "get_template_source", Settings, Read),
     public!("template", "prepare_generated_summary", PURE),
     public!("template", "render", PURE),
     public!("template", "render_custom", PURE),
-    pending!("template", "save_generated_summary", Notes, Edit),
-    pending!("template", "save_generated_title", Notes, Edit),
+    lock_exempt!(
+        "template",
+        "save_generated_summary",
+        Notes,
+        Edit,
+        MEETING_BACKGROUND
+    ),
+    lock_exempt!(
+        "template",
+        "save_generated_title",
+        Notes,
+        Edit,
+        MEETING_BACKGROUND
+    ),
     public!("template", "summary_length_policy", PURE),
     // todo
     public!("todo", "authorization_status", DEVICE),
@@ -711,7 +791,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Recording,
         Create
     ),
-    pending!("transcription", "flush_live_transcript", Transcript, Edit),
+    lock_exempt!(
+        "transcription",
+        "flush_live_transcript",
+        Transcript,
+        Edit,
+        TRANSCRIPT_PIPELINE
+    ),
     pending!(
         "transcription",
         "get_capture_audio_cleanup_status",
@@ -725,7 +811,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Recording,
         Read
     ),
-    pending!("transcription", "get_capture_snapshot", Transcript, Read),
+    lock_exempt!(
+        "transcription",
+        "get_capture_snapshot",
+        Transcript,
+        Read,
+        TRANSCRIPT_PIPELINE
+    ),
     public!(
         "transcription",
         "get_capture_state",
@@ -793,8 +885,14 @@ pub static COMMANDS: &[CommandEntry] = &[
         Transcript,
         Edit
     ),
-    pending!("transcription", "refine_batch_transcript", Transcript, Edit),
-    pending!("transcription", "release_live_transcript", Transcript, Edit),
+    public!("transcription", "refine_batch_transcript", PURE),
+    lock_exempt!(
+        "transcription",
+        "release_live_transcript",
+        Transcript,
+        Edit,
+        TRANSCRIPT_PIPELINE
+    ),
     guarded!(
         "transcription",
         "render_session_transcript",
@@ -803,7 +901,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     ),
     public!("transcription", "render_transcript_segments", PURE),
     pending!("transcription", "retry_audio_capture", Recording, Create),
-    pending!("transcription", "save_batch_transcript", Transcript, Create),
+    lock_exempt!(
+        "transcription",
+        "save_batch_transcript",
+        Transcript,
+        Create,
+        TRANSCRIPT_PIPELINE
+    ),
     pending!(
         "transcription",
         "save_capture_lifecycle_marker",
@@ -813,11 +917,23 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("transcription", "set_capture_paused", Recording, Edit),
     public!("transcription", "set_mic_muted", DEVICE),
     pending!("transcription", "start_capture", Recording, Create),
-    pending!("transcription", "start_transcription", Transcript, Create),
+    lock_exempt!(
+        "transcription",
+        "start_transcription",
+        Transcript,
+        Create,
+        TRANSCRIPT_PIPELINE
+    ),
     pending!("transcription", "start_voice_enrollment", Recording, Create),
     pending!("transcription", "stop_capture", Recording, Edit),
     pending!("transcription", "stop_capture_for_session", Recording, Edit),
-    pending!("transcription", "stop_transcription", Transcript, Edit),
+    lock_exempt!(
+        "transcription",
+        "stop_transcription",
+        Transcript,
+        Edit,
+        TRANSCRIPT_PIPELINE
+    ),
     public!(
         "transcription",
         "suggest_providers_for_languages_batch",
@@ -829,7 +945,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         BUILD
     ),
     pending!("transcription", "update_capture_config", Recording, Edit),
-    lock_exempt!("transcription", "update_capture_credentials", Keys, Edit, CAPTURE_TOKEN),
+    lock_exempt!(
+        "transcription",
+        "update_capture_credentials",
+        Keys,
+        Edit,
+        CAPTURE_TOKEN
+    ),
     pending!("transcription", "voice_enrollment_status", Recording, Read),
     // tray
     public!("tray", "set_tray_icon_visible", UI),

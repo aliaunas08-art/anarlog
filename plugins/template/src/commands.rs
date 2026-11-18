@@ -68,8 +68,16 @@ pub fn compose_generated_summary(
 #[specta::specta]
 pub async fn save_generated_summary<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     request: crate::generated_summary::SaveGeneratedSummaryRequest,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())
@@ -82,8 +90,16 @@ pub async fn save_generated_summary<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn save_generated_title<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     request: crate::session_content::SaveGeneratedTitleRequest,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())
@@ -96,8 +112,16 @@ pub async fn save_generated_title<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn apply_session_content_corrections<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     request: crate::session_content::SessionContentCorrectionsRequest,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())

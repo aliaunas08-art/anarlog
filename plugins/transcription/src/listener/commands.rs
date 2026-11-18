@@ -193,8 +193,16 @@ pub async fn start_capture<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn flush_live_transcript<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Option<LiveTranscriptPersistence>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     use crate::live_journal::LiveJournalRegistry;
     use tauri::Manager;
 
@@ -209,9 +217,17 @@ pub async fn flush_live_transcript<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn release_live_transcript<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     transcript_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     use crate::live_journal::LiveJournalRegistry;
     use tauri::Manager;
 
@@ -430,7 +446,15 @@ pub async fn get_capture_state<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_capture_snapshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<CaptureSnapshot, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener()
         .get_capture_snapshot()
         .await

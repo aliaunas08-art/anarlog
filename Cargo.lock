@@ -17762,6 +17762,7 @@ dependencies = [
 name = "tauri-plugin-template"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "chrono",
  "db-app",
  "db-core",
