@@ -495,9 +495,17 @@ pub async fn render_transcript_segments(
 #[specta::specta]
 pub async fn update_capture_credentials<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     api_key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     use anlg_transcription_core::listener::actors::{SessionMsg, session_supervisor_name};
     let cell = ractor::registry::where_is(session_supervisor_name(&session_id))
         .ok_or("Capture is not active")?;

@@ -63,6 +63,8 @@ const BUILD: &str = "build or environment facts; no user data";
 const OPENER: &str = "hands a URL or path to the OS; paths are limited by A3.6";
 
 const SQL_LOCK: &str = "lock enforced per statement by the webview SQL authorizer, which lets only the lock screen's settings reads through";
+const SYNC_BACKGROUND: &str = "background cloud sync (key setup, device enrollment, token refresh) runs while the app is locked, which never pauses sync; role and window are still checked, and only the main window runs sync";
+const CAPTURE_TOKEN: &str = "a timer refreshes the transcription token during an active recording, which keeps running while the app is locked; role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -274,30 +276,30 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("db", "cleanup_legacy_files", Settings, Administer),
     pending!("db", "cleanup_recording_imports", Recording, Delete),
     pending!("db", "configure_cloudsync", Settings, Administer),
-    pending!("db", "configure_cloudsync_token", Keys, Edit),
-    pending!("db", "configure_e2ee_replica", Keys, Edit),
+    lock_exempt!("db", "configure_cloudsync_token", Keys, Edit, SYNC_BACKGROUND),
+    lock_exempt!("db", "configure_e2ee_replica", Keys, Edit, SYNC_BACKGROUND),
     pending!("db", "connect_local_library", Settings, Administer),
-    pending!("db", "create_e2ee_identity", Keys, Create),
+    lock_exempt!("db", "create_e2ee_identity", Keys, Create, SYNC_BACKGROUND),
     pending!("db", "end_cloudsync_activity", Settings, Edit),
     lock_exempt!("db", "execute", Notes, Read, SQL_LOCK),
     lock_exempt!("db", "execute_proxy", Notes, Read, SQL_LOCK),
     lock_exempt!("db", "execute_transaction", Notes, Edit, SQL_LOCK),
     pending!("db", "get_cloudsync_status", Settings, Read),
-    pending!("db", "get_e2ee_identity_status", Keys, Read),
+    lock_exempt!("db", "get_e2ee_identity_status", Keys, Read, SYNC_BACKGROUND),
     pending!("db", "get_legacy_cleanup_status", Settings, Read),
     pending!("db", "get_legacy_import_report", Settings, Read),
     guarded!("db", "get_meeting", Notes, Read),
     guarded!("db", "get_meeting_transcript", Transcript, Read),
-    pending!("db", "get_or_create_e2ee_device_identity", Keys, Create),
+    lock_exempt!("db", "get_or_create_e2ee_device_identity", Keys, Create, SYNC_BACKGROUND),
     guarded!("db", "get_recurring_meeting_history", Notes, Read),
     public!("db", "get_startup_status", LOCK_SCREEN),
-    pending!("db", "import_e2ee_device_enrollment", Keys, Create),
-    pending!("db", "import_e2ee_identity", Keys, Create),
-    pending!("db", "inspect_e2ee_recovery_key", Keys, Read),
+    lock_exempt!("db", "import_e2ee_device_enrollment", Keys, Create, SYNC_BACKGROUND),
+    lock_exempt!("db", "import_e2ee_identity", Keys, Create, SYNC_BACKGROUND),
+    lock_exempt!("db", "inspect_e2ee_recovery_key", Keys, Read, SYNC_BACKGROUND),
     guarded!("db", "list_meetings", Notes, Read),
     pending!("db", "run_legacy_import", Notes, Create),
-    pending!("db", "seal_e2ee_recovery_key_for_device", Keys, Share),
-    pending!("db", "seal_workspace_e2ee_key_for_recipients", Keys, Share),
+    lock_exempt!("db", "seal_e2ee_recovery_key_for_device", Keys, Share, SYNC_BACKGROUND),
+    lock_exempt!("db", "seal_workspace_e2ee_key_for_recipients", Keys, Share, SYNC_BACKGROUND),
     pending!("db", "start_cloudsync", Settings, Edit),
     pending!("db", "stop_cloudsync", Settings, Edit),
     lock_exempt!("db", "subscribe", Notes, Read, SQL_LOCK),
@@ -827,7 +829,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         BUILD
     ),
     pending!("transcription", "update_capture_config", Recording, Edit),
-    pending!("transcription", "update_capture_credentials", Keys, Edit),
+    lock_exempt!("transcription", "update_capture_credentials", Keys, Edit, CAPTURE_TOKEN),
     pending!("transcription", "voice_enrollment_status", Recording, Read),
     // tray
     public!("tray", "set_tray_icon_visible", UI),

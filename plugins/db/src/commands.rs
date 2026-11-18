@@ -295,9 +295,17 @@ pub(crate) async fn apply_session_ingest(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<crate::E2eeIdentityStatus, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let recovery_key = load_e2ee_recovery_key(app, &account_user_id).await?;
     let (key_id, member_public_key) = match recovery_key {
         Some(recovery_key) => (
@@ -320,9 +328,17 @@ pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn inspect_e2ee_recovery_key(
+pub(crate) fn inspect_e2ee_recovery_key<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     recovery_key: String,
 ) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let recovery_key =
         anlg_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
     Ok(crate::E2eeRecoveryKeyIdentity {
@@ -333,9 +349,17 @@ pub(crate) fn inspect_e2ee_recovery_key(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<String, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pending_key_name = format!("{}:pending", e2ee_recovery_key_name(&account_user_id)?);
     let _identity_guard = E2EE_DEVICE_IDENTITY_LOCK.lock().await;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
@@ -375,10 +399,18 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
     recovery_key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let key_name = e2ee_recovery_key_name(&account_user_id)?;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
         .await?
@@ -401,9 +433,17 @@ pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_or_create_e2ee_device_identity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<crate::E2eeDeviceIdentity, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let key_name = e2ee_device_key_name(&account_user_id)?;
     let _identity_guard = E2EE_DEVICE_IDENTITY_LOCK.lock().await;
     let existing = read_e2ee_secret_with_timeout(
@@ -440,11 +480,19 @@ pub(crate) async fn get_or_create_e2ee_device_identity<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn seal_e2ee_recovery_key_for_device<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
     request_id: String,
     recipient_public_key: String,
 ) -> Result<crate::E2eeDeviceEnrollmentPackage, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let request_id = canonical_e2ee_request_id(&request_id)?;
     let recovery_key = load_e2ee_recovery_key(app, &account_user_id)
@@ -463,6 +511,7 @@ pub(crate) async fn seal_e2ee_recovery_key_for_device<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
@@ -471,6 +520,13 @@ pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
     rotate: bool,
     source_grant: Option<crate::CloudsyncWorkspaceKeyGrant>,
 ) -> Result<crate::SealedWorkspaceE2eeKey, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let workspace_id = uuid::Uuid::parse_str(workspace_id.trim())
         .map(|workspace_id| workspace_id.to_string())
@@ -565,11 +621,19 @@ fn seal_workspace_e2ee_key(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn import_e2ee_device_enrollment<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
     request_id: String,
     package: crate::E2eeDeviceEnrollmentPackage,
 ) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let request_id = canonical_e2ee_request_id(&request_id)?;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
@@ -652,6 +716,7 @@ pub(crate) async fn configure_cloudsync(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     database_id: String,
@@ -661,6 +726,13 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
     workspace_key_grants: Option<Vec<crate::CloudsyncWorkspaceKeyGrant>>,
     e2ee_witness: crate::CloudsyncE2eeWitness,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let result = async {
         let auth_generation = state.begin_cloudsync_auth_configuration();
         let personal_workspace_id = workspace_projection
@@ -778,6 +850,7 @@ fn open_shared_workspace_keyrings(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     workspace_id: String,
@@ -785,6 +858,13 @@ pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
     workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
     workspace_key_grants: Option<Vec<crate::CloudsyncWorkspaceKeyGrant>>,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let result = async {
         let auth_generation = state.begin_cloudsync_auth_configuration();
         let recovery_key = load_e2ee_recovery_key(app, &workspace_id)

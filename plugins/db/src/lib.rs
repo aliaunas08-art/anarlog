@@ -339,7 +339,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::run_legacy_import,
             commands::apply_session_ingest,
             commands::get_e2ee_identity_status<tauri::Wry>,
-            commands::inspect_e2ee_recovery_key,
+            commands::inspect_e2ee_recovery_key<tauri::Wry>,
             commands::create_e2ee_identity<tauri::Wry>,
             commands::import_e2ee_identity<tauri::Wry>,
             commands::get_or_create_e2ee_device_identity<tauri::Wry>,
