@@ -101,6 +101,7 @@ pub(super) async fn spawn_source(
 pub(super) async fn spawn_recorder(
     supervisor_cell: ActorCell,
     ctx: &SessionContext,
+    first_audio: Option<tokio::sync::oneshot::Sender<()>>,
 ) -> Result<ActorCell, ractor::SpawnErr> {
     let (recorder_ref, _): (ActorRef<RecMsg>, _) = Actor::spawn_linked(
         Some(RecorderActor::name(&ctx.params.session_id)),
@@ -116,6 +117,7 @@ pub(super) async fn spawn_recorder(
                 .as_millis() as u64,
             offset_ms: ctx.started_at_instant.elapsed().as_millis() as u64,
             session_id: ctx.params.session_id.clone(),
+            first_audio,
         },
         supervisor_cell,
     )
@@ -249,7 +251,7 @@ pub(super) async fn try_restart_recorder(
     let cell = spawn_with_retry(&RETRY_STRATEGY, || {
         let sup = sup.clone();
         let ctx = ctx.clone();
-        async move { spawn_recorder(sup, &ctx).await }
+        async move { spawn_recorder(sup, &ctx, None).await }
     })
     .await;
 

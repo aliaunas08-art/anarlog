@@ -61,7 +61,7 @@ async fn next_recorder_runs_while_previous_listener_finalizes() {
     let mut previous_ctx = test_ctx();
     previous_ctx.app_dir = vault.path().to_path_buf();
     previous_ctx.params.session_id = uuid::Uuid::new_v4().to_string();
-    let recorder = children::spawn_recorder(supervisor.get_cell(), &previous_ctx)
+    let recorder = children::spawn_recorder(supervisor.get_cell(), &previous_ctx, None)
         .await
         .unwrap();
     record_audio(&recorder).await;
@@ -89,7 +89,7 @@ async fn next_recorder_runs_while_previous_listener_finalizes() {
     next_ctx.params.session_id = uuid::Uuid::new_v4().to_string();
     let (next_supervisor, next_supervisor_task) =
         Actor::spawn(None, SessionStopProbe, ()).await.unwrap();
-    let next_recorder = children::spawn_recorder(next_supervisor.get_cell(), &next_ctx)
+    let next_recorder = children::spawn_recorder(next_supervisor.get_cell(), &next_ctx, None)
         .await
         .expect("previous finalization must not reserve the next meeting's recorder");
     record_audio(&next_recorder).await;

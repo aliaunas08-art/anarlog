@@ -45,6 +45,10 @@ All items passed on the first round, so the 3-round escalation rule was never tr
    - C2.3: SQLCipher must be re-decided before a team or enterprise release.
 6. **Backups are not encrypted.** Encrypting them would need a new dependency.
 
+## Future work (deferred, not built)
+
+- **Transcription in its own process.** Since 2026-11-17 the first audio of a recording is on disk before transcription starts, and startup recovery restores it after a crash (`a_crash_mid_transcription_leaves_a_recoverable_recording`). A crash in a speech engine still ends the whole app and stops the recording at that moment. Running the engines in a separate process would let capture continue through such a crash.
+
 ## Behaviour changes the user will notice
 
 - **AI:** Haiku only, through the Rust Efficiency Engine. You enter your own Anthropic key, which is kept in the Keychain. The provider picker, the subscription sign-ins and local LLMs are gone.

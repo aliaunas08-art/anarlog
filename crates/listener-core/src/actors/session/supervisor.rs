@@ -28,6 +28,10 @@ const LISTENER_RETRY_DELAYS: [Duration; 5] = [
 ];
 const MAX_LISTENER_RETRY_AFTER: Duration = Duration::from_secs(30);
 const RECORDER_RETRY_DELAY: Duration = Duration::from_secs(5);
+/// How long transcription waits for the recorder's first audio to reach disk.
+/// Audio normally lands within a few hundred milliseconds; the cap keeps a
+/// missing or silent device from holding transcription back.
+const FIRST_AUDIO_WAIT: Duration = Duration::from_secs(3);
 
 pub struct SessionState {
     ctx: SessionContext,
@@ -43,6 +47,8 @@ pub struct SessionState {
     listener_retry_due: Option<std::time::Instant>,
     pause: PauseClock,
     shutting_down: bool,
+    /// Resolves when the first audio is on disk; taken by the first listener spawn.
+    first_audio: Option<tokio::sync::oneshot::Receiver<()>>,
 }
 
 pub struct SessionActor;
@@ -78,7 +84,14 @@ impl Actor for SessionActor {
                 ctx.requested_transcription_mode,
                 ctx.params.transcription_mode,
             );
-            let recorder_cell = match children::spawn_recorder(myself.get_cell(), &ctx).await {
+            let (first_audio_tx, first_audio) = tokio::sync::oneshot::channel();
+            let recorder_cell = match children::spawn_recorder(
+                myself.get_cell(),
+                &ctx,
+                Some(first_audio_tx),
+            )
+            .await
+            {
                 Ok(cell) => Some(cell),
                 Err(error) => {
                     emit_storage_error(&ctx, &error.to_string());
@@ -108,6 +121,7 @@ impl Actor for SessionActor {
                 listener_retry_due: None,
                 pause: PauseClock::default(),
                 shutting_down: false,
+                first_audio: Some(first_audio),
             })
         }
         .instrument(span)
@@ -126,6 +140,12 @@ impl Actor for SessionActor {
         async {
             if !state.mode.should_spawn_listener() {
                 return Ok(());
+            }
+
+            // Audio reaches disk before transcription starts, so a crash in the
+            // speech engine leaves a recording for startup recovery.
+            if let Some(first_audio) = state.first_audio.take() {
+                wait_for_first_audio(first_audio).await;
             }
 
             match children::spawn_listener(myself.get_cell(), &state.ctx, None).await {
@@ -498,6 +518,22 @@ fn should_retry_listener_failure(degraded: &DegradedError) -> bool {
         degraded,
         DegradedError::AuthenticationFailed { .. } | DegradedError::ProviderConfiguration { .. }
     )
+}
+
+async fn wait_for_first_audio(first_audio: tokio::sync::oneshot::Receiver<()>) {
+    let started = std::time::Instant::now();
+    match tokio::time::timeout(FIRST_AUDIO_WAIT, first_audio).await {
+        Ok(Ok(())) => tracing::info!(
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "first_audio_on_disk"
+        ),
+        // The recorder failed to start or stopped; transcription goes ahead.
+        Ok(Err(_)) => tracing::warn!("first_audio_unavailable"),
+        Err(_) => tracing::warn!(
+            wait_ms = FIRST_AUDIO_WAIT.as_millis() as u64,
+            "first_audio_wait_timed_out"
+        ),
+    }
 }
 
 fn classify_listener_spawn_failure(
@@ -957,6 +993,7 @@ mod tests {
             listener_retry_due: None,
             pause: PauseClock::default(),
             shutting_down: false,
+            first_audio: None,
         }
     }
 
@@ -1369,6 +1406,7 @@ mod tests {
             listener_retry_due: None,
             pause: PauseClock::default(),
             shutting_down: false,
+            first_audio: None,
         };
 
         children::shutdown_children(&mut state, "test_shutdown").await;

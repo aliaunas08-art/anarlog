@@ -105,6 +105,10 @@ pub(super) struct PersistConfig {
     pub finish_deadline: Duration,
     pub buffer_limit_bytes: usize,
     pub on_health: Arc<dyn Fn(StorageHealth) + Send + Sync>,
+    /// Called once, after the first encoded audio of the capture is written to
+    /// its `.part` file and synced. The session waits for it before starting
+    /// transcription, so a transcription crash leaves audio for recovery.
+    pub on_first_audio: Option<Box<dyn FnOnce() + Send>>,
 }
 
 impl PersistConfig {
@@ -116,7 +120,13 @@ impl PersistConfig {
             finish_deadline: FINISH_DEADLINE,
             buffer_limit_bytes: AUDIO_BUFFER_LIMIT_BYTES,
             on_health,
+            on_first_audio: None,
         }
+    }
+
+    pub fn with_first_audio(mut self, notify: Box<dyn FnOnce() + Send>) -> Self {
+        self.on_first_audio = Some(notify);
+        self
     }
 }
 
@@ -395,6 +405,7 @@ impl Persister {
                     self.healthy = true;
                     (self.config.on_health)(StorageHealth::Resumed);
                 }
+                self.signal_first_audio();
                 self.persisted()
             }
             Err(error) => {
@@ -406,6 +417,29 @@ impl Persister {
 
     fn abort_message(&self) -> Option<&str> {
         self.aborted.get().map(String::as_str)
+    }
+
+    /// Fires `on_first_audio` once some audio is in a chunk file. The sync makes
+    /// it durable even across a power loss; a process crash only needs the write.
+    /// A failed sync is retried on the next pump.
+    fn signal_first_audio(&mut self) {
+        if self.config.on_first_audio.is_none() {
+            return;
+        }
+        let sync = self.config.sync;
+        let Some(chunk) = self
+            .chunks
+            .iter_mut()
+            .find(|chunk| chunk.state.written > 0 || chunk.state.synced_len > 0)
+        else {
+            return;
+        };
+        if chunk.state.sync(sync).is_err() {
+            return;
+        }
+        if let Some(notify) = self.config.on_first_audio.take() {
+            notify();
+        }
     }
 
     fn handle_error(&mut self, error: &std::io::Error) {
@@ -1199,6 +1233,7 @@ mod tests {
             finish_deadline: Duration::from_millis(200),
             buffer_limit_bytes: AUDIO_BUFFER_LIMIT_BYTES,
             on_health: Arc::new(|_| {}),
+            on_first_audio: None,
         }
     }
 
@@ -1265,6 +1300,139 @@ mod tests {
         for _ in 0..60 {
             sink.write(&samples, &samples).unwrap();
         }
+    }
+
+    /// 100 ms of a 440 Hz tone, so recovered audio can be told from silence.
+    fn tone_frame() -> Vec<f32> {
+        (0..SAMPLE_RATE as usize / 10)
+            .map(|i| 0.3 * (i as f32 * 440.0 * std::f32::consts::TAU / SAMPLE_RATE as f32).sin())
+            .collect()
+    }
+
+    #[test]
+    fn first_audio_is_signalled_once_it_is_in_the_partial_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let config = test_config().with_first_audio(Box::new(move || {
+            let _ = tx.send(());
+        }));
+        let mut sink = ChunkedSink::new(dir.path(), 123, 0, true, config).unwrap();
+        assert!(rx.try_recv().is_err(), "no audio yet");
+
+        let frame = tone_frame();
+        let signalled = (0..50).any(|_| {
+            sink.write(&frame, &frame).unwrap();
+            rx.recv_timeout(Duration::from_millis(100)).is_ok()
+        });
+        assert!(signalled, "first audio was never signalled");
+
+        let partial = std::fs::read_dir(dir.path().join(RECOVERY_DIR))
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| entry.file_name().to_string_lossy().ends_with(".part"))
+            .expect("a partial chunk exists");
+        assert!(partial.metadata().unwrap().len() > 0);
+        sink.finish().unwrap();
+    }
+
+    const CRASH_CHILD_DIR: &str = "ANARLOG_TEST_CRASH_CHILD_DIR";
+
+    /// Child half of the crash test below; a no-op in a normal test run. It
+    /// records like a live session: once the first audio is on disk it marks
+    /// transcription as started, then keeps recording until it is killed.
+    #[test]
+    fn crash_child_records_until_killed() {
+        let Ok(dir) = std::env::var(CRASH_CHILD_DIR) else {
+            return;
+        };
+        let dir = PathBuf::from(dir);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let config = PersistConfig::new(Arc::new(|_| {})).with_first_audio(Box::new(move || {
+            let _ = tx.send(());
+        }));
+        let mut sink = ChunkedSink::new(&dir, 123, 0, true, config).unwrap();
+        let frame = tone_frame();
+        let mut frames = 0u64;
+        let mut transcribing = false;
+        loop {
+            sink.write(&frame, &frame).unwrap();
+            frames += 1;
+            if !transcribing && rx.try_recv().is_ok() {
+                transcribing = true;
+                std::fs::write(dir.join("transcription-started"), frames.to_string()).unwrap();
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// Regression for the 2026-11-17 Apple Speech crash, which took the whole
+    /// recording with it: kill the process mid-transcription, run the startup
+    /// recovery a relaunch runs, and check the audio is there and playable.
+    #[cfg(unix)]
+    #[test]
+    fn a_crash_mid_transcription_leaves_a_recoverable_recording() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "actors::recorder::chunks::tests::crash_child_records_until_killed",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CRASH_CHILD_DIR, &dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let marker = dir.join("transcription-started");
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while !marker.exists() {
+            assert!(Instant::now() < deadline, "transcription never started");
+            assert!(child.try_wait().unwrap().is_none(), "child exited early");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let frames_before_transcription: u64 =
+            std::fs::read_to_string(&marker).unwrap().parse().unwrap();
+
+        // Let "transcription" run, then kill the process outright (SIGKILL).
+        std::thread::sleep(Duration::from_millis(1500));
+        child.kill().unwrap();
+        child.wait().unwrap();
+
+        recover_interrupted_captures(root.path()).unwrap();
+        let chunks = list_recovery_chunks(&dir).unwrap();
+        assert_eq!(chunks.len(), 1, "one recovered chunk");
+
+        let wav = root.path().join("recovered.wav");
+        anlg_audio_encode::decode_to_wav(Path::new(&chunks[0].path), &wav).unwrap();
+        let mut reader = hound::WavReader::open(&wav).unwrap();
+        let spec = reader.spec();
+        let frames = u64::from(reader.duration());
+        let recovered_ms = frames * 1000 / u64::from(spec.sample_rate);
+        // Everything recorded before transcription started is there, plus most
+        // of what came after (1.5 s at about 100 ms of audio per 20 ms tick).
+        let before_ms = frames_before_transcription * 100;
+        assert!(
+            recovered_ms >= before_ms + 1000,
+            "recovered {recovered_ms} ms, expected at least {} ms",
+            before_ms + 1000
+        );
+        let peak = match spec.sample_format {
+            hound::SampleFormat::Float => reader
+                .samples::<f32>()
+                .map(|sample| sample.unwrap().abs())
+                .fold(0.0, f32::max),
+            hound::SampleFormat::Int => reader
+                .samples::<i32>()
+                .map(|sample| sample.unwrap().unsigned_abs() as f32)
+                .fold(0.0, f32::max)
+                / (1u32 << (spec.bits_per_sample - 1)) as f32,
+        };
+        assert!(peak > 0.1, "recovered audio is silent (peak {peak})");
     }
 
     #[test]

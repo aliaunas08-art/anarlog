@@ -1062,6 +1062,7 @@ mod tests {
                         capture_started_at: 1,
                         offset_ms: 0,
                         session_id: "partial-audio".into(),
+                        first_audio: None,
                     },
                 )
                 .await
