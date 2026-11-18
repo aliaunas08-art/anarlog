@@ -167,9 +167,8 @@ describe("loadWaveform", () => {
       loadPeaks: vi.fn().mockResolvedValue(peaks),
     });
 
-    const relabeled = vi
-      .mocked(URL.createObjectURL)
-      .mock.calls.at(-1)![0] as Blob;
+    const calls = vi.mocked(URL.createObjectURL).mock.calls;
+    const relabeled = calls[calls.length - 1]![0] as Blob;
     expect(relabeled.type).toBe("audio/aac");
   });
 
