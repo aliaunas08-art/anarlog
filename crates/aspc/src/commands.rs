@@ -69,6 +69,7 @@ const MEETING_BACKGROUND: &str = "meeting work that keeps running behind the loc
 const TRANSCRIPT_PIPELINE: &str = "live, batch and dictation transcription keep running behind the lock screen after a relock and must save what they captured; role and window are still checked";
 const CAPTURE_PIPELINE: &str = "recording, meeting detection, system dictation and the end-of-recording audio save and cleanup keep running behind the lock screen (a scheduled recording can start after a relock); role and window are still checked";
 const CONTENT_BACKGROUND: &str = "background content work behind the lock screen after a relock: enhance reading meeting screenshots, screen records saved or removed as a capture ends, and cloud-sync evictions removing a session folder; role and window are still checked";
+const CALENDAR_SYNC: &str = "periodic calendar sync keeps running behind the lock screen after a relock, so scheduled auto-start sees current events; role and window are still checked, and only the main window runs it";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -249,30 +250,54 @@ pub static COMMANDS: &[CommandEntry] = &[
     // bedrock
     public!("bedrock", "list_foundation_models", MODELS),
     // calendar: events and contacts are meeting metadata (Notes).
-    pending!("calendar", "apply_calendar_inventory", Notes, Edit),
-    pending!("calendar", "apply_contact_enhancement", Notes, Edit),
+    lock_exempt!(
+        "calendar",
+        "apply_calendar_inventory",
+        Notes,
+        Edit,
+        CALENDAR_SYNC
+    ),
+    guarded!("calendar", "apply_contact_enhancement", Notes, Edit),
     public!("calendar", "available_providers", BUILD),
-    pending!("calendar", "create_event", Notes, Create),
-    pending!("calendar", "create_human", Notes, Create),
-    pending!("calendar", "create_organization", Notes, Create),
+    guarded!("calendar", "create_event", Notes, Create),
+    guarded!("calendar", "create_human", Notes, Create),
+    guarded!("calendar", "create_organization", Notes, Create),
     public!("calendar", "is_provider_enabled", DEVICE),
-    pending!("calendar", "list_calendars", Notes, Read),
-    pending!("calendar", "list_connection_ids", Settings, Read),
-    pending!("calendar", "list_events", Notes, Read),
-    pending!("calendar", "merge_humans", Notes, Edit),
+    lock_exempt!("calendar", "list_calendars", Notes, Read, CALENDAR_SYNC),
+    lock_exempt!(
+        "calendar",
+        "list_connection_ids",
+        Settings,
+        Read,
+        CALENDAR_SYNC
+    ),
+    lock_exempt!("calendar", "list_events", Notes, Read, CALENDAR_SYNC),
+    guarded!("calendar", "merge_humans", Notes, Edit),
     public!("calendar", "open_calendar", OPENER),
-    pending!("calendar", "reorder_pinned_contacts", Notes, Edit),
-    pending!("calendar", "save_personal_contact", Notes, Edit),
-    pending!("calendar", "set_calendar_enabled", Settings, Edit),
-    pending!("calendar", "soft_delete_contact", Notes, Delete),
-    pending!("calendar", "sync_calendar_connection_events", Notes, Edit),
-    pending!("calendar", "toggle_contact_pin", Notes, Edit),
-    pending!("calendar", "tombstone_calendar_connection", Notes, Delete),
-    pending!("calendar", "update_contact_avatar", Notes, Edit),
-    pending!("calendar", "update_human", Notes, Edit),
-    pending!("calendar", "update_human_contact_summary", Notes, Edit),
-    pending!("calendar", "update_ignored_calendar_item", Settings, Edit),
-    pending!("calendar", "update_organization", Notes, Edit),
+    guarded!("calendar", "reorder_pinned_contacts", Notes, Edit),
+    guarded!("calendar", "save_personal_contact", Notes, Edit),
+    guarded!("calendar", "set_calendar_enabled", Settings, Edit),
+    guarded!("calendar", "soft_delete_contact", Notes, Delete),
+    lock_exempt!(
+        "calendar",
+        "sync_calendar_connection_events",
+        Notes,
+        Edit,
+        CALENDAR_SYNC
+    ),
+    guarded!("calendar", "toggle_contact_pin", Notes, Edit),
+    lock_exempt!(
+        "calendar",
+        "tombstone_calendar_connection",
+        Notes,
+        Delete,
+        CALENDAR_SYNC
+    ),
+    guarded!("calendar", "update_contact_avatar", Notes, Edit),
+    guarded!("calendar", "update_human", Notes, Edit),
+    guarded!("calendar", "update_human_contact_summary", Notes, Edit),
+    guarded!("calendar", "update_ignored_calendar_item", Settings, Edit),
+    guarded!("calendar", "update_organization", Notes, Edit),
     // db
     pending!("db", "apply_session_ingest", Notes, Create),
     pending!("db", "begin_cloudsync_activity", Settings, Edit),

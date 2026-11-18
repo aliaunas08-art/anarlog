@@ -643,9 +643,7 @@ fn sync_events(
             // end (an all-day event two days out) as in range, deleted it
             // because the provider didn't return it, and the month view's
             // wider sync added it back, so it flickered in and out.
-            (Some(start), Some(end), Some(from_ms), Some(to_ms)) => {
-                start < to_ms && end > from_ms
-            }
+            (Some(start), Some(end), Some(from_ms), Some(to_ms)) => start < to_ms && end > from_ms,
             _ => false,
         };
         if store_event.deleted_at.is_none() && (matching.is_some() || overlaps_range) {

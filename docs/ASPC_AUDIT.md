@@ -967,7 +967,7 @@ The ASPC_BASE "Verification" checklist, run on this Mac (branch `prototype`). Ev
 | Item | Result | Evidence |
 |---|---|---|
 | Viewer denied edit, delete, export (A1.4) | TRUE | `viewer_reads_content_only` (every DataType × Action; Edit/Delete/Export/Share/Administer → `RoleDenied`), Viewer case of `state::tests::guard_denies_locked_viewer_and_wrong_window` |
-| Every Tauri command rejects an unauthorised call (A2.2, A2.3) | FALSE (partial) | Registry (2026-11-18): 477 commands, 187 `Public`, 160 guarded, **130 `Pending`** (was 224 on 2026-11-17) (unguarded). The 67 guarded ones: `guarded_commands_call_the_guard`, new `guarded_commands_require_their_registry_permission`, `guard_denies_locked_viewer_and_wrong_window`, `registry_matches_real_commands` |
+| Every Tauri command rejects an unauthorised call (A2.2, A2.3) | FALSE (partial) | Registry (2026-11-18): 477 commands, 187 `Public`, 181 guarded, **109 `Pending`** (was 224 on 2026-11-17) (unguarded). The 67 guarded ones: `guarded_commands_call_the_guard`, new `guarded_commands_require_their_registry_permission`, `guard_denies_locked_viewer_and_wrong_window`, `registry_matches_real_commands` |
 | Two-workspace isolation, incl. Ask (C1.4, B4.2) | PARTIAL | Tests pass (below), but see limits |
 | Prompt-injection fixture (B3.4) | TRUE | `injection.test.ts` (2), `enhance-one-call.test.ts` (3, incl. B3.4), `escape.rs` hostile-block tests (4) |
 | Audit tamper / no app path (D1.6, D1.1) | TRUE (re-run) | `audit-log` 15 unit + 2 `tests/isolation.rs`; `webview_sql_cannot_reach_the_audit_log` in `db-core --lib` |
@@ -1129,3 +1129,14 @@ Four layers, all in Rust:
 - **Callers by window:** no overlay or dictation-overlay code calls any of these. The composer reaches only `folder_attachment_read` (Read).
 - **Code:** `fs-sync:read_document_batch` became generic over the runtime (`::<tauri::Wry>` in `collect_commands!`).
 - **Tests:** `aspc` 23 + 3 + 2 (ratchet lowered to 130), `tauri-plugin-fs-sync` 4, `tauri-plugin-tantivy` 14, all passing. `cargo check -p desktop` builds with no errors. Not run in the app.
+
+### A2.3 batch 5: calendar and contact commands (2026-11-18, 109 `Pending` remain)
+
+- **Guarded (`aspc::require`, `Enforced`), 15:**
+  - Contacts, from the contacts UI and the participant and speaker pickers: `calendar:create_human`, `create_organization` `(Notes, Create)`; `update_human`, `update_organization`, `save_personal_contact`, `merge_humans`, `toggle_contact_pin`, `reorder_pinned_contacts`, `update_contact_avatar`, `update_human_contact_summary`, `apply_contact_enhancement` `(Notes, Edit)`; `soft_delete_contact` `(Notes, Delete)`. Contact summaries and enrichment are started from `contacts/details.tsx` and the participant input, not by a background job.
+  - Calendar settings: `set_calendar_enabled`, `update_ignored_calendar_item` `(Settings, Edit)`.
+  - No webview caller: `create_event` `(Notes, Create)`.
+- **Guarded without the lock check (`LockExempt`, reason `CALENDAR_SYNC`), 6:** `calendar:list_calendars`, `list_events` `(Notes, Read)`, `list_connection_ids` `(Settings, Read)`, `apply_calendar_inventory`, `sync_calendar_connection_events` `(Notes, Edit)`, `tombstone_calendar_connection` `(Notes, Delete)`. Periodic calendar sync (`services/calendar/`) runs in `main` behind the lock screen after a relock, and scheduled auto-start reads its events.
+- **Callers by window:** no overlay, dictation-overlay or composer code calls any of these.
+- **Code:** the `contacts_command!` macro hid its functions from `tests/command_registry.rs` (the reason `soft_delete_contact` was left Pending in the 10-command batch); the 12 contact commands are written out with a `contacts_runtime` helper. The three commands that return the plugin's `Error` map a denial to `Error::Auth`. `tauri-plugin-calendar` now depends on `anlg-aspc`.
+- **Tests:** `aspc` 23 + 3 + 2 (ratchet lowered to 109), `tauri-plugin-calendar` 84, all passing. `cargo check -p desktop` builds with no errors. Not run in the app.

@@ -16798,6 +16798,7 @@ dependencies = [
 name = "tauri-plugin-calendar"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "calendar",
  "calendar-interface",
  "chrono",

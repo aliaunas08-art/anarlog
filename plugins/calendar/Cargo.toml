@@ -8,6 +8,7 @@ links = "tauri-plugin-calendar"
 description = ""
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-calendar = { workspace = true, features = ["specta"] }
 anlg-calendar-interface = { workspace = true }
 anlg-db-app = { workspace = true }
