@@ -30,16 +30,17 @@ All items passed on the first round, so the 3-round escalation rule was never tr
 
 ## Open items needing a decision
 
-1. **C1 webview SQL filtering.** The interim fail-closed single-workspace guard is in place. Real filtering needs option (b), scoped Rust commands per table, or option (c), views on a dedicated pool.
-2. **224 unguarded commands (A2.3).** These include E2EE key and sync commands that also run from background or locked flows, and the Tantivy writes.
-3. **Licences that may not fit MIT (D5):**
+1. **C1 webview SQL filtering.** The interim fail-closed single-workspace guard is in place. Real filtering needs option (b), scoped Rust commands per table, or option (c), views on a dedicated pool. Decision deferred until a second workspace exists.
+2. **Unguarded commands (A2.3): 213 left.** Batch 1 (2026-11-18) guarded the 11 E2EE key and sync-token commands, lock-exempt so background sync keeps working. Meeting content and transcripts are next, then the rest in batches.
+3. **Licences (D5): resolved 2026-11-18.** `pnpm licenses:check` passes: 1578 packages, 0 failing, 26 warnings (all MPL-2.0, file-level copyleft, fine to ship unmodified).
    - `mp3lame-encoder` / `mp3lame-sys`: removed 2026-11-17 (recordings are now AAC through macOS AudioToolbox, FLAC on Windows and Linux);
-   - `pos`: LGPL;
-   - no licence in package metadata: `@giscus/react`, `@splinetool/runtime` (guess: proprietary) and `khroma`.
-4. **Legal text before release:**
-   - the Privacy Policy and Terms URLs are placeholders;
-   - the "end-to-end encrypted" wording for sync has not been verified;
-   - the claim that Anthropic doesn't train on data sent through its API should be checked by legal.
+   - `pos` (LGPL): removed with the automatic prose keywords; transcription hints now come from participants, the dictionary and #hashtags;
+   - `react-scan` / `react-doctor` (modified MIT that restricts hosted resale): the devtools bar is dev-only, so neither ships; not allowlisted;
+   - `khroma`: allowlisted as MIT (its licence file is MIT; only the package metadata is empty);
+   - `@giscus/react`, `@splinetool/runtime`: removed earlier with `@lobehub/icons`.
+4. **Legal text.**
+   - Wording fixed 2026-11-18: sync no longer says "end-to-end encrypted". It says notes, transcripts and summaries are encrypted on this Mac with a Keychain key before upload, that the server still sees metadata such as sizes and timing, that audio isn't synced, and that shared links upload unencrypted. The Anthropic training claim is replaced by a statement that Anthropic's API terms govern storage and use, which this app does not control.
+   - **Hard gate: real Privacy Policy and Terms documents must exist before any external user gets a build.** The URLs are placeholders, acceptable in dev builds only.
 5. **Gates recorded:**
    - C7.6: a hosted proxy must exist before any build runs on the developer's key;
    - C2.3: SQLCipher must be re-decided before a team or enterprise release.

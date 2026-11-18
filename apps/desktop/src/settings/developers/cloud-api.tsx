@@ -160,8 +160,9 @@ function CloudApiHeading({ error }: { error?: string }) {
         <Trans>
           Enabling it uploads a separate server-readable copy of your meeting
           titles, notes, summaries, participants, action items, and transcripts.
-          Your normal cloud sync stays end-to-end encrypted. Turning it off
-          deletes the server-readable copies.
+          Regular sync is unaffected: it still encrypts notes, transcripts and
+          summaries on this Mac before upload. Turning this off deletes the
+          server-readable copies.
         </Trans>
       </p>
       {error ? <p className="text-destructive mt-2 text-xs">{error}</p> : null}

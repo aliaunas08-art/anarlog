@@ -132,9 +132,12 @@ export function SettingsDataLocations() {
         </FlowRow>
         <FlowRow title={t`Sync`}>
           <Trans>
-            Only if you sign in and turn on sync in Settings → Sync: an
-            end-to-end encrypted copy of your library is kept on the sync server
-            so your other devices can read it.
+            Only if you sign in and turn on sync in Settings → Sync: your
+            notes, transcripts and summaries are encrypted on this Mac before
+            upload, with a key kept in your Keychain, so the sync server stores
+            only encrypted data. It can still see metadata such as sizes and
+            timing. Audio recordings are not synced. Notes you share by link are
+            uploaded unencrypted so the people you share with can open them.
           </Trans>
         </FlowRow>
         <FlowRow title={t`Updates`}>
@@ -171,15 +174,17 @@ export function SettingsDataLocations() {
         </SectionTitle>
         <p className="text-sm">
           <Trans>
-            Meeting content (audio, transcripts, notes, titles and participants)
-            is never used for analytics, telemetry, product research or model
-            training.
+            The app never uses meeting content (audio, transcripts, notes,
+            titles and participants) for analytics, telemetry, product research
+            or model training.
           </Trans>
         </p>
         <p className="text-muted-foreground text-xs">
           <Trans>
-            Anthropic's commercial API terms say API inputs and outputs are not
-            used to train its models by default.
+            AI requests go from this Mac straight to Anthropic, with no server
+            of ours in between. How Anthropic stores and uses those requests is
+            set by Anthropic's terms for your API account, which this app does
+            not control.
           </Trans>
         </p>
       </section>

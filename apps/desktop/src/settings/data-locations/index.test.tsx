@@ -67,8 +67,12 @@ test("follows the settings: analytics off by default, cloud transcription named"
   expect(screen.getAllByText("Off. Nothing is sent.")).toHaveLength(2);
   expect(screen.getByText(/meeting audio is sent to Deepgram/)).toBeTruthy();
   expect(
-    screen.getByText(/never used for analytics, telemetry, product research/),
+    screen.getByText(/never uses meeting content .* for analytics, telemetry/s),
   ).toBeTruthy();
+  expect(screen.getByText(/encrypted on this Mac before upload/)).toBeTruthy();
+  expect(screen.getByText(/Audio recordings are not synced/)).toBeTruthy();
+  expect(screen.queryByText(/end-to-end/)).toBeNull();
+  expect(screen.queryByText(/not used to train/)).toBeNull();
 });
 
 test("on-device transcription keeps audio on the Mac", () => {

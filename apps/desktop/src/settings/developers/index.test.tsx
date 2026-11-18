@@ -351,7 +351,9 @@ describe("SettingsDevelopers", () => {
         /separate server-readable copy of your meeting titles, notes, summaries, participants, action items, and transcripts/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/end-to-end encrypted/)).toBeTruthy();
+    expect(
+      screen.getByText(/still encrypts notes, transcripts and summaries/),
+    ).toBeTruthy();
     expect(screen.getByText(/deletes the server-readable copies/)).toBeTruthy();
     const toggle = await screen.findByRole("switch", {
       name: "Enable Cloud API & Connectors",
