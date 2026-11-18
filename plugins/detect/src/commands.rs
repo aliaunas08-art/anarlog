@@ -154,9 +154,17 @@ pub(crate) async fn run_meeting_accessibility_inspection<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn send_meeting_chat_message<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     message: String,
     mic_active_bundle_ids: Vec<String>,
 ) -> Result<anlg_detect::MeetingChatSendResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     let current_mic_apps = app
         .detect()
         .list_mic_using_applications()

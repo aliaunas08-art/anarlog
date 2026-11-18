@@ -31,7 +31,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
-            commands::describe_upload,
+            commands::describe_upload::<tauri::Wry>,
             commands::prepare_upload::<tauri::Wry>,
             commands::read_upload_range::<tauri::Wry>,
             commands::begin_shared_upload_operation,
@@ -43,7 +43,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::prepare_delete_guard::<tauri::Wry>,
             commands::commit_delete_guard::<tauri::Wry>,
             commands::reconcile_delete_guards::<tauri::Wry>,
-            commands::begin_attachment_download,
+            commands::begin_attachment_download::<tauri::Wry>,
             commands::cancel_attachment_download,
             commands::download_and_restore::<tauri::Wry>,
             commands::cleanup_transfer_cache::<tauri::Wry>,

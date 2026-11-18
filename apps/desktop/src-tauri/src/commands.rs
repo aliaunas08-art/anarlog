@@ -111,7 +111,15 @@ pub async fn get_tinybase_values<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_pinned_tabs<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_pinned_tabs()
 }
 
@@ -119,8 +127,16 @@ pub async fn get_pinned_tabs<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_pinned_tabs<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_pinned_tabs(v)
 }
 
@@ -128,7 +144,15 @@ pub async fn set_pinned_tabs<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_recently_opened_sessions<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_recently_opened_sessions()
 }
 
@@ -136,8 +160,16 @@ pub async fn get_recently_opened_sessions<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_recently_opened_sessions(v)
 }
 

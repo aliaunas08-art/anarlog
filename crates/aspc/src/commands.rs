@@ -70,6 +70,7 @@ const TRANSCRIPT_PIPELINE: &str = "live, batch and dictation transcription keep 
 const CAPTURE_PIPELINE: &str = "recording, meeting detection, system dictation and the end-of-recording audio save and cleanup keep running behind the lock screen (a scheduled recording can start after a relock); role and window are still checked";
 const CONTENT_BACKGROUND: &str = "background content work behind the lock screen after a relock: enhance reading meeting screenshots, screen records saved or removed as a capture ends, and cloud-sync evictions removing a session folder; role and window are still checked";
 const CALENDAR_SYNC: &str = "periodic calendar sync keeps running behind the lock screen after a relock, so scheduled auto-start sees current events; role and window are still checked, and only the main window runs it";
+const NOTES_BACKGROUND: &str = "background sync and capture work behind the lock screen after a relock: attachment sync and the shared-note attachment cache, enterprise session ingest, the meeting-chat recording disclosure, local API event dispatch, and tab state that sync-driven tab closes persist; role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -170,8 +171,8 @@ pub static COMMANDS: &[CommandEntry] = &[
     // D4.2 "Where your data lives": local paths only.
     guarded!("app", "get_data_locations", Settings, Read),
     public!("app", "get_onboarding_needed", UI),
-    pending!("app", "get_pinned_tabs", Notes, Read),
-    pending!("app", "get_recently_opened_sessions", Notes, Read),
+    guarded!("app", "get_pinned_tabs", Notes, Read),
+    guarded!("app", "get_recently_opened_sessions", Notes, Read),
     pending!("app", "get_tinybase_values", Settings, Read),
     guarded!("app", "install_agent_skill", Settings, Administer),
     guarded!("app", "install_embedded_cli", Settings, Administer),
@@ -181,11 +182,23 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("app", "set_crash_reporting_enabled", Settings, Edit),
     pending!("app", "set_dismissed_toasts", Settings, Edit),
     pending!("app", "set_onboarding_needed", Settings, Edit),
-    pending!("app", "set_pinned_tabs", Notes, Edit),
-    pending!("app", "set_recently_opened_sessions", Notes, Edit),
+    lock_exempt!("app", "set_pinned_tabs", Notes, Edit, NOTES_BACKGROUND),
+    lock_exempt!(
+        "app",
+        "set_recently_opened_sessions",
+        Notes,
+        Edit,
+        NOTES_BACKGROUND
+    ),
     public!("app", "show_devtool", UI),
     // attachment-sync
-    pending!("attachment-sync", "begin_attachment_download", Notes, Read),
+    lock_exempt!(
+        "attachment-sync",
+        "begin_attachment_download",
+        Notes,
+        Read,
+        NOTES_BACKGROUND
+    ),
     pending!(
         "attachment-sync",
         "begin_shared_upload_operation",
@@ -194,8 +207,14 @@ pub static COMMANDS: &[CommandEntry] = &[
     ),
     public!("attachment-sync", "cancel_attachment_download", FLOW),
     public!("attachment-sync", "cancel_shared_upload_operation", FLOW),
-    pending!("attachment-sync", "cleanup_shared_upload", Notes, Share),
-    pending!("attachment-sync", "cleanup_transfer_cache", Notes, Edit),
+    guarded!("attachment-sync", "cleanup_shared_upload", Notes, Share),
+    lock_exempt!(
+        "attachment-sync",
+        "cleanup_transfer_cache",
+        Notes,
+        Edit,
+        NOTES_BACKGROUND
+    ),
     pending!(
         "attachment-sync",
         "clear_shared_attachment_preview_scopes",
@@ -208,19 +227,73 @@ pub static COMMANDS: &[CommandEntry] = &[
         Notes,
         Edit
     ),
-    pending!("attachment-sync", "commit_delete_guard", Notes, Delete),
-    pending!("attachment-sync", "describe_upload", Notes, Read),
-    pending!("attachment-sync", "download_and_restore", Notes, Create),
-    pending!("attachment-sync", "download_shared_attachment", Notes, Read),
-    pending!("attachment-sync", "prepare_delete_guard", Notes, Delete),
-    pending!("attachment-sync", "prepare_shared_upload", Notes, Share),
-    pending!("attachment-sync", "prepare_upload", Notes, Read),
-    pending!("attachment-sync", "read_shared_upload_range", Notes, Share),
-    pending!("attachment-sync", "read_upload_range", Notes, Read),
-    pending!("attachment-sync", "reconcile_delete_guards", Notes, Delete),
-    pending!("attachment-sync", "remove_shared_attachment", Notes, Share),
-    pending!("attachment-sync", "shared_attachment_path", Notes, Read),
-    pending!("attachment-sync", "validate_shared_upload", Notes, Share),
+    lock_exempt!(
+        "attachment-sync",
+        "commit_delete_guard",
+        Notes,
+        Delete,
+        NOTES_BACKGROUND
+    ),
+    lock_exempt!(
+        "attachment-sync",
+        "describe_upload",
+        Notes,
+        Read,
+        NOTES_BACKGROUND
+    ),
+    lock_exempt!(
+        "attachment-sync",
+        "download_and_restore",
+        Notes,
+        Create,
+        NOTES_BACKGROUND
+    ),
+    lock_exempt!(
+        "attachment-sync",
+        "download_shared_attachment",
+        Notes,
+        Read,
+        NOTES_BACKGROUND
+    ),
+    lock_exempt!(
+        "attachment-sync",
+        "prepare_delete_guard",
+        Notes,
+        Delete,
+        NOTES_BACKGROUND
+    ),
+    guarded!("attachment-sync", "prepare_shared_upload", Notes, Share),
+    lock_exempt!(
+        "attachment-sync",
+        "prepare_upload",
+        Notes,
+        Read,
+        NOTES_BACKGROUND
+    ),
+    guarded!("attachment-sync", "read_shared_upload_range", Notes, Share),
+    lock_exempt!(
+        "attachment-sync",
+        "read_upload_range",
+        Notes,
+        Read,
+        NOTES_BACKGROUND
+    ),
+    lock_exempt!(
+        "attachment-sync",
+        "reconcile_delete_guards",
+        Notes,
+        Delete,
+        NOTES_BACKGROUND
+    ),
+    lock_exempt!(
+        "attachment-sync",
+        "remove_shared_attachment",
+        Notes,
+        Share,
+        NOTES_BACKGROUND
+    ),
+    guarded!("attachment-sync", "shared_attachment_path", Notes, Read),
+    guarded!("attachment-sync", "validate_shared_upload", Notes, Share),
     // audio-priority
     pending!("audio-priority", "get_input_priorities", Settings, Read),
     pending!("audio-priority", "get_output_priorities", Settings, Read),
@@ -299,7 +372,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("calendar", "update_ignored_calendar_item", Settings, Edit),
     guarded!("calendar", "update_organization", Notes, Edit),
     // db
-    pending!("db", "apply_session_ingest", Notes, Create),
+    lock_exempt!(
+        "db",
+        "apply_session_ingest",
+        Notes,
+        Create,
+        NOTES_BACKGROUND
+    ),
     pending!("db", "begin_cloudsync_activity", Settings, Edit),
     pending!("db", "bind_cloudsync_account", Settings, Administer),
     pending!("db", "cleanup_legacy_files", Settings, Administer),
@@ -356,7 +435,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         SYNC_BACKGROUND
     ),
     guarded!("db", "list_meetings", Notes, Read),
-    pending!("db", "run_legacy_import", Notes, Create),
+    guarded!("db", "run_legacy_import", Notes, Create),
     lock_exempt!(
         "db",
         "seal_e2ee_recovery_key_for_device",
@@ -426,7 +505,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("detect", "list_default_ignored_bundle_ids", DEVICE),
     public!("detect", "list_installed_applications", DEVICE),
     public!("detect", "list_mic_using_applications", DEVICE),
-    pending!("detect", "send_meeting_chat_message", Notes, Share),
+    lock_exempt!(
+        "detect",
+        "send_meeting_chat_message",
+        Notes,
+        Share,
+        NOTES_BACKGROUND
+    ),
     pending!("detect", "set_ignored_bundle_ids", Settings, Edit),
     pending!("detect", "set_included_bundle_ids", Settings, Edit),
     pending!("detect", "set_mic_active_threshold", Settings, Edit),
@@ -604,7 +689,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     // local-api
     guarded!("local-api", "create_webhook", Keys, Create),
     guarded!("local-api", "delete_webhook", Settings, Delete),
-    pending!("local-api", "dispatch_event", Notes, Share),
+    lock_exempt!(
+        "local-api",
+        "dispatch_event",
+        Notes,
+        Share,
+        NOTES_BACKGROUND
+    ),
     guarded!("local-api", "export_meeting_markdown", Notes, Export),
     guarded!("local-api", "get_cloud_snapshot", Notes, Read),
     guarded!("local-api", "list_cloud_snapshot_ids", Notes, Read),

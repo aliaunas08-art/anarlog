@@ -260,10 +260,18 @@ pub(crate) async fn cleanup_legacy_files(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn run_legacy_import(
+pub(crate) async fn run_legacy_import<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     dry_run: bool,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .rerun_legacy_import(dry_run)
         .await
@@ -272,11 +280,19 @@ pub(crate) async fn run_legacy_import(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn apply_session_ingest(
+pub(crate) async fn apply_session_ingest<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     workspace_id: String,
     envelope: serde_json::Value,
 ) -> Result<crate::SessionIngestApplyResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let envelope = match serde_json::from_value(envelope) {
         Ok(envelope) => envelope,
         Err(error) => {

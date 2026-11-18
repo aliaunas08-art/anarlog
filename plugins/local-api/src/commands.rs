@@ -124,9 +124,17 @@ pub async fn test_webhook<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn dispatch_event<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     event: String,
     meeting_id: String,
 ) -> Result<u32, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     if !dispatch::KNOWN_EVENTS.contains(&event.as_str()) {
         return Err(format!(
             "unknown event '{event}'; known events: {}",

@@ -967,7 +967,7 @@ The ASPC_BASE "Verification" checklist, run on this Mac (branch `prototype`). Ev
 | Item | Result | Evidence |
 |---|---|---|
 | Viewer denied edit, delete, export (A1.4) | TRUE | `viewer_reads_content_only` (every DataType × Action; Edit/Delete/Export/Share/Administer → `RoleDenied`), Viewer case of `state::tests::guard_denies_locked_viewer_and_wrong_window` |
-| Every Tauri command rejects an unauthorised call (A2.2, A2.3) | FALSE (partial) | Registry (2026-11-18): 477 commands, 187 `Public`, 181 guarded, **109 `Pending`** (was 224 on 2026-11-17) (unguarded). The 67 guarded ones: `guarded_commands_call_the_guard`, new `guarded_commands_require_their_registry_permission`, `guard_denies_locked_viewer_and_wrong_window`, `registry_matches_real_commands` |
+| Every Tauri command rejects an unauthorised call (A2.2, A2.3) | FALSE (partial) | Registry (2026-11-18): 477 commands, 187 `Public`, 205 guarded, **85 `Pending`** (was 224 on 2026-11-17) (unguarded). The 67 guarded ones: `guarded_commands_call_the_guard`, new `guarded_commands_require_their_registry_permission`, `guard_denies_locked_viewer_and_wrong_window`, `registry_matches_real_commands` |
 | Two-workspace isolation, incl. Ask (C1.4, B4.2) | PARTIAL | Tests pass (below), but see limits |
 | Prompt-injection fixture (B3.4) | TRUE | `injection.test.ts` (2), `enhance-one-call.test.ts` (3, incl. B3.4), `escape.rs` hostile-block tests (4) |
 | Audit tamper / no app path (D1.6, D1.1) | TRUE (re-run) | `audit-log` 15 unit + 2 `tests/isolation.rs`; `webview_sql_cannot_reach_the_audit_log` in `db-core --lib` |
@@ -1140,3 +1140,16 @@ Four layers, all in Rust:
 - **Callers by window:** no overlay, dictation-overlay or composer code calls any of these.
 - **Code:** the `contacts_command!` macro hid its functions from `tests/command_registry.rs` (the reason `soft_delete_contact` was left Pending in the 10-command batch); the 12 contact commands are written out with a `contacts_runtime` helper. The three commands that return the plugin's `Error` map a denial to `Error::Auth`. `tauri-plugin-calendar` now depends on `anlg-aspc`.
 - **Tests:** `aspc` 23 + 3 + 2 (ratchet lowered to 109), `tauri-plugin-calendar` 84, all passing. `cargo check -p desktop` builds with no errors. Not run in the app.
+
+### A2.3 batch 6: attachment sync and the remaining Notes commands (2026-11-18, 85 `Pending` remain)
+
+- **Guarded (`aspc::require`, `Enforced`), 8:** `app:get_pinned_tabs`, `get_recently_opened_sessions` `(Notes, Read)`; the shared-note upload path started from the sharing panel (`session-sharing/management-panel.tsx` → `attachment-management.ts`): `attachment-sync:prepare_shared_upload`, `read_shared_upload_range`, `validate_shared_upload`, `cleanup_shared_upload` `(Notes, Share)`; `attachment-sync:shared_attachment_path` (shared-note viewer) `(Notes, Read)`; `db:run_legacy_import` (Settings → Storage) `(Notes, Create)`.
+- **Guarded without the lock check (`LockExempt`, reason `NOTES_BACKGROUND`), 16:**
+  - Attachment sync (`attachment-sync/runner.ts`, part of CloudSync, which the lock never pauses): `begin_attachment_download`, `describe_upload`, `prepare_upload`, `read_upload_range` `(Read)`; `download_and_restore` `(Create)`; `cleanup_transfer_cache` `(Edit)`; `prepare_delete_guard`, `commit_delete_guard`, `reconcile_delete_guards` `(Delete)`.
+  - Shared-note attachment cache (`shared-notes/attachment-cache-runner.ts`): `download_shared_attachment` `(Read)`, `remove_shared_attachment` `(Share)`.
+  - `db:apply_session_ingest` (enterprise capture sync) `(Create)`; `detect:send_meeting_chat_message` (the recording disclosure posted when a capture starts, including a scheduled one) `(Share)`; `local-api:dispatch_event` (events from capture, enhance and enterprise sync) `(Share)`.
+  - `app:set_pinned_tabs`, `set_recently_opened_sessions` `(Edit)`: sync-driven tab closes (a meeting deleted on another device) persist tab state behind the lock screen.
+- **Callers by window:** no overlay, dictation-overlay or composer code calls any of these.
+- **Code:** `attachment-sync:begin_attachment_download`, `describe_upload` and `db:apply_session_ingest`, `run_legacy_import` became generic over the runtime. `download_and_restore` takes the database state from the app handle instead of a parameter, since specta allows at most 10 and the window made 11. `tauri-plugin-attachment-sync` now depends on `anlg-aspc`.
+- **Left:** Settings (50) and Actions (11) commands; no Notes, Transcript or Recording command is `Pending` any more.
+- **Tests:** `aspc` 23 + 3 + 2 (ratchet lowered to 85), `tauri-plugin-attachment-sync` 26, `detect` 28 + 18, `local-api` 34, all passing. `tauri-plugin-db` 160 of 161 (the pre-existing templates 19 vs 18 failure). `cargo check -p desktop` builds with no errors. Not run in the app.

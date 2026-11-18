@@ -16673,6 +16673,7 @@ dependencies = [
 name = "tauri-plugin-attachment-sync"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "attachment-sync-core",
  "db-app",
  "e2ee",

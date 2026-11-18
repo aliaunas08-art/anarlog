@@ -18,6 +18,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-attachment-sync-core = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-e2ee = { workspace = true }
