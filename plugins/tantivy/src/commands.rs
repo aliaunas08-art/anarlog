@@ -41,8 +41,16 @@ pub(crate) async fn search<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn reindex<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     collection: Option<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tantivy()
         .reindex(collection)
         .await
@@ -53,9 +61,17 @@ pub(crate) async fn reindex<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn add_document<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     document: SearchDocument,
     collection: Option<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tantivy()
         .add_document(collection, document)
         .await
@@ -66,9 +82,17 @@ pub(crate) async fn add_document<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn update_document<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     document: SearchDocument,
     collection: Option<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tantivy()
         .update_document(collection, document)
         .await
@@ -79,9 +103,17 @@ pub(crate) async fn update_document<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn update_documents<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     documents: Vec<SearchDocument>,
     collection: Option<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tantivy()
         .update_documents(collection, documents)
         .await
@@ -92,9 +124,17 @@ pub(crate) async fn update_documents<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn remove_document<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     id: String,
     collection: Option<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tantivy()
         .remove_document(collection, id)
         .await

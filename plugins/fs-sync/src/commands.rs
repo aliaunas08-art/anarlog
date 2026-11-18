@@ -103,8 +103,16 @@ pub(crate) async fn deserialize(input: String) -> Result<ParsedDocument, String>
 #[specta::specta]
 pub(crate) async fn write_json_batch<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     items: Vec<(Value, String)>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     let base_path = base
         .as_std_path()
@@ -134,8 +142,16 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn write_document_batch<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     items: Vec<(ParsedDocument, String)>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     let base_path = base
         .as_std_path()
@@ -182,9 +198,17 @@ fn write_file_with_context(path: &Path, content: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn read_document_batch(
+pub(crate) async fn read_document_batch<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     dir_path: String,
 ) -> Result<HashMap<String, ParsedDocument>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         let files = crate::session::list_uuid_files(&PathBuf::from(&dir_path), "md");
         let results: HashMap<_, _> = files
@@ -203,7 +227,15 @@ pub(crate) async fn read_document_batch(
 #[specta::specta]
 pub(crate) async fn list_folders<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<ListFoldersResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.fs_sync().list_folders().map_err(|e| e.to_string())
 }
 
@@ -211,10 +243,18 @@ pub(crate) async fn list_folders<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn move_session<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     from_folder_path: String,
     target_folder_path: String,
 ) -> Result<MoveSessionResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.fs_sync()
         .move_session(&session_id, &from_folder_path, &target_folder_path)
         .map_err(|e| e.to_string())
@@ -224,8 +264,16 @@ pub(crate) async fn move_session<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn create_folder<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     folder_path: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.fs_sync()
         .create_folder(&folder_path)
         .map_err(|e| e.to_string())
@@ -235,9 +283,17 @@ pub(crate) async fn create_folder<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn rename_folder<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     old_path: String,
     new_path: String,
 ) -> Result<RenameFolderResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.fs_sync()
         .rename_folder(&old_path, &new_path)
         .map_err(|e| e.to_string())
@@ -613,8 +669,16 @@ pub(crate) async fn audio_copy<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn session_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     resolve_session_dir(&app, &session_id).map(|p| p.to_string_lossy().to_string())
 }
 
@@ -622,8 +686,16 @@ pub(crate) async fn session_dir<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn load_session_content<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<SessionContentData, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     spawn_blocking!({ Ok(load_session_content_from_fs(&session_id, &session_dir)) })
 }
@@ -632,8 +704,16 @@ pub(crate) async fn load_session_content<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn delete_session_folder<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     crate::session::delete_session_dir(&session_dir).map_err(|e| e.to_string())?;
     remove_audio_peaks_cache(&app, &session_id);
@@ -644,11 +724,19 @@ pub(crate) async fn delete_session_folder<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn scan_and_read<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scan_dir: String,
     file_patterns: Vec<String>,
     recursive: bool,
     path_filter: Option<String>,
 ) -> Result<ScanResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     let base_path = base
         .as_std_path()
@@ -670,8 +758,16 @@ pub(crate) async fn scan_and_read<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn chat_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     chat_group_id: String,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     Ok(base.join("chats").join(&chat_group_id).to_string())
 }
@@ -680,8 +776,16 @@ pub(crate) async fn chat_dir<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn entity_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     dir_name: String,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     Ok(base.join(&dir_name).to_string())
 }
@@ -690,10 +794,18 @@ pub(crate) async fn entity_dir<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn attachment_save<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     data: Vec<u8>,
     filename: String,
 ) -> Result<crate::AttachmentSaveResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let scope = app.asset_protocol_scope();
     let result = spawn_blocking!({
         app.fs_sync()
@@ -717,8 +829,16 @@ pub(crate) async fn attachment_save<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn attachment_list<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Vec<crate::AttachmentInfo>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let scope = app.asset_protocol_scope();
     let mut attachments = spawn_blocking!({
         app.fs_sync()
@@ -750,9 +870,17 @@ pub(crate) async fn attachment_list<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn attachment_read<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     attachment_id: String,
 ) -> Result<Vec<u8>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         app.fs_sync()
             .attachment_read(&session_id, &attachment_id)
@@ -764,9 +892,17 @@ pub(crate) async fn attachment_read<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn attachment_remove<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     attachment_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         app.fs_sync()
             .attachment_remove(&session_id, &attachment_id)
@@ -778,10 +914,18 @@ pub(crate) async fn attachment_remove<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn folder_attachment_save<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     folder_path: String,
     data: Vec<u8>,
     filename: String,
 ) -> Result<crate::AttachmentSaveResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         app.fs_sync()
             .folder_attachment_save(&folder_path, &data, &filename)
@@ -793,8 +937,16 @@ pub(crate) async fn folder_attachment_save<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn folder_attachment_list<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     folder_path: String,
 ) -> Result<Vec<crate::AttachmentInfo>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         app.fs_sync()
             .folder_attachment_list(&folder_path)
@@ -806,9 +958,17 @@ pub(crate) async fn folder_attachment_list<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn folder_attachment_read<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     folder_path: String,
     attachment_id: String,
 ) -> Result<Vec<u8>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     spawn_blocking!({
         app.fs_sync()
             .folder_attachment_read(&folder_path, &attachment_id)

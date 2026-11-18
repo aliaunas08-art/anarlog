@@ -68,6 +68,7 @@ const CAPTURE_TOKEN: &str = "a timer refreshes the transcription token during an
 const MEETING_BACKGROUND: &str = "meeting work that keeps running behind the lock screen after a relock (scheduled auto-start, enhance results, screen-record cataloguing); role and window are still checked, and only the main window runs it";
 const TRANSCRIPT_PIPELINE: &str = "live, batch and dictation transcription keep running behind the lock screen after a relock and must save what they captured; role and window are still checked";
 const CAPTURE_PIPELINE: &str = "recording, meeting detection, system dictation and the end-of-recording audio save and cleanup keep running behind the lock screen (a scheduled recording can start after a relock); role and window are still checked";
+const CONTENT_BACKGROUND: &str = "background content work behind the lock screen after a relock: enhance reading meeting screenshots, screen records saved or removed as a capture ends, and cloud-sync evictions removing a session folder; role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -450,10 +451,34 @@ pub static COMMANDS: &[CommandEntry] = &[
     // export
     guarded!("export", "export", Notes, Export),
     // fs-sync: the vault mirror of meetings on disk.
-    pending!("fs-sync", "attachment_list", Notes, Read),
-    pending!("fs-sync", "attachment_read", Notes, Read),
-    pending!("fs-sync", "attachment_remove", Notes, Delete),
-    pending!("fs-sync", "attachment_save", Notes, Create),
+    lock_exempt!(
+        "fs-sync",
+        "attachment_list",
+        Notes,
+        Read,
+        CONTENT_BACKGROUND
+    ),
+    lock_exempt!(
+        "fs-sync",
+        "attachment_read",
+        Notes,
+        Read,
+        CONTENT_BACKGROUND
+    ),
+    lock_exempt!(
+        "fs-sync",
+        "attachment_remove",
+        Notes,
+        Delete,
+        CONTENT_BACKGROUND
+    ),
+    lock_exempt!(
+        "fs-sync",
+        "attachment_save",
+        Notes,
+        Create,
+        CONTENT_BACKGROUND
+    ),
     guarded!("fs-sync", "audio_copy", Recording, Create),
     lock_exempt!(
         "fs-sync",
@@ -494,25 +519,31 @@ pub static COMMANDS: &[CommandEntry] = &[
         Read,
         CAPTURE_PIPELINE
     ),
-    pending!("fs-sync", "chat_dir", Notes, Read),
-    pending!("fs-sync", "create_folder", Notes, Create),
+    guarded!("fs-sync", "chat_dir", Notes, Read),
+    guarded!("fs-sync", "create_folder", Notes, Create),
     guarded!("fs-sync", "delete_folder", Notes, Delete),
-    pending!("fs-sync", "delete_session_folder", Notes, Delete),
+    lock_exempt!(
+        "fs-sync",
+        "delete_session_folder",
+        Notes,
+        Delete,
+        CONTENT_BACKGROUND
+    ),
     public!("fs-sync", "deserialize", PURE),
-    pending!("fs-sync", "entity_dir", Notes, Read),
-    pending!("fs-sync", "folder_attachment_list", Notes, Read),
-    pending!("fs-sync", "folder_attachment_read", Notes, Read),
+    guarded!("fs-sync", "entity_dir", Notes, Read),
+    guarded!("fs-sync", "folder_attachment_list", Notes, Read),
+    guarded!("fs-sync", "folder_attachment_read", Notes, Read),
     guarded!("fs-sync", "folder_attachment_remove", Notes, Delete),
-    pending!("fs-sync", "folder_attachment_save", Notes, Create),
-    pending!("fs-sync", "list_folders", Notes, Read),
-    pending!("fs-sync", "load_session_content", Notes, Read),
-    pending!("fs-sync", "move_session", Notes, Edit),
-    pending!("fs-sync", "read_document_batch", Notes, Read),
-    pending!("fs-sync", "rename_folder", Notes, Edit),
-    pending!("fs-sync", "scan_and_read", Notes, Read),
-    pending!("fs-sync", "session_dir", Notes, Read),
-    pending!("fs-sync", "write_document_batch", Notes, Edit),
-    pending!("fs-sync", "write_json_batch", Notes, Edit),
+    guarded!("fs-sync", "folder_attachment_save", Notes, Create),
+    guarded!("fs-sync", "list_folders", Notes, Read),
+    guarded!("fs-sync", "load_session_content", Notes, Read),
+    guarded!("fs-sync", "move_session", Notes, Edit),
+    guarded!("fs-sync", "read_document_batch", Notes, Read),
+    guarded!("fs-sync", "rename_folder", Notes, Edit),
+    guarded!("fs-sync", "scan_and_read", Notes, Read),
+    guarded!("fs-sync", "session_dir", Notes, Read),
+    guarded!("fs-sync", "write_document_batch", Notes, Edit),
+    guarded!("fs-sync", "write_json_batch", Notes, Edit),
     // fs2
     public!(
         "fs2",
@@ -744,12 +775,12 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("store2", "set_secret", Keys, Edit),
     pending!("store2", "set_str", Settings, Edit),
     // tantivy
-    pending!("tantivy", "add_document", Notes, Edit),
-    pending!("tantivy", "reindex", Notes, Edit),
-    pending!("tantivy", "remove_document", Notes, Edit),
+    guarded!("tantivy", "add_document", Notes, Edit),
+    guarded!("tantivy", "reindex", Notes, Edit),
+    guarded!("tantivy", "remove_document", Notes, Edit),
     guarded!("tantivy", "search", Notes, Read),
-    pending!("tantivy", "update_document", Notes, Edit),
-    pending!("tantivy", "update_documents", Notes, Edit),
+    guarded!("tantivy", "update_document", Notes, Edit),
+    guarded!("tantivy", "update_documents", Notes, Edit),
     // template
     guarded!("template", "apply_session_content_corrections", Notes, Edit),
     public!("template", "compose_generated_summary", PURE),

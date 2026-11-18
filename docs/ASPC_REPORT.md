@@ -7,7 +7,7 @@ Branch `prototype`, 50 commits after `18161cd` (audit + rulebook). Nothing is pu
 | Item | Result | Evidence |
 |---|---|---|
 | Viewer denied edit, delete, export (A1.4) | TRUE | `viewer_reads_content_only`, `guard_denies_locked_viewer_and_wrong_window` |
-| Every command rejects an unauthorised call (A2.2, A2.3) | **FALSE** | 477 commands: 187 Public, 135 guarded and tested, **155 not yet guarded** (2026-11-18) |
+| Every command rejects an unauthorised call (A2.2, A2.3) | **FALSE** | 477 commands: 187 Public, 160 guarded and tested, **130 not yet guarded** (2026-11-18) |
 | Two-workspace isolation, incl. Ask (C1.4, B4.2) | PARTIAL | Rust reads, search, exports, local-api and Ask are scoped and tested. Webview SQL is fail-closed single-workspace only (see C1 below). |
 | Prompt injection: no export, delete or cross-meeting disclosure (B3.4) | TRUE | `injection.test.ts`, `enhance-one-call.test.ts`, template escape tests |
 | Audit log detects tampering; no app update/delete path (D1) | TRUE | audit-log 15 + 2, `webview_sql_cannot_reach_the_audit_log` |
@@ -31,7 +31,7 @@ All items passed on the first round, so the 3-round escalation rule was never tr
 ## Open items needing a decision
 
 1. **C1 webview SQL filtering.** The interim fail-closed single-workspace guard is in place. Real filtering needs option (b), scoped Rust commands per table, or option (c), views on a dedicated pool. Decision deferred until a second workspace exists.
-2. **Unguarded commands (A2.3): 155 left.** Batch 1 (2026-11-17) guarded the 11 E2EE key and sync-token commands, lock-exempt so background sync keeps working. Batch 2 (2026-11-18) guarded 25 meeting content and transcript commands: 13 fully, 12 without the lock check because they run behind the lock screen. Batch 3 (2026-11-18) guarded the 32 Recording commands: 8 fully, 24 without the lock check (capture, detection, system dictation, end-of-recording saves). File sync, search, calendar, attachment sync, Settings and Actions are next.
+2. **Unguarded commands (A2.3): 130 left.** Batch 1 (2026-11-17) guarded the 11 E2EE key and sync-token commands, lock-exempt so background sync keeps working. Batch 2 (2026-11-18) guarded 25 meeting content and transcript commands: 13 fully, 12 without the lock check because they run behind the lock screen. Batch 3 (2026-11-18) guarded the 32 Recording commands: 8 fully, 24 without the lock check (capture, detection, system dictation, end-of-recording saves). Batch 4 (2026-11-18) guarded 25 file-sync and search-index commands: 20 fully, 5 without the lock check (enhance screenshots, screen records, sync evictions). Calendar and contacts, attachment sync, Settings and Actions are next.
 3. **Licences (D5): resolved 2026-11-18.** `pnpm licenses:check` passes: 1578 packages, 0 failing, 26 warnings (all MPL-2.0, file-level copyleft, fine to ship unmodified).
    - `mp3lame-encoder` / `mp3lame-sys`: removed 2026-11-17 (recordings are now AAC through macOS AudioToolbox, FLAC on Windows and Linux);
    - `pos` (LGPL): removed with the automatic prose keywords; transcription hints now come from participants, the dictionary and #hashtags;
