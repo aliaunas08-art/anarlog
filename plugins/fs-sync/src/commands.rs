@@ -375,10 +375,18 @@ pub(crate) async fn audio_metadata<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn audio_delete_orphaned_expired<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     known_session_ids: Vec<String>,
     retention_ms: u64,
     now_ms: u64,
 ) -> Result<Vec<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     let sessions_dir = base.join("sessions").into_std_path_buf();
     let deleted = spawn_blocking!({

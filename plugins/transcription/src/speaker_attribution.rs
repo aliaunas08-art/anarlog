@@ -195,10 +195,18 @@ pub(crate) fn pass_input_words(
 #[specta::specta]
 pub async fn attribute_session_speakers<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     transcript_id: String,
     mode: SpeakerPassMode,
 ) -> Result<AttributionSummary, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.pool().clone())

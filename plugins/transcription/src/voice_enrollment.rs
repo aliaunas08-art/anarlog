@@ -301,7 +301,15 @@ pub async fn start_voice_enrollment<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn finish_voice_enrollment<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<VoiceEnrollmentStatus, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let active = state(&app)
         .take()
         .ok_or_else(|| "Voice enrollment is not recording".to_owned())?;
@@ -366,11 +374,19 @@ pub async fn delete_voice_enrollment<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn improve_voice_enrollment_from_segment<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     channel: i32,
     start_ms: i64,
     end_ms: i64,
 ) -> Result<VoiceEnrollmentStatus, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let path = app
         .fs_sync()

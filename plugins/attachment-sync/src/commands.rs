@@ -37,10 +37,18 @@ pub(crate) async fn cancel_attachment_download(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn begin_shared_upload_operation(
+pub(crate) async fn begin_shared_upload_operation<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     control: tauri::State<'_, crate::control::DownloadControl>,
     operation_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     control
         .begin(&operation_id, None)
         .map_err(|error| error.to_string())
@@ -532,8 +540,16 @@ pub(crate) async fn remove_shared_attachment<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn clear_shared_attachment_scope<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope_id: String,
 ) -> Result<u64, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let control = app.state::<crate::control::DownloadControl>();
     let clear = control
         .begin_scope_clear(&scope_id)
@@ -548,7 +564,15 @@ pub(crate) async fn clear_shared_attachment_scope<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn clear_shared_attachment_preview_scopes<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<bool, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let control = app.state::<crate::control::DownloadControl>();
     let clear = control
         .begin_scope_prefix_clear(crate::runtime::SHARED_PREVIEW_SCOPE_PREFIX)

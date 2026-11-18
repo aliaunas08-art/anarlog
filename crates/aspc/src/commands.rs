@@ -71,6 +71,7 @@ const CAPTURE_PIPELINE: &str = "recording, meeting detection, system dictation a
 const CONTENT_BACKGROUND: &str = "background content work behind the lock screen after a relock: enhance reading meeting screenshots, screen records saved or removed as a capture ends, and cloud-sync evictions removing a session folder; role and window are still checked";
 const CALENDAR_SYNC: &str = "periodic calendar sync keeps running behind the lock screen after a relock, so scheduled auto-start sees current events; role and window are still checked, and only the main window runs it";
 const NOTES_BACKGROUND: &str = "background sync and capture work behind the lock screen after a relock: attachment sync and the shared-note attachment cache, enterprise session ingest, the meeting-chat recording disclosure, local API event dispatch, and tab state that sync-driven tab closes persist; role and window are still checked";
+const AUDIO_RETENTION: &str = "the periodic audio cleanup and retention sweep (services/audio-cleanup.ts, services/audio-retention.ts) keeps running behind the lock screen after a relock, like the meeting retention sweep; role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -199,7 +200,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         Read,
         NOTES_BACKGROUND
     ),
-    pending!(
+    guarded!(
         "attachment-sync",
         "begin_shared_upload_operation",
         Notes,
@@ -215,17 +216,18 @@ pub static COMMANDS: &[CommandEntry] = &[
         Edit,
         NOTES_BACKGROUND
     ),
-    pending!(
+    guarded!(
         "attachment-sync",
         "clear_shared_attachment_preview_scopes",
         Notes,
         Edit
     ),
-    pending!(
+    lock_exempt!(
         "attachment-sync",
         "clear_shared_attachment_scope",
         Notes,
-        Edit
+        Edit,
+        NOTES_BACKGROUND
     ),
     lock_exempt!(
         "attachment-sync",
@@ -597,7 +599,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         Delete,
         CAPTURE_PIPELINE
     ),
-    pending!(
+    guarded!(
         "fs-sync",
         "audio_delete_orphaned_expired",
         Recording,
@@ -829,11 +831,12 @@ pub static COMMANDS: &[CommandEntry] = &[
         Edit,
         CAPTURE_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "session",
         "mark_session_audio_transcription_complete",
         Transcript,
-        Edit
+        Edit,
+        TRANSCRIPT_PIPELINE
     ),
     guarded!("session", "move_session_contents", Notes, Edit),
     guarded!("session", "persist_chat_session_proposal", Notes, Create),
@@ -943,60 +946,69 @@ pub static COMMANDS: &[CommandEntry] = &[
     pending!("tracing", "log_content", Settings, Read),
     public!("tracing", "logs_dir", BUILD),
     // transcription
-    pending!(
+    lock_exempt!(
         "transcription",
         "acknowledge_capture_audio_chunk",
         Recording,
-        Edit
+        Edit,
+        CAPTURE_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "acknowledge_capture_audio_cleanup_status",
         Recording,
-        Edit
+        Edit,
+        AUDIO_RETENTION
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "acknowledge_completed_transcription",
         Transcript,
-        Edit
+        Edit,
+        TRANSCRIPT_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "acknowledge_stopped_capture",
         Recording,
-        Edit
+        Edit,
+        CAPTURE_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "attribute_session_speakers",
         Transcript,
-        Edit
+        Edit,
+        TRANSCRIPT_PIPELINE
     ),
     public!("transcription", "cancel_voice_enrollment", FLOW),
-    pending!(
+    lock_exempt!(
         "transcription",
         "clear_capture_audio_saved",
         Recording,
-        Edit
+        Edit,
+        CAPTURE_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "clear_capture_lifecycle_marker",
         Recording,
-        Edit
+        Edit,
+        CAPTURE_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "delete_processed_session_audio",
         Recording,
-        Delete
+        Delete,
+        AUDIO_RETENTION
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "delete_transcribed_capture_audio",
         Recording,
-        Delete
+        Delete,
+        CAPTURE_PIPELINE
     ),
     guarded!(
         "transcription",
@@ -1005,13 +1017,13 @@ pub static COMMANDS: &[CommandEntry] = &[
         Delete
     ),
     guarded!("transcription", "export_to_vtt", Transcript, Export),
-    pending!(
+    guarded!(
         "transcription",
         "extract_voiceprint_candidates",
         Transcript,
         Read
     ),
-    pending!(
+    guarded!(
         "transcription",
         "finish_voice_enrollment",
         Recording,
@@ -1024,11 +1036,12 @@ pub static COMMANDS: &[CommandEntry] = &[
         Edit,
         TRANSCRIPT_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "get_capture_audio_cleanup_status",
         Recording,
-        Read
+        Read,
+        AUDIO_RETENTION
     ),
     lock_exempt!(
         "transcription",
@@ -1037,11 +1050,12 @@ pub static COMMANDS: &[CommandEntry] = &[
         Read,
         CAPTURE_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "get_capture_lifecycle_marker",
         Recording,
-        Read
+        Read,
+        CAPTURE_PIPELINE
     ),
     lock_exempt!(
         "transcription",
@@ -1055,11 +1069,12 @@ pub static COMMANDS: &[CommandEntry] = &[
         "get_capture_state",
         "capture state flag only (active, finalizing, inactive)"
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "get_completed_transcription",
         Transcript,
-        Read
+        Read,
+        TRANSCRIPT_PIPELINE
     ),
     public!("transcription", "get_current_microphone_device", DEVICE),
     public!("transcription", "get_mic_muted", DEVICE),
@@ -1070,7 +1085,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         Read,
         CAPTURE_PIPELINE
     ),
-    pending!(
+    guarded!(
         "transcription",
         "improve_voice_enrollment_from_segment",
         Recording,
@@ -1078,13 +1093,14 @@ pub static COMMANDS: &[CommandEntry] = &[
     ),
     public!("transcription", "is_supported_languages_batch", BUILD),
     public!("transcription", "is_supported_languages_live", BUILD),
-    pending!(
+    lock_exempt!(
         "transcription",
         "list_capture_audio_chunks",
         Recording,
-        Read
+        Read,
+        CAPTURE_PIPELINE
     ),
-    pending!(
+    guarded!(
         "transcription",
         "list_capture_lifecycle_markers",
         Recording,
@@ -1103,11 +1119,12 @@ pub static COMMANDS: &[CommandEntry] = &[
     ),
     public!("transcription", "list_microphone_devices", DEVICE),
     guarded!("transcription", "list_stopped_captures", Recording, Read),
-    pending!(
+    lock_exempt!(
         "transcription",
         "list_transcription_sessions",
         Transcript,
-        Read
+        Read,
+        TRANSCRIPT_PIPELINE
     ),
     lock_exempt!(
         "transcription",
@@ -1117,17 +1134,18 @@ pub static COMMANDS: &[CommandEntry] = &[
         CAPTURE_PIPELINE
     ),
     public!("transcription", "parse_subtitle", PURE),
-    pending!(
+    guarded!(
         "transcription",
         "promote_voiceprint_candidates",
         Transcript,
         Edit
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "reconcile_refined_speaker_clusters",
         Transcript,
-        Edit
+        Edit,
+        TRANSCRIPT_PIPELINE
     ),
     public!("transcription", "refine_batch_transcript", PURE),
     lock_exempt!(
@@ -1158,11 +1176,12 @@ pub static COMMANDS: &[CommandEntry] = &[
         Create,
         TRANSCRIPT_PIPELINE
     ),
-    pending!(
+    lock_exempt!(
         "transcription",
         "save_capture_lifecycle_marker",
         Recording,
-        Edit
+        Edit,
+        CAPTURE_PIPELINE
     ),
     lock_exempt!(
         "transcription",

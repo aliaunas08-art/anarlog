@@ -273,13 +273,23 @@ pub(crate) async fn catalog_session_audio<R: tauri::Runtime>(
     let _guard = runtime.synced_write_guard().await;
     attachments::catalog_session_audio(runtime.pool(), request).await
 }
-session_write_command!(
-    mark_session_audio_transcription_complete,
-    attachments,
-    mark_session_audio_transcription_complete,
-    attachments::SessionAudioRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn mark_session_audio_transcription_complete<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: attachments::SessionAudioRequest,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    attachments::mark_session_audio_transcription_complete(runtime.pool(), request).await
+}
 session_write_command!(
     set_attachment_cloud_sync_enabled,
     attachments,

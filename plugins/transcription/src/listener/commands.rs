@@ -30,7 +30,15 @@ fn session_audio_dir<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_capture_audio_cleanup_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<std::collections::HashMap<String, String>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     use tauri::Manager;
     app.state::<crate::AudioCleanupStatus>()
         .0
@@ -43,9 +51,17 @@ pub async fn get_capture_audio_cleanup_status<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn acknowledge_capture_audio_cleanup_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     error: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     use tauri::Manager;
     app.state::<crate::AudioCleanupStatus>()
         .acknowledge(&session_id, &error)
@@ -55,8 +71,16 @@ pub async fn acknowledge_capture_audio_cleanup_status<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn list_capture_audio_chunks<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Vec<RecoveryAudioChunk>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     tokio::task::spawn_blocking(move || {
         let dir = session_audio_dir(&app, &session_id)?;
         recorder::list_recovery_chunks(&dir).map_err(|error| error.to_string())
@@ -69,9 +93,17 @@ pub async fn list_capture_audio_chunks<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn acknowledge_capture_audio_chunk<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     chunk_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     tokio::task::spawn_blocking(move || {
         let dir = session_audio_dir(&app, &session_id)?;
         recorder::acknowledge_recovery_chunk(&dir, &chunk_id).map_err(|error| error.to_string())
@@ -84,8 +116,16 @@ pub async fn acknowledge_capture_audio_chunk<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn delete_transcribed_capture_audio<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     tokio::task::spawn_blocking(move || {
         let dir = session_audio_dir(&app, &session_id)?;
         recorder::delete_transcribed_capture_audio(&dir).map_err(|error| error.to_string())
@@ -300,9 +340,17 @@ pub async fn get_stopped_capture<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn acknowledge_stopped_capture<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     stopped_at_ms: i64,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     use tauri::Manager;
     app.state::<crate::StoppedCaptureRegistry>()
         .acknowledge(&session_id, stopped_at_ms);
@@ -313,9 +361,17 @@ pub async fn acknowledge_stopped_capture<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn save_capture_lifecycle_marker<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     marker: crate::CaptureLifecycleMarker,
     replace_transcript_id: Option<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let value_json = crate::capture_markers::serialize_marker(&marker)?;
     let replace_transcript_id =
         replace_transcript_id.unwrap_or_else(|| marker.transcript_id.clone());
@@ -336,9 +392,17 @@ pub async fn save_capture_lifecycle_marker<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn clear_capture_lifecycle_marker<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     transcript_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     if !crate::capture_markers::clear_marker(&app, &session_id, &transcript_id).await? {
         return Err(
             "capture lifecycle marker was not found or belongs to a different capture".to_string(),
@@ -351,8 +415,16 @@ pub async fn clear_capture_lifecycle_marker<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_capture_lifecycle_marker<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Option<crate::CaptureLifecycleMarker>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     crate::capture_markers::get_marker(&app, &session_id).await
 }
 
@@ -360,7 +432,15 @@ pub async fn get_capture_lifecycle_marker<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn list_capture_lifecycle_markers<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<crate::CaptureLifecycleMarker>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     crate::capture_markers::list_markers(&app).await
 }
 
@@ -459,8 +539,16 @@ pub async fn mark_capture_audio_saved<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn clear_capture_audio_saved<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     crate::capture_markers::clear_audio_saved(&app, &session_id).await
 }
 

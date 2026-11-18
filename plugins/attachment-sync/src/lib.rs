@@ -34,7 +34,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::describe_upload::<tauri::Wry>,
             commands::prepare_upload::<tauri::Wry>,
             commands::read_upload_range::<tauri::Wry>,
-            commands::begin_shared_upload_operation,
+            commands::begin_shared_upload_operation::<tauri::Wry>,
             commands::cancel_shared_upload_operation,
             commands::prepare_shared_upload::<tauri::Wry>,
             commands::read_shared_upload_range::<tauri::Wry>,

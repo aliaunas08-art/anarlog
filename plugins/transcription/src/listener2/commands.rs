@@ -51,7 +51,15 @@ pub async fn stop_transcription<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn list_transcription_sessions<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<crate::TranscriptionSession>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2()
         .list_transcription_sessions()
         .map_err(|e| e.to_string())
@@ -61,8 +69,16 @@ pub async fn list_transcription_sessions<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_completed_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Option<crate::CompletedTranscription>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2()
         .get_completed_transcription(session_id)
         .map_err(|e| e.to_string())
@@ -72,8 +88,16 @@ pub async fn get_completed_transcription<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn acknowledge_completed_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2()
         .acknowledge_completed_transcription(session_id);
     Ok(())
@@ -223,9 +247,17 @@ pub async fn render_session_transcript<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn reconcile_refined_speaker_clusters(
+pub async fn reconcile_refined_speaker_clusters<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     request: anlg_transcript::SpeakerClusterReconciliationRequest,
 ) -> Result<Vec<anlg_transcript::StoredSpeakerHint>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     Ok(anlg_transcript::reconcile_refined_speaker_clusters(
         &request.source,
         &request.words,

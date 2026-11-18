@@ -223,7 +223,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener2::commands::render_session_transcript::<tauri::Wry>,
             listener2::commands::refine_batch_transcript,
             listener2::commands::save_batch_transcript::<tauri::Wry>,
-            listener2::commands::reconcile_refined_speaker_clusters,
+            listener2::commands::reconcile_refined_speaker_clusters::<tauri::Wry>,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
             listener2::commands::list_transcription_sessions::<tauri::Wry>,

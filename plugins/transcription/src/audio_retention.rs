@@ -309,8 +309,16 @@ pub(crate) fn spawn<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
 #[specta::specta]
 pub async fn delete_processed_session_audio<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = db_pool(&app).ok_or_else(|| "database is not ready yet".to_string())?;
     if load_policy(&pool).await.map_err(|e| e.to_string())? != AudioRetentionPolicy::None {
         return Ok(false);

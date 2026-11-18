@@ -57,10 +57,18 @@ struct StoredHint {
 #[specta::specta]
 pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     transcript_id: String,
     audio_path: String,
 ) -> Result<u32, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     if !NON_USER_VOICEPRINTS_ENABLED {
         return Ok(0);
     }
@@ -249,11 +257,19 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     transcript_id: String,
     speaker_channel: i32,
     speaker_index: Option<i32>,
     human_id: String,
 ) -> Result<u32, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     if !NON_USER_VOICEPRINTS_ENABLED {
         return Ok(0);
     }
