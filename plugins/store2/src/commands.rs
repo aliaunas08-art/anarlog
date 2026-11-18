@@ -224,7 +224,17 @@ fn secret_location<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn save<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+pub(crate) async fn save<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.store2().save().map_err(|e| e.to_string())
 }
 
@@ -255,9 +265,17 @@ pub(crate) async fn repair_keychain_access<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_str<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -270,10 +288,18 @@ pub(crate) async fn get_str<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_str<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
     value: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -286,9 +312,17 @@ pub(crate) async fn set_str<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_bool<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
 ) -> Result<Option<bool>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -301,10 +335,18 @@ pub(crate) async fn get_bool<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_bool<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
     value: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -317,9 +359,17 @@ pub(crate) async fn set_bool<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_number<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
 ) -> Result<Option<f64>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -332,10 +382,18 @@ pub(crate) async fn get_number<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_number<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
     value: f64,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)

@@ -15,6 +15,7 @@ vergen-gix = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-buffer = { workspace = true }
 anlg-host = { workspace = true }
 

@@ -178,8 +178,8 @@ fn guarded_commands_call_the_guard() {
 /// Action)` as its registry entry, so the guard-logic test in
 /// `state::tests::guard_denies_locked_viewer_and_wrong_window` (which runs
 /// every registry entry through the guard) covers what the command really
-/// enforces. Also ratchets the Pending count (59 on 2026-11-18, after the
-/// last content batch 7) so it cannot grow.
+/// enforces. Also ratchets the Pending count (0 since 2026-11-18, after the
+/// Settings and Actions batch 8) so every command stays guarded or Public.
 #[test]
 fn guarded_commands_require_their_registry_permission() {
     use aspc::commands::Access;
@@ -237,7 +237,7 @@ fn guarded_commands_require_their_registry_permission() {
     );
     // Ratchet: new commands must not be added unguarded.
     assert!(
-        pending <= 59,
-        "Pending count went up to {pending}: guard the new command"
+        pending == 0,
+        "{pending} command(s) Pending: guard the new command"
     );
 }

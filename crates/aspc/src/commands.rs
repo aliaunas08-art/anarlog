@@ -63,7 +63,7 @@ const BUILD: &str = "build or environment facts; no user data";
 const OPENER: &str = "hands a URL or path to the OS; paths are limited by A3.6";
 
 const SQL_LOCK: &str = "lock enforced per statement by the webview SQL authorizer, which lets only the lock screen's settings reads through";
-const SYNC_BACKGROUND: &str = "background cloud sync (key setup, device enrollment, token refresh) runs while the app is locked, which never pauses sync; role and window are still checked, and only the main window runs sync";
+const SYNC_BACKGROUND: &str = "background cloud sync (start, stop, suspend, status and activity, account binding, key setup, device enrollment, token refresh) runs while the app is locked, which never pauses sync; role and window are still checked, and only the main window runs sync";
 const CAPTURE_TOKEN: &str = "a timer refreshes the transcription token during an active recording, which keeps running while the app is locked; role and window are still checked";
 const MEETING_BACKGROUND: &str = "meeting work that keeps running behind the lock screen after a relock (scheduled auto-start, enhance results, screen-record cataloguing); role and window are still checked, and only the main window runs it";
 const TRANSCRIPT_PIPELINE: &str = "live, batch and dictation transcription keep running behind the lock screen after a relock and must save what they captured; role and window are still checked";
@@ -72,6 +72,9 @@ const CONTENT_BACKGROUND: &str = "background content work behind the lock screen
 const CALENDAR_SYNC: &str = "periodic calendar sync keeps running behind the lock screen after a relock, so scheduled auto-start sees current events; role and window are still checked, and only the main window runs it";
 const NOTES_BACKGROUND: &str = "background sync and capture work behind the lock screen after a relock: attachment sync and the shared-note attachment cache, enterprise session ingest, the meeting-chat recording disclosure, local API event dispatch, and tab state that sync-driven tab closes persist; role and window are still checked";
 const AUDIO_RETENTION: &str = "the periodic audio cleanup and retention sweep (services/audio-cleanup.ts, services/audio-retention.ts) keeps running behind the lock screen after a relock, like the meeting retention sweep; role and window are still checked";
+const APP_STATE: &str = "small app-state flags and counters (unexpected-quit detection before unlock, the quit flush, AI usage counters during background enhance) that run before unlock or behind the lock screen; role and window are still checked";
+const CONSENT_FLAG: &str = "returns only the user's crash-report consent flag, which every window (including the dictation overlay) reads at startup before unlock to decide whether crash reporting starts";
+const ORIGIN_ALLOW: &str = "the custom-origin allow dialog is also reached by enterprise capture sync, which runs behind the lock screen; role and window are still checked";
 const AUTH_SESSION: &str =
     "background token refresh runs while relocked; denying it would sign the user out";
 
@@ -86,6 +89,9 @@ macro_rules! public {
     };
 }
 
+// Kept for a command that must be registered before its guard lands; the
+// ratchet in tests/command_registry.rs allows none.
+#[allow(unused_macros)]
 macro_rules! pending {
     ($plugin:literal, $name:literal, $data:ident, $action:ident) => {
         CommandEntry {
@@ -125,11 +131,11 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("accounts", "configured_providers", BUILD),
     guarded!("accounts", "connect_account", Keys, Create),
     guarded!("accounts", "disconnect_account", Keys, Delete),
-    pending!("accounts", "list_accounts", Settings, Read),
+    guarded!("accounts", "list_accounts", Settings, Read),
     // agent
     public!("agent", "health_check", BUILD),
-    pending!("agent", "install_cli", Settings, Administer),
-    pending!("agent", "uninstall_cli", Settings, Administer),
+    guarded!("agent", "install_cli", Settings, Administer),
+    guarded!("agent", "uninstall_cli", Settings, Administer),
     // ai-engine: the Efficiency Engine (C7). The key never leaves Rust.
     public!("ai-engine", "cancel_request", FLOW),
     guarded!("ai-engine", "clear_api_key", Keys, Edit),
@@ -152,18 +158,18 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("analytics", "event_fire_and_forget", TELEMETRY),
     public!("analytics", "identify", TELEMETRY),
     public!("analytics", "is_disabled", TELEMETRY),
-    pending!("analytics", "set_disabled", Settings, Edit),
+    guarded!("analytics", "set_disabled", Settings, Edit),
     public!("analytics", "set_properties", TELEMETRY),
     // app (apps/desktop/src-tauri)
     public!("app", "check_embedded_cli", BUILD),
     public!("app", "complete_app_exit", FLOW),
-    pending!("app", "get_account_full_name", Settings, Read),
+    guarded!("app", "get_account_full_name", Settings, Read),
     public!(
         "app",
         "get_data_protection_status",
         "whether FileVault is on (C2.1); a device fact, no user data"
     ),
-    pending!("app", "get_dismissed_toasts", Settings, Read),
+    guarded!("app", "get_dismissed_toasts", Settings, Read),
     public!(
         "app",
         "get_env",
@@ -174,15 +180,15 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("app", "get_onboarding_needed", UI),
     guarded!("app", "get_pinned_tabs", Notes, Read),
     guarded!("app", "get_recently_opened_sessions", Notes, Read),
-    pending!("app", "get_tinybase_values", Settings, Read),
+    guarded!("app", "get_tinybase_values", Settings, Read),
     guarded!("app", "install_agent_skill", Settings, Administer),
     guarded!("app", "install_embedded_cli", Settings, Administer),
     public!("app", "is_app_store_build", BUILD),
-    pending!("app", "is_crash_reporting_enabled", Settings, Read),
+    public!("app", "is_crash_reporting_enabled", CONSENT_FLAG),
     public!("app", "list_skill_agents", BUILD),
-    pending!("app", "set_crash_reporting_enabled", Settings, Edit),
-    pending!("app", "set_dismissed_toasts", Settings, Edit),
-    pending!("app", "set_onboarding_needed", Settings, Edit),
+    guarded!("app", "set_crash_reporting_enabled", Settings, Edit),
+    guarded!("app", "set_dismissed_toasts", Settings, Edit),
+    guarded!("app", "set_onboarding_needed", Settings, Edit),
     lock_exempt!("app", "set_pinned_tabs", Notes, Edit, NOTES_BACKGROUND),
     lock_exempt!(
         "app",
@@ -297,12 +303,12 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("attachment-sync", "shared_attachment_path", Notes, Read),
     guarded!("attachment-sync", "validate_shared_upload", Notes, Share),
     // audio-priority
-    pending!("audio-priority", "get_input_priorities", Settings, Read),
-    pending!("audio-priority", "get_output_priorities", Settings, Read),
+    guarded!("audio-priority", "get_input_priorities", Settings, Read),
+    guarded!("audio-priority", "get_output_priorities", Settings, Read),
     public!("audio-priority", "list_input_devices", DEVICE),
     public!("audio-priority", "list_output_devices", DEVICE),
-    pending!("audio-priority", "save_input_priorities", Settings, Edit),
-    pending!("audio-priority", "save_output_priorities", Settings, Edit),
+    guarded!("audio-priority", "save_input_priorities", Settings, Edit),
+    guarded!("audio-priority", "save_output_priorities", Settings, Edit),
     public!("audio-priority", "set_default_input_device", DEVICE),
     public!("audio-priority", "set_default_output_device", DEVICE),
     // auth: the hosted sign-in session, kept in the Keychain.
@@ -318,7 +324,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         "finish_refresh",
         "coordinates refresh timing between windows; stores and returns no token"
     ),
-    pending!("auth", "get_account_info", Settings, Read),
+    guarded!("auth", "get_account_info", Settings, Read),
     lock_exempt!("auth", "get_item", Keys, Read, AUTH_SESSION),
     lock_exempt!("auth", "remove_item", Keys, Delete, AUTH_SESSION),
     lock_exempt!("auth", "set_item", Keys, Edit, AUTH_SESSION),
@@ -381,11 +387,29 @@ pub static COMMANDS: &[CommandEntry] = &[
         Create,
         NOTES_BACKGROUND
     ),
-    pending!("db", "begin_cloudsync_activity", Settings, Edit),
-    pending!("db", "bind_cloudsync_account", Settings, Administer),
-    pending!("db", "cleanup_legacy_files", Settings, Administer),
+    lock_exempt!(
+        "db",
+        "begin_cloudsync_activity",
+        Settings,
+        Edit,
+        SYNC_BACKGROUND
+    ),
+    lock_exempt!(
+        "db",
+        "bind_cloudsync_account",
+        Settings,
+        Administer,
+        SYNC_BACKGROUND
+    ),
+    guarded!("db", "cleanup_legacy_files", Settings, Administer),
     guarded!("db", "cleanup_recording_imports", Recording, Delete),
-    pending!("db", "configure_cloudsync", Settings, Administer),
+    lock_exempt!(
+        "db",
+        "configure_cloudsync",
+        Settings,
+        Administer,
+        SYNC_BACKGROUND
+    ),
     lock_exempt!(
         "db",
         "configure_cloudsync_token",
@@ -394,13 +418,25 @@ pub static COMMANDS: &[CommandEntry] = &[
         SYNC_BACKGROUND
     ),
     lock_exempt!("db", "configure_e2ee_replica", Keys, Edit, SYNC_BACKGROUND),
-    pending!("db", "connect_local_library", Settings, Administer),
+    guarded!("db", "connect_local_library", Settings, Administer),
     lock_exempt!("db", "create_e2ee_identity", Keys, Create, SYNC_BACKGROUND),
-    pending!("db", "end_cloudsync_activity", Settings, Edit),
+    lock_exempt!(
+        "db",
+        "end_cloudsync_activity",
+        Settings,
+        Edit,
+        SYNC_BACKGROUND
+    ),
     lock_exempt!("db", "execute", Notes, Read, SQL_LOCK),
     lock_exempt!("db", "execute_proxy", Notes, Read, SQL_LOCK),
     lock_exempt!("db", "execute_transaction", Notes, Edit, SQL_LOCK),
-    pending!("db", "get_cloudsync_status", Settings, Read),
+    lock_exempt!(
+        "db",
+        "get_cloudsync_status",
+        Settings,
+        Read,
+        SYNC_BACKGROUND
+    ),
     lock_exempt!(
         "db",
         "get_e2ee_identity_status",
@@ -408,8 +444,8 @@ pub static COMMANDS: &[CommandEntry] = &[
         Read,
         SYNC_BACKGROUND
     ),
-    pending!("db", "get_legacy_cleanup_status", Settings, Read),
-    pending!("db", "get_legacy_import_report", Settings, Read),
+    guarded!("db", "get_legacy_cleanup_status", Settings, Read),
+    guarded!("db", "get_legacy_import_report", Settings, Read),
     guarded!("db", "get_meeting", Notes, Read),
     guarded!("db", "get_meeting_transcript", Transcript, Read),
     lock_exempt!(
@@ -452,13 +488,25 @@ pub static COMMANDS: &[CommandEntry] = &[
         Share,
         SYNC_BACKGROUND
     ),
-    pending!("db", "start_cloudsync", Settings, Edit),
-    pending!("db", "stop_cloudsync", Settings, Edit),
+    lock_exempt!("db", "start_cloudsync", Settings, Edit, SYNC_BACKGROUND),
+    lock_exempt!("db", "stop_cloudsync", Settings, Edit, SYNC_BACKGROUND),
     lock_exempt!("db", "subscribe", Notes, Read, SQL_LOCK),
-    pending!("db", "suspend_cloudsync", Settings, Edit),
-    pending!("db", "suspend_cloudsync_after_auth_loss", Settings, Edit),
-    pending!("db", "suspend_cloudsync_for_sign_out", Settings, Edit),
-    pending!("db", "sync_cloudsync_now", Settings, Edit),
+    lock_exempt!("db", "suspend_cloudsync", Settings, Edit, SYNC_BACKGROUND),
+    lock_exempt!(
+        "db",
+        "suspend_cloudsync_after_auth_loss",
+        Settings,
+        Edit,
+        SYNC_BACKGROUND
+    ),
+    lock_exempt!(
+        "db",
+        "suspend_cloudsync_for_sign_out",
+        Settings,
+        Edit,
+        SYNC_BACKGROUND
+    ),
+    lock_exempt!("db", "sync_cloudsync_now", Settings, Edit, SYNC_BACKGROUND),
     public!("db", "unsubscribe", FLOW),
     public!("db", "wait_until_ready", LOCK_SCREEN),
     // deeplink2
@@ -514,10 +562,10 @@ pub static COMMANDS: &[CommandEntry] = &[
         Share,
         NOTES_BACKGROUND
     ),
-    pending!("detect", "set_ignored_bundle_ids", Settings, Edit),
-    pending!("detect", "set_included_bundle_ids", Settings, Edit),
-    pending!("detect", "set_mic_active_threshold", Settings, Edit),
-    pending!("detect", "set_respect_do_not_disturb", Settings, Edit),
+    guarded!("detect", "set_ignored_bundle_ids", Settings, Edit),
+    guarded!("detect", "set_included_bundle_ids", Settings, Edit),
+    guarded!("detect", "set_mic_active_threshold", Settings, Edit),
+    guarded!("detect", "set_respect_do_not_disturb", Settings, Edit),
     lock_exempt!(
         "detect",
         "start_active_speaker_tracking",
@@ -754,7 +802,13 @@ pub static COMMANDS: &[CommandEntry] = &[
     // messenger
     public!("messenger", "ping", BUILD),
     // misc
-    pending!("misc", "allow_http_origin", Settings, Administer),
+    lock_exempt!(
+        "misc",
+        "allow_http_origin",
+        Settings,
+        Administer,
+        ORIGIN_ALLOW
+    ),
     public!("misc", "get_device_info", BUILD),
     public!("misc", "get_fingerprint", BUILD),
     public!("misc", "get_git_hash", BUILD),
@@ -852,7 +906,7 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("session", "backup_library", Notes, Export),
     guarded!("session", "restore_library", Settings, Administer),
     guarded!("session", "restore_deleted_session", Notes, Edit),
-    pending!(
+    guarded!(
         "session",
         "set_attachment_cloud_sync_enabled",
         Settings,
@@ -867,7 +921,7 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("session", "update_folder_workspace", Notes, Edit),
     // settings
     public!("settings", "global_base", BUILD),
-    pending!("settings", "load", Settings, Read),
+    guarded!("settings", "load", Settings, Read),
     guarded!("settings", "save", Settings, Edit),
     public!("settings", "settings_path", BUILD),
     public!("settings", "vault_base", BUILD),
@@ -883,16 +937,16 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("shortcut", "validate", UI),
     // store2: plain key-value store and Keychain secrets.
     guarded!("store2", "delete_secret", Keys, Delete),
-    pending!("store2", "get_bool", Settings, Read),
-    pending!("store2", "get_number", Settings, Read),
+    lock_exempt!("store2", "get_bool", Settings, Read, APP_STATE),
+    guarded!("store2", "get_number", Settings, Read),
     guarded!("store2", "get_secret", Keys, Read),
-    pending!("store2", "get_str", Settings, Read),
+    lock_exempt!("store2", "get_str", Settings, Read, APP_STATE),
     guarded!("store2", "repair_keychain_access", Keys, Administer),
-    pending!("store2", "save", Settings, Edit),
-    pending!("store2", "set_bool", Settings, Edit),
-    pending!("store2", "set_number", Settings, Edit),
+    lock_exempt!("store2", "save", Settings, Edit, APP_STATE),
+    lock_exempt!("store2", "set_bool", Settings, Edit, APP_STATE),
+    guarded!("store2", "set_number", Settings, Edit),
     guarded!("store2", "set_secret", Keys, Edit),
-    pending!("store2", "set_str", Settings, Edit),
+    lock_exempt!("store2", "set_str", Settings, Edit, APP_STATE),
     // tantivy
     guarded!("tantivy", "add_document", Notes, Edit),
     guarded!("tantivy", "reindex", Notes, Edit),
@@ -904,7 +958,7 @@ pub static COMMANDS: &[CommandEntry] = &[
     guarded!("template", "apply_session_content_corrections", Notes, Edit),
     public!("template", "compose_generated_summary", PURE),
     public!("template", "dominant_language", PURE),
-    pending!("template", "get_template_source", Settings, Read),
+    guarded!("template", "get_template_source", Settings, Read),
     public!("template", "prepare_generated_summary", PURE),
     public!("template", "render", PURE),
     public!("template", "render_custom", PURE),
@@ -925,17 +979,17 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("template", "summary_length_policy", PURE),
     // todo
     public!("todo", "authorization_status", DEVICE),
-    pending!("todo", "complete_todo", Actions, Edit),
-    pending!("todo", "create_todo", Actions, Create),
-    pending!("todo", "delete_todo", Actions, Delete),
-    pending!("todo", "fetch_todos", Actions, Read),
-    pending!("todo", "github_issue_comments", Actions, Read),
-    pending!("todo", "github_issue_detail", Actions, Read),
-    pending!("todo", "github_issue_state", Actions, Read),
-    pending!("todo", "linear_list_teams", Actions, Read),
-    pending!("todo", "linear_list_tickets", Actions, Read),
-    pending!("todo", "list_todo_lists", Actions, Read),
-    pending!("todo", "read_path", Actions, Read),
+    guarded!("todo", "complete_todo", Actions, Edit),
+    guarded!("todo", "create_todo", Actions, Create),
+    guarded!("todo", "delete_todo", Actions, Delete),
+    guarded!("todo", "fetch_todos", Actions, Read),
+    guarded!("todo", "github_issue_comments", Actions, Read),
+    guarded!("todo", "github_issue_detail", Actions, Read),
+    guarded!("todo", "github_issue_state", Actions, Read),
+    guarded!("todo", "linear_list_teams", Actions, Read),
+    guarded!("todo", "linear_list_tickets", Actions, Read),
+    guarded!("todo", "list_todo_lists", Actions, Read),
+    guarded!("todo", "read_path", Actions, Read),
     public!("todo", "request_full_access", DEVICE),
     // tracing
     public!(
@@ -943,7 +997,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         "do_log",
         "writes a log line; C4 redaction applies"
     ),
-    pending!("tracing", "log_content", Settings, Read),
+    guarded!("tracing", "log_content", Settings, Read),
     public!("tracing", "logs_dir", BUILD),
     // transcription
     lock_exempt!(
@@ -1262,7 +1316,7 @@ pub static COMMANDS: &[CommandEntry] = &[
     public!("updater2", "install_and_relaunch", BUILD),
     public!("updater2", "is_downloaded", BUILD),
     public!("updater2", "maybe_emit_updated", BUILD),
-    pending!("updater2", "set_automatic_updates_enabled", Settings, Edit),
+    guarded!("updater2", "set_automatic_updates_enabled", Settings, Edit),
     public!("updater2", "set_meeting_active", UI),
     // windows
     public!("windows", "floating_bar_current_state", UI),

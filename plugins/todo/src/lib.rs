@@ -20,17 +20,17 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::authorization_status,
             commands::request_full_access,
-            commands::list_todo_lists,
-            commands::fetch_todos,
+            commands::list_todo_lists::<tauri::Wry>,
+            commands::fetch_todos::<tauri::Wry>,
             commands::read_path::<tauri::Wry>,
-            commands::create_todo,
-            commands::complete_todo,
-            commands::delete_todo,
+            commands::create_todo::<tauri::Wry>,
+            commands::complete_todo::<tauri::Wry>,
+            commands::delete_todo::<tauri::Wry>,
             commands::linear_list_teams::<tauri::Wry>,
             commands::linear_list_tickets::<tauri::Wry>,
-            commands::github_issue_state,
-            commands::github_issue_detail,
-            commands::github_issue_comments,
+            commands::github_issue_state::<tauri::Wry>,
+            commands::github_issue_detail::<tauri::Wry>,
+            commands::github_issue_comments::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![TodoChangedEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)

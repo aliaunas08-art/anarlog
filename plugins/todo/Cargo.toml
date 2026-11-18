@@ -8,6 +8,7 @@ links = "tauri-plugin-todo"
 description = ""
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-api-client = { workspace = true }
 anlg-apple-todo = { workspace = true, features = ["specta"] }
 anlg-github-issues = { workspace = true, features = ["specta"] }

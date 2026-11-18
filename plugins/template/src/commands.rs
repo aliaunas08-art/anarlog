@@ -153,7 +153,15 @@ pub async fn render_custom<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_template_source<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     template: anlg_template_app::EditableTemplate,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     Ok(anlg_template_app::template_source(template).to_string())
 }

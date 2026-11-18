@@ -46,8 +46,16 @@ pub async fn opinionated_md_to_html<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn allow_http_origin<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     window: tauri::WebviewWindow<R>,
     url: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     crate::http_origins::request(&app, &window, &url).await
 }

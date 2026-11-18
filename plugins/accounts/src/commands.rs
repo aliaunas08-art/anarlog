@@ -13,7 +13,15 @@ pub(crate) fn configured_providers<R: tauri::Runtime>(app: tauri::AppHandle<R>) 
 #[specta::specta]
 pub(crate) fn list_accounts<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<Account>, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    ?;
     Ok(app.state::<AccountsState>().list()?)
 }
 
@@ -44,11 +52,8 @@ pub(crate) async fn connect_account<R: tauri::Runtime>(
                 .map_err(|e| e.to_string())
         })
         .await?;
-    let replaced = anlg_local_accounts::replaced_account(
-        previous.as_ref(),
-        &account,
-        &connected_before,
-    );
+    let replaced =
+        anlg_local_accounts::replaced_account(previous.as_ref(), &account, &connected_before);
     if let Some(replaced) = &replaced {
         tracing::warn!(
             provider = provider.key(),

@@ -284,8 +284,16 @@ pub(crate) async fn capture_meeting_screen_share<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_ignored_bundle_ids<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     bundle_ids: Vec<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.detect().set_ignored_bundle_ids(bundle_ids);
     Ok(())
 }
@@ -294,8 +302,16 @@ pub(crate) async fn set_ignored_bundle_ids<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_included_bundle_ids<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     bundle_ids: Vec<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.detect().set_included_bundle_ids(bundle_ids);
     Ok(())
 }
@@ -304,8 +320,16 @@ pub(crate) async fn set_included_bundle_ids<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_respect_do_not_disturb<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     enabled: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.detect().set_respect_do_not_disturb(enabled);
     Ok(())
 }
@@ -314,8 +338,16 @@ pub(crate) async fn set_respect_do_not_disturb<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_mic_active_threshold<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     secs: u64,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.detect().set_mic_active_threshold(secs);
     Ok(())
 }

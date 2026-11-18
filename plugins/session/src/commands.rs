@@ -290,13 +290,23 @@ pub(crate) async fn mark_session_audio_transcription_complete<R: tauri::Runtime>
     let _guard = runtime.synced_write_guard().await;
     attachments::mark_session_audio_transcription_complete(runtime.pool(), request).await
 }
-session_write_command!(
-    set_attachment_cloud_sync_enabled,
-    attachments,
-    set_attachment_cloud_sync_enabled,
-    attachments::SetAttachmentCloudSyncEnabledRequest,
-    ()
-);
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_attachment_cloud_sync_enabled<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+    request: attachments::SetAttachmentCloudSyncEnabledRequest,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let _guard = runtime.synced_write_guard().await;
+    attachments::set_attachment_cloud_sync_enabled(runtime.pool(), request).await
+}
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn tombstone_session_audio<R: tauri::Runtime>(

@@ -18,8 +18,16 @@ pub async fn get_onboarding_needed<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_onboarding_needed<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_onboarding_needed(v).map_err(|e| e.to_string())
 }
 
@@ -27,7 +35,15 @@ pub async fn set_onboarding_needed<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_dismissed_toasts<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_dismissed_toasts()
 }
 
@@ -35,8 +51,16 @@ pub async fn get_dismissed_toasts<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_dismissed_toasts<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: Vec<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_dismissed_toasts(v)
 }
 
@@ -80,7 +104,16 @@ pub fn is_app_store_build() -> bool {
 /// on Home when there is no profile name. `None` when unavailable.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_account_full_name() -> Option<String> {
+pub async fn get_account_full_name<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+) -> Option<String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .ok()?;
     let output = std::process::Command::new("/usr/bin/id")
         .arg("-F")
         .output()
@@ -103,7 +136,15 @@ pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
 #[specta::specta]
 pub async fn get_tinybase_values<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_tinybase_values()
 }
 
@@ -181,10 +222,18 @@ pub fn is_crash_reporting_enabled() -> Result<bool, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn set_crash_reporting_enabled(
+pub fn set_crash_reporting_enabled<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, crate::CrashReportingState>,
     enabled: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state.set_enabled(enabled);
     Ok(())
 }

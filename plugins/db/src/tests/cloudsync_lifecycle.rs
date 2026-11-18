@@ -44,7 +44,7 @@ async fn sign_out_suspend_command_defers_busy_pool_teardown() {
 
     tokio::time::timeout(
         Duration::from_millis(1_500),
-        commands::suspend_cloudsync_for_sign_out(app.state()),
+        commands::run_suspend_cloudsync_for_sign_out(app.state()),
     )
     .await
     .expect("sign-out suspension exceeded its pool-drain deadline")

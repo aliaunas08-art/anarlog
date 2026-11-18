@@ -35,7 +35,15 @@ pub(crate) async fn vault_base<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn load<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<serde_json::Value, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.settings().load().await.map_err(|e| e.to_string())
 }
 

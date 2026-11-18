@@ -16591,6 +16591,7 @@ name = "tauri-plugin-agent"
 version = "0.1.0"
 dependencies = [
  "agent-core",
+ "aspc",
  "serde",
  "specta",
  "specta-typescript",
@@ -16622,6 +16623,7 @@ name = "tauri-plugin-analytics"
 version = "0.1.0"
 dependencies = [
  "analytics",
+ "aspc",
  "host",
  "serde",
  "serde_json",
@@ -16699,6 +16701,7 @@ dependencies = [
 name = "tauri-plugin-audio-priority"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "audio-device",
  "serde",
  "serde_json",
@@ -17340,6 +17343,7 @@ dependencies = [
 name = "tauri-plugin-misc"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "buffer",
  "host",
  "serde",
@@ -17795,6 +17799,7 @@ dependencies = [
  "anlg-http-utils",
  "api-client",
  "apple-todo",
+ "aspc",
  "github-issues",
  "reqwest 0.13.2",
  "serde",
@@ -17812,6 +17817,7 @@ dependencies = [
 name = "tauri-plugin-tracing"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "dirs 6.0.0",
  "regex",
  "rquickjs 0.10.0",
@@ -17912,6 +17918,7 @@ dependencies = [
 name = "tauri-plugin-updater2"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "semver",
  "serde",
  "specta",

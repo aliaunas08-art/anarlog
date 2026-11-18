@@ -10,7 +10,15 @@ pub(crate) fn decode_claims(token: String) -> Result<anlg_supabase_auth::Claims,
 #[specta::specta]
 pub(crate) fn get_account_info<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<crate::AccountInfo>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_account_info().map_err(|e| e.to_string())
 }
 
