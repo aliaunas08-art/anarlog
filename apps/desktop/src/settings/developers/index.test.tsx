@@ -452,12 +452,15 @@ describe("SettingsDevelopers", () => {
     expect(screen.getByText("REST API")).toBeTruthy();
     expect(screen.getByText(/server-readable copy/)).toBeTruthy();
     expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
-    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Timbre Pro", {
-      action: {
-        label: "Upgrade",
-        onClick: expect.any(Function),
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Timbre Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
       },
-    });
+    );
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
 

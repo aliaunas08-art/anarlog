@@ -471,12 +471,15 @@ describe("SettingsTeam", () => {
 
     fireEvent.click(screen.getByRole("textbox"));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Timbre Pro", {
-      action: {
-        label: "Upgrade",
-        onClick: expect.any(Function),
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "This requires Timbre Pro",
+      {
+        action: {
+          label: "Upgrade",
+          onClick: expect.any(Function),
+        },
       },
-    });
+    );
     expect(mocks.createWorkspace).not.toHaveBeenCalled();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
   });
