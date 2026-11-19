@@ -32,7 +32,7 @@ describe("getLiveTranscriptPausedMessage", () => {
     });
 
     expect(upstream).toMatch(/our speech-to-text provider is having an outage/);
-    expect(server).toMatch(/Notes's transcription server is having issues/);
+    expect(server).toMatch(/Timbre's transcription server is having issues/);
   });
 
   it("blames the connection when offline", () => {
@@ -52,7 +52,7 @@ describe("getLiveTranscriptPausedMessage", () => {
         sttProvider: "deepgram",
         online: true,
       }),
-    ).toMatch(/Notes can't reach Deepgram/);
+    ).toMatch(/Timbre can't reach Deepgram/);
   });
 
   it("does not blame the network for on-device models", () => {

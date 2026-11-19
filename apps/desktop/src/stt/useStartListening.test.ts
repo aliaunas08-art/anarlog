@@ -3766,7 +3766,7 @@ describe("useStartListening", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith(
-      "Notes could not save part of the live transcript.",
+      "Timbre could not save part of the live transcript.",
       { id: "live-transcript-persist-failed" },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
@@ -3816,7 +3816,7 @@ describe("useStartListening", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith(
-      "Notes could not finish saving the transcript. The recording was kept so you can try again.",
+      "Timbre could not finish saving the transcript. The recording was kept so you can try again.",
       { id: "post-capture-transcript-incomplete" },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
@@ -4460,7 +4460,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Notes to record and transcribe this meeting.",
+          "I'm using Timbre to record and transcribe this meeting.",
         ],
         onParticipantDeclined: expect.any(Function),
       });
@@ -4499,7 +4499,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Notes to record and transcribe this meeting.",
+          "I'm using Timbre to record and transcribe this meeting.",
         ],
         onParticipantDeclined: expect.any(Function),
       });

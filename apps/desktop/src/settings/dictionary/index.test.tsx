@@ -73,7 +73,7 @@ describe("DictionarySettings", () => {
     expect(screen.getByRole("textbox")).toBeTruthy();
     fireEvent.click(screen.getByRole("textbox"));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Timbre Pro", {
       action: {
         label: "Upgrade",
         onClick: expect.any(Function),

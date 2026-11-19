@@ -140,7 +140,7 @@ describe("SettingsAccount", () => {
 
     expect(mocks.signOut).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("heading", { name: "Sign out of Notes?" }),
+      screen.getByRole("heading", { name: "Sign out of Timbre?" }),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

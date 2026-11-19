@@ -194,7 +194,7 @@ describe("SettingsDevelopers", () => {
         installPath: "/Users/test/.local/bin/anarlog",
         state: "installed",
         details:
-          "Installed at /Users/test/.local/bin/anarlog and managed by Notes.",
+          "Installed at /Users/test/.local/bin/anarlog and managed by Timbre.",
       },
     });
 
@@ -452,7 +452,7 @@ describe("SettingsDevelopers", () => {
     expect(screen.getByText("REST API")).toBeTruthy();
     expect(screen.getByText(/server-readable copy/)).toBeTruthy();
     expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
-    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Timbre Pro", {
       action: {
         label: "Upgrade",
         onClick: expect.any(Function),
@@ -561,7 +561,7 @@ describe("SettingsDevelopers", () => {
     expect(mocks.installAgentSkill).not.toHaveBeenCalledWith("cursor");
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Notes skill added to 3 agents",
+        "Timbre skill added to 3 agents",
       ),
     );
   });
@@ -616,7 +616,7 @@ describe("SettingsDevelopers", () => {
     );
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Notes skill added to Codex",
+        "Timbre skill added to Codex",
       ),
     );
   });

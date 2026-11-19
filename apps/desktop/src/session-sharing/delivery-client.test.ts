@@ -75,6 +75,6 @@ describe("meeting recap delivery client", () => {
     });
 
     expect(recap.length).toBeLessThanOrEqual(40_000);
-    expect(recap).toContain("Sent by Owner via Notes");
+    expect(recap).toContain("Sent by Owner via Timbre");
   });
 });

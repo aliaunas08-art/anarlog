@@ -142,7 +142,7 @@ describe("useDictation", () => {
 
     expect(mocks.startRecording).not.toHaveBeenCalled();
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "Voice input is unavailable while Notes is recording a meeting.",
+      "Voice input is unavailable while Timbre is recording a meeting.",
     );
   });
 

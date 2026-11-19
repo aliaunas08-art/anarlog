@@ -700,7 +700,10 @@ fn is_legacy_app_cli_target(target: &Path) -> bool {
 
     matches!(
         app_name,
-        "Notes.app"
+        "Timbre.app"
+            | "Timbre Staging.app"
+            | "Timbre Nightly.app"
+            | "Notes.app"
             | "Notes Staging.app"
             | "Notes Dev.app"
             | "Anarlog.app"

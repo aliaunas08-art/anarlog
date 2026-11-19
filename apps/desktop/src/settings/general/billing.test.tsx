@@ -326,7 +326,7 @@ describe("SettingsBilling", () => {
       screen.queryByRole("button", { name: "Sign in for Pro" }),
     ).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign in to Notes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in to Timbre" }));
 
     expect(mocks.openNew).toHaveBeenCalledWith({
       type: "settings",

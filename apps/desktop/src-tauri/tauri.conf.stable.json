@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Notes",
+  "productName": "Timbre",
   "mainBinaryName": "anarlog",
   "identifier": "com.hyprnote.stable",
   "bundle": {

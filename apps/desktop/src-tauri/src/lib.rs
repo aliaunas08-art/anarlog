@@ -2,7 +2,7 @@
 // and APP_NAME in src/shared/app-name.ts. A macro so it works inside concat!.
 macro_rules! app_name {
     () => {
-        "Notes"
+        "Timbre"
     };
 }
 

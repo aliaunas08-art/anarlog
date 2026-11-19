@@ -148,7 +148,7 @@ describe("AppLockGate", () => {
     await renderLockedGate();
 
     expect(mocks.deviceAuth).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Notes is Locked")).toBeNull();
+    expect(screen.queryByText("Timbre is Locked")).toBeNull();
   });
 
   it("waits for a hidden main window to open before prompting", async () => {
@@ -226,7 +226,7 @@ describe("AppLockGate", () => {
 
     expect(useAppLock.getState().appUnlocked).toBe(false);
     expect(mocks.deviceAuth).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Notes is Locked")).toBeTruthy();
+    expect(screen.getByText("Timbre is Locked")).toBeTruthy();
   });
 
   it("prompts only after the closed window is opened again", async () => {
@@ -238,7 +238,7 @@ describe("AppLockGate", () => {
     });
 
     expect(mocks.deviceAuth).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Notes is Locked")).toBeTruthy();
+    expect(screen.getByText("Timbre is Locked")).toBeTruthy();
 
     await act(async () => {
       emit({ payload: { window: { type: "main" }, visible: true } });
@@ -248,7 +248,7 @@ describe("AppLockGate", () => {
       expect(mocks.deviceAuth).toHaveBeenCalledTimes(2);
       expect(useAppLock.getState().appUnlocked).toBe(true);
     });
-    expect(screen.queryByText("Notes is Locked")).toBeNull();
+    expect(screen.queryByText("Timbre is Locked")).toBeNull();
   });
 
   it("reprompts on reopen if close interrupted an in-flight prompt", async () => {
@@ -280,7 +280,7 @@ describe("AppLockGate", () => {
 
     expect(mocks.deviceAuth).toHaveBeenCalledTimes(1);
     expect(useAppLock.getState().appUnlocked).toBe(false);
-    expect(screen.getByText("Notes is Locked")).toBeTruthy();
+    expect(screen.getByText("Timbre is Locked")).toBeTruthy();
 
     mocks.deviceAuth.mockResolvedValue(true);
     await act(async () => {
@@ -291,7 +291,7 @@ describe("AppLockGate", () => {
       expect(mocks.deviceAuth).toHaveBeenCalledTimes(2);
       expect(useAppLock.getState().appUnlocked).toBe(true);
     });
-    expect(screen.queryByText("Notes is Locked")).toBeNull();
+    expect(screen.queryByText("Timbre is Locked")).toBeNull();
   });
 
   it("does not unlock from a prompt that finishes after close", async () => {
@@ -326,7 +326,7 @@ describe("AppLockGate", () => {
       expect(useAppLock.getState().authenticating).toBe(false);
     });
     expect(useAppLock.getState().appUnlocked).toBe(false);
-    expect(screen.getByText("Notes is Locked")).toBeTruthy();
+    expect(screen.getByText("Timbre is Locked")).toBeTruthy();
 
     mocks.deviceAuth.mockResolvedValue(true);
     await act(async () => {
@@ -337,7 +337,7 @@ describe("AppLockGate", () => {
       expect(mocks.deviceAuth).toHaveBeenCalledTimes(2);
       expect(useAppLock.getState().appUnlocked).toBe(true);
     });
-    expect(screen.queryByText("Notes is Locked")).toBeNull();
+    expect(screen.queryByText("Timbre is Locked")).toBeNull();
   });
 
   it("ignores visibility changes for other windows", async () => {
@@ -350,7 +350,7 @@ describe("AppLockGate", () => {
 
     expect(useAppLock.getState().appUnlocked).toBe(true);
     expect(mocks.deviceAuth).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Notes is Locked")).toBeNull();
+    expect(screen.queryByText("Timbre is Locked")).toBeNull();
   });
 
   it("stays locked with a clear message when device authentication is unavailable", async () => {
@@ -365,7 +365,7 @@ describe("AppLockGate", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Notes is Locked")).toBeTruthy();
+      expect(screen.getByText("Timbre is Locked")).toBeTruthy();
       expect(useAppLock.getState().unlockError).toContain(
         "aspc.auth_unavailable",
       );

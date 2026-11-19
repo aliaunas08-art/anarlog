@@ -795,7 +795,7 @@ describe("SettingsSync", () => {
     expect(screen.getByRole("button", { name: "Sync now" })).toBeTruthy();
     expect(screen.getByText("Devices")).toBeTruthy();
     expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
-    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Notes Pro", {
+    expect(mocks.toastWarning).toHaveBeenCalledWith("This requires Timbre Pro", {
       action: {
         label: "Upgrade",
         onClick: expect.any(Function),

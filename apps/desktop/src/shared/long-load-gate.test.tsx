@@ -113,7 +113,7 @@ describe("LongLoadGate", () => {
     renderLongLoadGate();
 
     await waitFor(() => {
-      expect(screen.getByText("Notes needs an update")).toBeTruthy();
+      expect(screen.getByText("Timbre needs an update")).toBeTruthy();
     });
     expect(screen.queryByText("app")).toBeNull();
     expect(screen.queryByRole("button", { name: "Restart App" })).toBeNull();
