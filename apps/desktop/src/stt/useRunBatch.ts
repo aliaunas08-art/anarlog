@@ -54,6 +54,8 @@ type RunOptions = {
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
   notifyOnCompletion?: boolean;
+  /** Set false to fall back to another batch provider without a toast. */
+  warnOnFallback?: boolean;
   resume?: { provider: BatchProvider; model: string };
   provider?: string;
   model?: string;
@@ -418,7 +420,12 @@ export const useRunBatch = (sessionId: string) => {
         target = { ...target, apiKey: cloudAccessToken };
       }
 
-      if (!shouldUseSelectedTarget && !options?.recovery && !options?.resume) {
+      if (
+        !shouldUseSelectedTarget &&
+        !options?.recovery &&
+        !options?.resume &&
+        options?.warnOnFallback !== false
+      ) {
         toast.warning("Using a batch transcription provider", {
           description: `${
             selectedTarget

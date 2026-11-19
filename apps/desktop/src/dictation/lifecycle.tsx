@@ -252,6 +252,9 @@ function ActiveDictation({
           signal: abort.signal,
           deferAudioFinalization: true,
           notifyOnCompletion: false,
+          // Dictation always falls back to on-device transcription; a toast on
+          // every dictation would only repeat that.
+          warnOnFallback: false,
           numSpeakers: 1,
           handlePersist: (words) => {
             text = words
