@@ -20,8 +20,7 @@ pub(crate) fn list_accounts<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Settings,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     Ok(app.state::<AccountsState>().list()?)
 }
 

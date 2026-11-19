@@ -86,7 +86,10 @@ describe("usePendingChatPrompt", () => {
     queueChatPrompt("chat-x", "Recap yesterday");
     expect(doc?.content).toEqual([
       { type: "paragraph", content: [{ type: "text", text: "draft" }] },
-      { type: "paragraph", content: [{ type: "text", text: "Recap yesterday" }] },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Recap yesterday" }],
+      },
     ]);
   });
 });

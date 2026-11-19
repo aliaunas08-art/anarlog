@@ -442,46 +442,46 @@ function DueCalendar({
             </span>
           ))}
         </div>
-        {Array.from({ length: 6 }, (_, week) => days.slice(week * 7, week * 7 + 7)).map(
-          (weekDays) => (
-            <div key={weekDays[0]} role="row" className="grid grid-cols-7">
-              {weekDays.map((day) => {
-                const selected = day === dueDay;
-                const isToday = day === todayKey;
-                const inMonth = day.startsWith(monthKey);
-                return (
-                  <span
-                    key={day}
-                    role="gridcell"
-                    aria-selected={selected}
-                    aria-current={isToday ? "date" : undefined}
-                    aria-label={dayLabelFormat.format(dayKeyToUtcDate(day))}
-                    data-day={day}
-                    tabIndex={day === tabStopKey ? 0 : -1}
-                    onClick={() => onSelect(day)}
-                    onFocus={() => setFocusKey(day)}
-                    className={cn([
-                      "cf-motion mx-auto flex size-8 cursor-default items-center justify-center rounded-full tabular-nums transition-colors select-none",
-                      "focus-visible:ring-2 focus-visible:ring-(--cf-accent) focus-visible:outline-hidden",
-                      selected
-                        ? "cf-glass-tint font-semibold"
-                        : cn([
-                            "hover:bg-(--cf-fill)",
-                            isToday && "font-semibold text-(--cf-accent)",
-                            !isToday &&
-                              (inMonth
-                                ? "text-(--cf-label)"
-                                : "text-(--cf-tertiary)"),
-                          ]),
-                    ])}
-                  >
-                    {Number(day.slice(8))}
-                  </span>
-                );
-              })}
-            </div>
-          ),
-        )}
+        {Array.from({ length: 6 }, (_, week) =>
+          days.slice(week * 7, week * 7 + 7),
+        ).map((weekDays) => (
+          <div key={weekDays[0]} role="row" className="grid grid-cols-7">
+            {weekDays.map((day) => {
+              const selected = day === dueDay;
+              const isToday = day === todayKey;
+              const inMonth = day.startsWith(monthKey);
+              return (
+                <span
+                  key={day}
+                  role="gridcell"
+                  aria-selected={selected}
+                  aria-current={isToday ? "date" : undefined}
+                  aria-label={dayLabelFormat.format(dayKeyToUtcDate(day))}
+                  data-day={day}
+                  tabIndex={day === tabStopKey ? 0 : -1}
+                  onClick={() => onSelect(day)}
+                  onFocus={() => setFocusKey(day)}
+                  className={cn([
+                    "cf-motion mx-auto flex size-8 cursor-default items-center justify-center rounded-full tabular-nums transition-colors select-none",
+                    "focus-visible:ring-2 focus-visible:ring-(--cf-accent) focus-visible:outline-hidden",
+                    selected
+                      ? "cf-glass-tint font-semibold"
+                      : cn([
+                          "hover:bg-(--cf-fill)",
+                          isToday && "font-semibold text-(--cf-accent)",
+                          !isToday &&
+                            (inMonth
+                              ? "text-(--cf-label)"
+                              : "text-(--cf-tertiary)"),
+                        ]),
+                  ])}
+                >
+                  {Number(day.slice(8))}
+                </span>
+              );
+            })}
+          </div>
+        ))}
       </div>
       {dueDay ? (
         <>

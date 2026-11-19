@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 anlg-afconvert = { workspace = true }
-anlg-audio-utils = { workspace = true }
 anlg-audio-encode = { workspace = true }
+anlg-audio-utils = { workspace = true }
 anlg-resampler = { workspace = true }
 audioadapter-buffers = "2.0"
 

@@ -132,11 +132,11 @@ export function SettingsDataLocations() {
         </FlowRow>
         <FlowRow title={t`Sync`}>
           <Trans>
-            Only if you sign in and turn on sync in Settings → Sync: your
-            notes, transcripts and summaries are encrypted on this Mac before
-            upload, with a key kept in your Keychain, so the sync server stores
-            only encrypted data. It can still see metadata such as sizes and
-            timing. Audio recordings are not synced. Notes you share by link are
+            Only if you sign in and turn on sync in Settings → Sync: your notes,
+            transcripts and summaries are encrypted on this Mac before upload,
+            with a key kept in your Keychain, so the sync server stores only
+            encrypted data. It can still see metadata such as sizes and timing.
+            Audio recordings are not synced. Notes you share by link are
             uploaded unencrypted so the people you share with can open them.
           </Trans>
         </FlowRow>

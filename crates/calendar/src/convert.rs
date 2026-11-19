@@ -1557,9 +1557,15 @@ mod outlook_calendar_color_tests {
     #[test]
     fn an_empty_hex_colour_falls_back_to_the_named_colour_or_none() {
         let converted = convert_outlook_calendars(vec![
-            calendar(serde_json::json!({ "id": "a", "name": "Calendar", "color": "lightBlue", "hexColor": "" })),
-            calendar(serde_json::json!({ "id": "b", "name": "Calendar", "color": "auto", "hexColor": "" })),
-            calendar(serde_json::json!({ "id": "c", "name": "Work", "color": "lightRed", "hexColor": "#123456" })),
+            calendar(
+                serde_json::json!({ "id": "a", "name": "Calendar", "color": "lightBlue", "hexColor": "" }),
+            ),
+            calendar(
+                serde_json::json!({ "id": "b", "name": "Calendar", "color": "auto", "hexColor": "" }),
+            ),
+            calendar(
+                serde_json::json!({ "id": "c", "name": "Work", "color": "lightRed", "hexColor": "#123456" }),
+            ),
         ]);
         assert_eq!(converted[0].color.as_deref(), Some("#4f9fe8"));
         assert_eq!(converted[1].color, None);

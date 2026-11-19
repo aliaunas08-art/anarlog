@@ -240,7 +240,10 @@ export function renderNotices(data) {
   ];
   const byLicense = new Map();
   for (const pkg of all) {
-    const key = pkg.license && pkg.license !== "Unknown" ? pkg.license : "(no licence in metadata)";
+    const key =
+      pkg.license && pkg.license !== "Unknown"
+        ? pkg.license
+        : "(no licence in metadata)";
     if (!byLicense.has(key)) byLicense.set(key, []);
     byLicense.get(key).push(pkg);
   }

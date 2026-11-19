@@ -12,23 +12,9 @@ thiserror = { workspace = true }
 # macOS: AAC through the operating system's own encoder (AudioToolbox). No codec
 # library is linked into the app: LAME (LGPL) was removed for licence reasons.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-audio-toolbox = { version = "0.3.2", default-features = false, features = [
-  "std",
-  "AudioConverter",
-  "AudioFile",
-  "ExtendedAudioFile",
-  "objc2-core-audio-types",
-  "objc2-core-foundation",
-] }
-objc2-core-audio-types = { version = "0.3.2", default-features = false, features = [
-  "std",
-  "CoreAudioBaseTypes",
-] }
-objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
-  "std",
-  "CFString",
-  "CFURL",
-] }
+objc2-audio-toolbox = { version = "0.3.2", default-features = false, features = ["std", "AudioConverter", "AudioFile", "ExtendedAudioFile", "objc2-core-audio-types", "objc2-core-foundation"] }
+objc2-core-audio-types = { version = "0.3.2", default-features = false, features = ["std", "CoreAudioBaseTypes"] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFString", "CFURL"] }
 
 # FLAC on Windows and Linux (Apache-2.0, pure Rust): the user's choice for
 # platforms without an OS AAC encoder the app may use.

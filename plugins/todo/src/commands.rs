@@ -48,8 +48,7 @@ pub fn list_todo_lists<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -73,8 +72,7 @@ pub fn fetch_todos<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -102,8 +100,7 @@ pub async fn read_path<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     match ReadPath::parse(&path)? {
         ReadPath::Apple(path) => {
             #[cfg(target_os = "macos")]
@@ -201,8 +198,7 @@ pub fn create_todo<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Create,
-    )
-    ?;
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -227,8 +223,7 @@ pub fn complete_todo<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Edit,
-    )
-    ?;
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -253,8 +248,7 @@ pub fn delete_todo<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Delete,
-    )
-    ?;
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -282,8 +276,7 @@ pub async fn linear_list_teams<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     let config = app.state::<crate::PluginConfig>();
     let token = require_access_token(&app)?;
     crate::fetch::linear_list_teams(&config.api_base_url, &token, &connection_id, limit, cursor)
@@ -306,8 +299,7 @@ pub async fn linear_list_tickets<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     let config = app.state::<crate::PluginConfig>();
     let token = require_access_token(&app)?;
     crate::fetch::linear_list_tickets(
@@ -335,8 +327,7 @@ pub async fn github_issue_state<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     crate::github_state::fetch_public(&owner, &repo, number).await
 }
 
@@ -353,8 +344,7 @@ pub async fn github_issue_detail<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     crate::github_state::fetch_issue_detail(&owner, &repo, number).await
 }
 
@@ -371,8 +361,7 @@ pub async fn github_issue_comments<R: tauri::Runtime>(
         &aspc_window,
         anlg_aspc::DataType::Actions,
         anlg_aspc::Action::Read,
-    )
-    ?;
+    )?;
     crate::github_state::fetch_issue_comments(&owner, &repo, number).await
 }
 

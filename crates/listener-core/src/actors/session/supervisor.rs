@@ -85,20 +85,16 @@ impl Actor for SessionActor {
                 ctx.params.transcription_mode,
             );
             let (first_audio_tx, first_audio) = tokio::sync::oneshot::channel();
-            let recorder_cell = match children::spawn_recorder(
-                myself.get_cell(),
-                &ctx,
-                Some(first_audio_tx),
-            )
-            .await
-            {
-                Ok(cell) => Some(cell),
-                Err(error) => {
-                    emit_storage_error(&ctx, &error.to_string());
-                    myself.send_after(RECORDER_RETRY_DELAY, || SessionMsg::RetryRecorder);
-                    None
-                }
-            };
+            let recorder_cell =
+                match children::spawn_recorder(myself.get_cell(), &ctx, Some(first_audio_tx)).await
+                {
+                    Ok(cell) => Some(cell),
+                    Err(error) => {
+                        emit_storage_error(&ctx, &error.to_string());
+                        myself.send_after(RECORDER_RETRY_DELAY, || SessionMsg::RetryRecorder);
+                        None
+                    }
+                };
             let source_ref = children::spawn_source(
                 myself.get_cell(),
                 &ctx,

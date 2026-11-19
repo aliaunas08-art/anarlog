@@ -86,12 +86,19 @@ describe("Ask thread state", () => {
     expect(effectiveScope("m1")).toBe("library");
     expect(
       selectChatSelection(useChatContext.getState(), "general", "library"),
-    ).toMatchObject({ groupId: "old-group", sessionId: "old-group", legacy: true });
+    ).toMatchObject({
+      groupId: "old-group",
+      sessionId: "old-group",
+      legacy: true,
+    });
     // The All meetings thread it covers for is still what gets saved.
     expect(
       JSON.parse(serializeAskThreads(useChatContext.getState().askThreads)),
     ).toEqual({
-      library: { groupId: "lib-group", sessionId: freshAskSessionId("library") },
+      library: {
+        groupId: "lib-group",
+        sessionId: freshAskSessionId("library"),
+      },
     });
   });
 

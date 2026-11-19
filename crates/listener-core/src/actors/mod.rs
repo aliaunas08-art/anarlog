@@ -43,7 +43,10 @@ mod channel_mode_tests {
 
     #[test]
     fn mic_only_selects_mic_only_unless_onboarding() {
-        assert_eq!(ChannelMode::determine(false, false), ChannelMode::MicAndSpeaker);
+        assert_eq!(
+            ChannelMode::determine(false, false),
+            ChannelMode::MicAndSpeaker
+        );
         assert_eq!(ChannelMode::determine(false, true), ChannelMode::MicOnly);
         assert_eq!(ChannelMode::determine(true, true), ChannelMode::SpeakerOnly);
     }

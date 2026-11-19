@@ -292,7 +292,9 @@ describe("TasksView", () => {
     render(<TasksView view="all" />);
 
     expect(
-      screen.getByRole("button", { name: "Due date of Fix step 3 copy: Today" }),
+      screen.getByRole("button", {
+        name: "Due date of Fix step 3 copy: Today",
+      }),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", {
@@ -329,9 +331,7 @@ describe("TasksView", () => {
     focusable[0]!.focus();
     fireEvent.keyDown(grid, { key: "ArrowDown" });
     fireEvent.keyDown(grid, { key: "ArrowRight" });
-    expect(document.activeElement?.getAttribute("data-day")).toBe(
-      "2026-11-23",
-    );
+    expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-23");
     fireEvent.keyDown(grid, { key: "Enter" });
     expect(mocks.setActionItemDue).toHaveBeenCalledWith(
       "a",

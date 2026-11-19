@@ -140,4 +140,3 @@ describe("DraftCache", () => {
     expect(measureDraftBytes(content, expected - 1)).toBe(expected);
   });
 });
-

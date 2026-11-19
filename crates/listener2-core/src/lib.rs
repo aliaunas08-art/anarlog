@@ -303,7 +303,11 @@ mod tests {
         let primary = |tag: &str| tag.split('-').next().unwrap_or_default().to_lowercase();
         let check = |code: &str, expected: bool| {
             let languages: Vec<anlg_language::Language> = vec![code.parse().unwrap()];
-            for (provider, live) in [("apple-speech", true), ("anarlog", true), ("anarlog", false)] {
+            for (provider, live) in [
+                ("apple-speech", true),
+                ("anarlog", true),
+                ("anarlog", false),
+            ] {
                 let result = if live {
                     is_supported_languages_live(provider, Some("apple-speech"), &languages)
                 } else {
@@ -314,7 +318,10 @@ mod tests {
         };
 
         // A language added in System Settings is supported.
-        let added = preferred.first().expect("a System Settings language").clone();
+        let added = preferred
+            .first()
+            .expect("a System Settings language")
+            .clone();
         check(&added, true);
 
         // A language the framework has but the user did not add is not.

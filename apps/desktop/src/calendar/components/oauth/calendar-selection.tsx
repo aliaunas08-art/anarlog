@@ -82,7 +82,11 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
       // name, and one account can hold several owners' calendars.
       const groupKey = `${connectionId ?? ""}\u0000${source}`;
       if (!grouped.has(groupKey)) {
-        grouped.set(groupKey, { connectionId, sourceName: source, calendars: [] });
+        grouped.set(groupKey, {
+          connectionId,
+          sourceName: source,
+          calendars: [],
+        });
       }
       const group = grouped.get(groupKey)!;
       if (!group.connectionId && connectionId) {

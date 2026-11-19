@@ -23,9 +23,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The module name of the library target, from Package.swift's text. */
 export function libraryModuleName(manifest) {
-  const product = manifest.match(
-    /\.library\([^)]*?targets:\s*\[\s*"([^"]+)"/s,
-  );
+  const product = manifest.match(/\.library\([^)]*?targets:\s*\[\s*"([^"]+)"/s);
   if (!product) return null;
   return product[1].replace(/[^A-Za-z0-9_]/g, "_");
 }

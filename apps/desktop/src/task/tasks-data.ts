@@ -199,7 +199,9 @@ function toUtcDayKey(date: Date): string {
 }
 
 export function addDays(dayKey: string, days: number): string {
-  return toUtcDayKey(new Date(dayKeyToUtcDate(dayKey).getTime() + days * DAY_MS));
+  return toUtcDayKey(
+    new Date(dayKeyToUtcDate(dayKey).getTime() + days * DAY_MS),
+  );
 }
 
 export function diffDays(fromKey: string, toKey: string): number {
@@ -239,7 +241,10 @@ export function getWeekRange(
 export type DueBucket = "this_week" | "later" | "no_date";
 
 /** Overdue items count as "this week" so they stay in sight. */
-export function getDueBucket(dueAt: string, context: TaskDateContext): DueBucket {
+export function getDueBucket(
+  dueAt: string,
+  context: TaskDateContext,
+): DueBucket {
   const due = getDueDayKey(dueAt, context.timezone);
   if (!due) return "no_date";
   return due < getWeekRange(context.todayKey, context.weekStartsOn).end

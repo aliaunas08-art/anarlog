@@ -114,7 +114,9 @@ beforeEach(() => {
   mocks.connectionReady = true;
   mocks.startListening.mockReset().mockResolvedValue(undefined);
   mocks.updateSessionTabState.mockReset();
-  mocks.notifyScheduledRecordingStarted.mockReset().mockResolvedValue(undefined);
+  mocks.notifyScheduledRecordingStarted
+    .mockReset()
+    .mockResolvedValue(undefined);
   useAppLock.setState({ revealedNoteIds: {} });
 });
 

@@ -260,7 +260,6 @@ describe("SQLite task storage", () => {
     expect(storage.getTask("task-1")).toBeNull();
     expect(listener).not.toHaveBeenCalled();
   });
-
 });
 
 describe("SQLite task storage persistence", () => {
@@ -604,7 +603,9 @@ describe("SQLite task storage persistence", () => {
       createSqliteTaskStorage("user-1", dependencies),
       mentionTaskContent("Send deck ", "alice"),
     );
-    await vi.waitFor(() => expect(ownerAndDue().assignee_human_id).toBe("alice"));
+    await vi.waitFor(() =>
+      expect(ownerAndDue().assignee_human_id).toBe("alice"),
+    );
 
     await setActionItemOwner("task-1", "bob", "user-1", dependencies);
     const editor = editorWithSnapshot();
@@ -618,8 +619,13 @@ describe("SQLite task storage persistence", () => {
     expect(ownerAndDue().assignee_human_id).toBe("bob");
 
     // Mentioning someone else in the note does change the owner.
-    syncNote(editorWithSnapshot(), mentionTaskContent("Send the deck ", "cara"));
-    await vi.waitFor(() => expect(ownerAndDue().assignee_human_id).toBe("cara"));
+    syncNote(
+      editorWithSnapshot(),
+      mentionTaskContent("Send the deck ", "cara"),
+    );
+    await vi.waitFor(() =>
+      expect(ownerAndDue().assignee_human_id).toBe("cara"),
+    );
   });
 
   it("doesn't echo a stale owner or due date over a newer Tasks-view change", async () => {

@@ -1,6 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 // ASPC C1.1: every raw-SQL insert into a content table from the frontend

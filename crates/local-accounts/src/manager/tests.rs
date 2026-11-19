@@ -312,7 +312,10 @@ fn a_reconnect_that_lands_on_another_account_is_reported() {
     let first = microsoft_account("microsoft-8557", "ali@outlook.com");
     let other = microsoft_account("microsoft-6cd1", "ali@outlook.com");
     // Reconnect after a disconnect: nothing else connected.
-    assert_eq!(replaced_account(Some(&first), &other, &[]), Some(first.clone()));
+    assert_eq!(
+        replaced_account(Some(&first), &other, &[]),
+        Some(first.clone())
+    );
     // Same account again: nothing to report.
     assert_eq!(replaced_account(Some(&first), &first, &[]), None);
     // No earlier account: nothing to report.

@@ -18,7 +18,12 @@ test("missing and GPL-family licences fail, permissive ones pass", () => {
 });
 
 test("only an approved allowlist entry for the same licence clears a failure", () => {
-  const pkg = { ecosystem: "cargo", name: "mp3lame-sys", version: "0.1.11", license: "LGPL-3.0" };
+  const pkg = {
+    ecosystem: "cargo",
+    name: "mp3lame-sys",
+    version: "0.1.11",
+    license: "LGPL-3.0",
+  };
   const approved = {
     ecosystem: "cargo",
     name: "mp3lame-sys",
@@ -30,11 +35,25 @@ test("only an approved allowlist entry for the same licence clears a failure", (
   assert.equal(evaluate([pkg], []).failures.length, 1);
   assert.equal(evaluate([pkg], [approved]).failures.length, 0);
   // Unapproved, wrong licence or wrong version: still fails.
-  assert.equal(evaluate([pkg], [{ ...approved, approved_by: "" }]).failures.length, 1);
-  assert.equal(evaluate([pkg], [{ ...approved, license: "LGPL-2.1" }]).failures.length, 1);
-  assert.equal(evaluate([pkg], [{ ...approved, version: "0.2.0" }]).failures.length, 1);
+  assert.equal(
+    evaluate([pkg], [{ ...approved, approved_by: "" }]).failures.length,
+    1,
+  );
+  assert.equal(
+    evaluate([pkg], [{ ...approved, license: "LGPL-2.1" }]).failures.length,
+    1,
+  );
+  assert.equal(
+    evaluate([pkg], [{ ...approved, version: "0.2.0" }]).failures.length,
+    1,
+  );
   // Warnings never fail.
-  const mpl = { ecosystem: "cargo", name: "symphonia", version: "0.5.5", license: "MPL-2.0" };
+  const mpl = {
+    ecosystem: "cargo",
+    name: "symphonia",
+    version: "0.5.5",
+    license: "MPL-2.0",
+  };
   assert.deepEqual(evaluate([mpl], []).failures, []);
   assert.equal(evaluate([mpl], []).warnings.length, 1);
 });

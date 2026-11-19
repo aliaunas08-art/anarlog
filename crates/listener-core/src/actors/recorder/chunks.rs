@@ -1426,11 +1426,13 @@ mod tests {
                 .samples::<f32>()
                 .map(|sample| sample.unwrap().abs())
                 .fold(0.0, f32::max),
-            hound::SampleFormat::Int => reader
-                .samples::<i32>()
-                .map(|sample| sample.unwrap().unsigned_abs() as f32)
-                .fold(0.0, f32::max)
-                / (1u32 << (spec.bits_per_sample - 1)) as f32,
+            hound::SampleFormat::Int => {
+                reader
+                    .samples::<i32>()
+                    .map(|sample| sample.unwrap().unsigned_abs() as f32)
+                    .fold(0.0, f32::max)
+                    / (1u32 << (spec.bits_per_sample - 1)) as f32
+            }
         };
         assert!(peak > 0.1, "recovered audio is silent (peak {peak})");
     }

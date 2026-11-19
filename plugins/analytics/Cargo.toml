@@ -16,8 +16,8 @@ tauri-plugin-store = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-analytics = { workspace = true }
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-host = { workspace = true }
 
 tauri-plugin-misc = { workspace = true }

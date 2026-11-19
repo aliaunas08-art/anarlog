@@ -4,19 +4,19 @@ Branch `prototype`, 50 commits after `18161cd` (audit + rulebook). Nothing is pu
 
 ## Verification checklist (run 2026-11-17)
 
-| Item | Result | Evidence |
-|---|---|---|
-| Viewer denied edit, delete, export (A1.4) | TRUE | `viewer_reads_content_only`, `guard_denies_locked_viewer_and_wrong_window` |
-| Every command rejects an unauthorised call (A2.2, A2.3) | TRUE (source-level) | 477 commands: 188 Public with a reason, 289 guarded (172 fully, 117 without the lock check, each with its reason), 0 unguarded (2026-11-18). Checked by the registry tests and the guard-logic test, not by an IPC call per command or in the running app. |
-| Two-workspace isolation, incl. Ask (C1.4, B4.2) | PARTIAL | Rust reads, search, exports, local-api and Ask are scoped and tested. Webview SQL is fail-closed single-workspace only (see C1 below). |
-| Prompt injection: no export, delete or cross-meeting disclosure (B3.4) | TRUE | `injection.test.ts`, `enhance-one-call.test.ts`, template escape tests |
-| Audit log detects tampering; no app update/delete path (D1) | TRUE | audit-log 15 + 2, `webview_sql_cannot_reach_the_audit_log` |
-| Marker in no log, error or analytics (C4.2) | TRUE | Session, Engine, analytics, tracing and SQL-denial paths. Capture, search and export failures are not covered yet. |
-| Delete removes every trace (D2.2) | TRUE | Both purge marker tests (database, WAL, vault, cache, index) |
-| Backup restores into a clean library (C5.2) | TRUE | `backup_restores_into_a_clean_library` |
-| No secret in repo or fresh DB (C3.1) | TRUE | `scripts/check-secrets`, `--fresh-db`: 0 findings |
-| Existing + Engine tests (C7.1, C7.2, C7.5) | PARTIAL | Engine tests all pass. Rust: 629 + 108 + 35 + 30 pass, 0 fail. Vitest: 4422 of 4424 pass; the 2 failures are billing date-text tests that predate this work. |
-| `--require-bundle` (C7.7) | NOT RUN | Wired into `desktop_cd.yaml`. Needs a release build. |
+| Item                                                                   | Result              | Evidence                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Viewer denied edit, delete, export (A1.4)                              | TRUE                | `viewer_reads_content_only`, `guard_denies_locked_viewer_and_wrong_window`                                                                                                                                                                                 |
+| Every command rejects an unauthorised call (A2.2, A2.3)                | TRUE (source-level) | 477 commands: 188 Public with a reason, 289 guarded (172 fully, 117 without the lock check, each with its reason), 0 unguarded (2026-11-18). Checked by the registry tests and the guard-logic test, not by an IPC call per command or in the running app. |
+| Two-workspace isolation, incl. Ask (C1.4, B4.2)                        | PARTIAL             | Rust reads, search, exports, local-api and Ask are scoped and tested. Webview SQL is fail-closed single-workspace only (see C1 below).                                                                                                                     |
+| Prompt injection: no export, delete or cross-meeting disclosure (B3.4) | TRUE                | `injection.test.ts`, `enhance-one-call.test.ts`, template escape tests                                                                                                                                                                                     |
+| Audit log detects tampering; no app update/delete path (D1)            | TRUE                | audit-log 15 + 2, `webview_sql_cannot_reach_the_audit_log`                                                                                                                                                                                                 |
+| Marker in no log, error or analytics (C4.2)                            | TRUE                | Session, Engine, analytics, tracing and SQL-denial paths. Capture, search and export failures are not covered yet.                                                                                                                                         |
+| Delete removes every trace (D2.2)                                      | TRUE                | Both purge marker tests (database, WAL, vault, cache, index)                                                                                                                                                                                               |
+| Backup restores into a clean library (C5.2)                            | TRUE                | `backup_restores_into_a_clean_library`                                                                                                                                                                                                                     |
+| No secret in repo or fresh DB (C3.1)                                   | TRUE                | `scripts/check-secrets`, `--fresh-db`: 0 findings                                                                                                                                                                                                          |
+| Existing + Engine tests (C7.1, C7.2, C7.5)                             | PARTIAL             | Engine tests all pass. Rust: 629 + 108 + 35 + 30 pass, 0 fail. Vitest: 4422 of 4424 pass; the 2 failures are billing date-text tests that predate this work.                                                                                               |
+| `--require-bundle` (C7.7)                                              | NOT RUN             | Wired into `desktop_cd.yaml`. Needs a release build.                                                                                                                                                                                                       |
 
 All items passed on the first round, so the 3-round escalation rule was never triggered.
 

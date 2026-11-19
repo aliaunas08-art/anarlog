@@ -68,7 +68,6 @@ import {
   runPostCaptureSpeakerPass,
 } from "~/speakers/post-capture";
 import { maybeShowSpeakerSetupPrompt } from "~/speakers/setup-prompt";
-import { waitForSpeakerContextStop } from "~/stt/speaker-context-capture";
 import { getLivePausedMs } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import type {
@@ -96,6 +95,7 @@ import {
   useSessionParticipantHumanIds,
 } from "~/stt/queries";
 import { waitForSessionSearchIndex } from "~/stt/search-index-consistency";
+import { waitForSpeakerContextStop } from "~/stt/speaker-context-capture";
 
 const CLOUDSYNC_CAPTURE_ACTIVITY = "capture";
 export const CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS = 3;
@@ -488,9 +488,13 @@ export function useCaptureLifecycle(sessionId: string) {
           .filter(
             (capture) => chunk.capture_started_at >= capture.startedAt - 5_000,
           )
-          .reduce<
-            InheritedCapture | undefined
-          >((latest, capture) => (!latest || capture.startedAt > latest.startedAt ? capture : latest), undefined);
+          .reduce<InheritedCapture | undefined>(
+            (latest, capture) =>
+              !latest || capture.startedAt > latest.startedAt
+                ? capture
+                : latest,
+            undefined,
+          );
       };
       const listRecoveryChunks = async () => {
         const result =

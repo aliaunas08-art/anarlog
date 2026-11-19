@@ -1,11 +1,11 @@
+import { LOCAL_WORKSPACE_ID_SQL } from "@anlg/db";
+
 import {
   type ChatMessageRecord,
   type ChatMessageSqlRow,
   type PersistedChatMessage,
   rowToPersistedChatMessage,
 } from "./persisted-messages";
-
-import { LOCAL_WORKSPACE_ID_SQL } from "@anlg/db";
 
 import type { ChatScope } from "~/chat/types";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";

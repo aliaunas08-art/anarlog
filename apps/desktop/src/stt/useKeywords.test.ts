@@ -27,8 +27,14 @@ beforeEach(() => {
 
 describe("extractHashtagKeywords", () => {
   it.each([
-    { input: "This is #awesome and #cool stuff", expected: ["awesome", "cool"] },
-    { input: "#日本語 #한글 #Español", expected: ["日本語", "한글", "Español"] },
+    {
+      input: "This is #awesome and #cool stuff",
+      expected: ["awesome", "cool"],
+    },
+    {
+      input: "#日本語 #한글 #Español",
+      expected: ["日本語", "한글", "Español"],
+    },
     {
       input: "Use `#notthis` and\n```\n#norThis\n```\nbut #this",
       expected: ["this"],
