@@ -74,7 +74,3 @@ export const ANARLOG_PRO_LLM_MODELS = [
     inputModalities: ["text", "image"],
   },
 ] as const;
-
-export function anarlogProLlmModelLabel(model: string): string | undefined {
-  return ANARLOG_PRO_LLM_MODELS.find(({ id }) => id === model)?.label;
-}

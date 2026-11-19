@@ -65,7 +65,6 @@ import {
 import { staticAssetUrl, fallbackToLocalAsset } from "~/shared/static-assets";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
-export * from "./model-combobox";
 export * from "./provider-search";
 
 type ProviderType = "stt" | "llm";
