@@ -34,7 +34,7 @@ export function waitForDictationCleanup() {
 
 export function DictationLifecycle() {
   const { session } = useAuth();
-  const { isPro, isReady } = useBillingAccess();
+  const { isPro } = useBillingAccess();
   const settingsReady = useSettingsReady();
   const enabled = useConfigValue("dictation_enabled");
   const shortcut = useConfigValue("dictation_shortcut");
@@ -47,9 +47,11 @@ export function DictationLifecycle() {
     (state) => state.live.status !== "inactive" || state.live.loading,
   );
 
-  if (!session || !isReady || !isPro || !settingsReady || !enabled) return null;
+  // Dictation runs on the device, so it does not wait for a cloud sign-in.
+  // A cloud transcription model still asks for the session when it starts.
+  if (!isPro || !settingsReady || !enabled) return null;
   return (
-    <TranscriptRetention key={session.user.id}>
+    <TranscriptRetention key={session?.user.id ?? "local"}>
       {!meetingActive && !capturingShortcut && (
         <ActiveDictation
           key={`${shortcut}:${handsFree}:${retry}`}

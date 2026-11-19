@@ -200,18 +200,29 @@ describe("dictation access and lifecycle", () => {
     });
   });
 
-  it.each(["free", "loading", "signed-out", "disabled", "meeting"])(
+  it.each(["free", "disabled", "meeting"])(
     "does not register shortcuts when %s",
     async (condition) => {
       if (condition === "free") mocks.billing.isPro = false;
-      if (condition === "loading") mocks.billing.isReady = false;
-      if (condition === "signed-out") mocks.session = null;
       if (condition === "disabled") mocks.settings.dictation_enabled = false;
       if (condition === "meeting") mocks.meeting.status = "active";
       render(<DictationLifecycle />);
       await act(async () => {});
       expect(mocks.configure).not.toHaveBeenCalled();
       expect(mocks.startSystemRecording).not.toHaveBeenCalled();
+    },
+  );
+
+  // Dictation runs on the device, so it no longer waits for a cloud sign-in.
+  it.each(["loading", "signed-out"])(
+    "registers shortcuts when billing is %s",
+    async (condition) => {
+      if (condition === "loading") mocks.billing.isReady = false;
+      if (condition === "signed-out") mocks.session = null;
+      render(<DictationLifecycle />);
+      await waitFor(() =>
+        expect(mocks.configure).toHaveBeenCalledWith("Control+Alt+Space"),
+      );
     },
   );
 
