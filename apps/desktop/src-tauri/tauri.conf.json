@@ -104,6 +104,7 @@
         "../../../crates/cloudsync/vendor/cloudsync/macos/aarch64/cloudsync.dylib"
       ],
       "entitlements": "./Entitlements.plist",
+      "signingIdentity": "-",
       "dmg": {
         "background": "assets/dmg-background-stable.png",
         "windowSize": {
