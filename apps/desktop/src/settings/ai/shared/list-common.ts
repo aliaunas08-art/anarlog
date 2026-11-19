@@ -1,8 +1,4 @@
-import { Effect } from "effect";
-
 import { modelName } from "./model-id";
-
-import { providerFetch } from "~/ai/provider-fetch";
 
 export type ModelIgnoreReason =
   | "common_keyword"
@@ -34,39 +30,6 @@ export const DEFAULT_RESULT: ListModelsResult = {
   ignored: [],
   metadata: {},
 };
-export const REQUEST_TIMEOUT = "5 seconds";
-const MAX_MODEL_RESPONSE_BYTES = 8 * 1024 * 1024;
-const MAX_ERROR_RESPONSE_BYTES = 64 * 1024;
-
-const commonIgnoreKeywords = [
-  "embed",
-  "sora",
-  "tts",
-  "whisper",
-  "dall-e",
-  "audio",
-  "image",
-  "imagine",
-  "veo",
-  "lyria",
-  "computer",
-  "robotics",
-  "realtime",
-  "-live",
-  "voice",
-  "moderation",
-  "codex",
-  "transcribe",
-  "translate",
-  "search-api",
-  "search-preview",
-  "deep-research",
-  "antigravity",
-  // Restricted OpenAI programs that only appear for approved orgs.
-  "cyber",
-  "daybreak",
-] as const;
-
 const modelPriorityPatterns = [
   /(?:^|\/)gpt-5\.6(?:-sol)?$/,
   /(?:^|\/)gpt-5\.6-terra$/,
@@ -102,88 +65,10 @@ const modelPriorityPatterns = [
   /(?:^|\/)muse-spark-1\.3$/,
 ] as const;
 
-export const fetchJson = (url: string, headers: Record<string, string>) =>
-  Effect.tryPromise({
-    try: async () => {
-      const r = await providerFetch(url, { method: "GET", headers });
-      if (!r.ok) {
-        const errorBody = await readResponseTextWithLimit(
-          r,
-          MAX_ERROR_RESPONSE_BYTES,
-        );
-        throw new Error(`HTTP ${r.status}: ${errorBody}`);
-      }
-      return JSON.parse(
-        await readResponseTextWithLimit(r, MAX_MODEL_RESPONSE_BYTES),
-      ) as unknown;
-    },
-    catch: (e) => e,
-  });
-
-export async function readResponseTextWithLimit(
-  response: Response,
-  limit: number,
-): Promise<string> {
-  const contentLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > limit) {
-    throw new Error(`Response body exceeds ${limit} bytes`);
-  }
-
-  if (!response.body) {
-    const text = await response.text();
-    if (new TextEncoder().encode(text).byteLength > limit) {
-      throw new Error(`Response body exceeds ${limit} bytes`);
-    }
-    return text;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const chunks: string[] = [];
-  let totalBytes = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > limit) {
-        await reader.cancel();
-        throw new Error(`Response body exceeds ${limit} bytes`);
-      }
-      chunks.push(decoder.decode(value, { stream: true }));
-    }
-    chunks.push(decoder.decode());
-    return chunks.join("");
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-export const shouldIgnoreCommonKeywords = (id: string): boolean => {
-  const lowerId = id.toLowerCase();
-  return commonIgnoreKeywords.some((keyword) => lowerId.includes(keyword));
-};
-
 export const isDateSnapshot = (id: string): boolean => {
   if (/-\d{4}-\d{2}-\d{2}/.test(id)) return true;
   if (/-\d{8}$/.test(id)) return true;
   if (/-20\d{2}$/.test(id)) return true;
-  return false;
-};
-
-export const isNonChatModel = (id: string): boolean => {
-  const lowerId = id.toLowerCase();
-  const name = modelName(id);
-
-  if (/^o\d/.test(name)) return true;
-  if (/^gpt-4o-/.test(name)) return true;
-  if (/^gpt-4\.1/.test(name)) return true;
-  if (name.startsWith("ft:") || lowerId.startsWith("ft:")) return true;
-  if (/^nano-banana/.test(name)) return true;
-  // Coding-agent-only and deep-research variants, not general chat.
-  if (/^grok-(?:build|code-fast)/.test(name)) return true;
-  if (/multi-agent/.test(name)) return true;
-
   return false;
 };
 
@@ -282,54 +167,4 @@ export const sortModelsByRecency = (models: string[]): string[] => {
     }
     return a.localeCompare(b);
   });
-};
-
-const hasMetadata = (metadata: ModelMetadata | undefined): boolean => {
-  if (!metadata) {
-    return false;
-  }
-  if (metadata.input_modalities && metadata.input_modalities.length > 0) {
-    return true;
-  }
-  return false;
-};
-
-export const partition = <T>(
-  items: readonly T[],
-  shouldIgnore: (item: T) => ModelIgnoreReason[] | null,
-  extract: (item: T) => string,
-): { models: string[]; ignored: IgnoredModel[] } => {
-  const models: string[] = [];
-  const ignored: IgnoredModel[] = [];
-
-  for (const item of items) {
-    const reasons = shouldIgnore(item);
-    const id = extract(item);
-
-    if (!reasons || reasons.length === 0) {
-      models.push(id);
-    } else {
-      ignored.push({ id, reasons });
-    }
-  }
-
-  return { models, ignored };
-};
-
-export const extractMetadataMap = <T>(
-  items: readonly T[],
-  extract: (item: T) => string,
-  extractMetadata: (item: T) => ModelMetadata | undefined,
-): Record<string, ModelMetadata> => {
-  const metadata: Record<string, ModelMetadata> = {};
-
-  for (const item of items) {
-    const id = extract(item);
-    const meta = extractMetadata(item);
-    if (hasMetadata(meta)) {
-      metadata[id] = meta!;
-    }
-  }
-
-  return metadata;
 };

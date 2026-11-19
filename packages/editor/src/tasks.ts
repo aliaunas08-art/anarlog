@@ -114,10 +114,6 @@ export function getNextTaskStatus(status: TaskStatus): TaskStatus {
   return status === "done" ? "todo" : "done";
 }
 
-export function isTaskDone(status: TaskStatus): boolean {
-  return status === "done";
-}
-
 export function createTaskSourceKey(source: TaskSource): string {
   return `${source.type}:${source.id}`;
 }

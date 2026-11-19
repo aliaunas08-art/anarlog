@@ -58,13 +58,3 @@ export function ChatCTA({
     </button>
   );
 }
-
-export function FloatingChatCTA({ label }: { label?: ReactNode }) {
-  return (
-    <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 flex h-10 w-[min(640px,calc(100cqw_-_2rem))] max-w-[calc(100%-2rem)] -translate-x-1/2 items-end justify-center pb-0">
-      <div className="pointer-events-auto max-w-full">
-        <ChatCTA label={label} />
-      </div>
-    </div>
-  );
-}

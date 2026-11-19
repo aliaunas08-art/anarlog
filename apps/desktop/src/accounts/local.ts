@@ -29,10 +29,6 @@ export function localConnectionId(account: Account): string {
   return `${LOCAL_CONNECTION_PREFIX}${account.id}`;
 }
 
-export function isLocalConnectionId(connectionId: string): boolean {
-  return connectionId.startsWith(LOCAL_CONNECTION_PREFIX);
-}
-
 /** Providers whose sign-in is set up in this build (has a client ID). */
 export function useLocalAccountProviders() {
   return useQuery({
