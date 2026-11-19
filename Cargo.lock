@@ -281,7 +281,6 @@ dependencies = [
 name = "ai-engine"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "chrono",
  "futures-util",
  "local-accounts",
@@ -1709,7 +1708,6 @@ dependencies = [
 name = "audio-interface"
 version = "0.1.0"
 dependencies = [
- "dasp",
  "futures-util",
  "rodio",
 ]
@@ -16609,13 +16607,11 @@ dependencies = [
  "aspc",
  "audit-log",
  "local-accounts",
- "serde",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
- "tracing",
 ]
 
 [[package]]
@@ -16722,13 +16718,11 @@ version = "0.1.0"
 dependencies = [
  "aspc",
  "audit-log",
- "serde",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
- "tracing",
 ]
 
 [[package]]

@@ -10,7 +10,6 @@ specta = ["dep:specta"]
 
 [dependencies]
 anlg-local-accounts = { workspace = true }
-bytes = { workspace = true }
 chrono = { workspace = true }
 futures-util = { workspace = true }
 regex = { workspace = true }

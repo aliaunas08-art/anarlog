@@ -18,8 +18,6 @@ anlg-ai-engine = { workspace = true, features = ["specta"] }
 anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-audit-log = { workspace = true, features = ["tauri"] }
 anlg-local-accounts = { workspace = true }
-serde = { workspace = true }
 specta = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
-tracing = { workspace = true }
