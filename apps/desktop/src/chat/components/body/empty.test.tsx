@@ -13,6 +13,8 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 import { ChatBodyEmpty } from "./empty";
 
+import { classifyAskQuery } from "~/chat/guardrails/classifier";
+
 describe("ChatBodyEmpty", () => {
   beforeEach(() => {
     cleanup();
@@ -56,5 +58,40 @@ describe("ChatBodyEmpty", () => {
 
     render(<ChatBodyEmpty hasContext onSendMessage={vi.fn()} />);
     expect(screen.queryByText("Make the summary shorter.")).toBeNull();
+  });
+
+  // Every chip must reach the model in a "This meeting" thread: never a
+  // redirect, and the summary chips keep their edit tool via askIntent.
+  it.each([
+    { label: "Make the summary shorter.", edit: true, live: false },
+    { label: "Make the summary longer.", edit: true, live: false },
+    { label: "List action items.", edit: false, live: false },
+    { label: "Draft follow-up email.", edit: false, live: false },
+    { label: "Find key decisions.", edit: false, live: false },
+    { label: "Recap the last 5 minutes.", edit: false, live: true },
+    { label: "Suggest what to ask next.", edit: false, live: true },
+    { label: "List action items so far.", edit: false, live: true },
+  ])("chip $label routes in meeting scope", ({ label, edit, live }) => {
+    const onSendMessage = vi.fn();
+    render(
+      <ChatBodyEmpty
+        hasContext
+        hasSummary
+        isLiveMeeting={live}
+        askScope="meeting"
+        onSendMessage={onSendMessage}
+      />,
+    );
+    fireEvent.click(screen.getByText(label));
+    const [prompt, , , options] = onSendMessage.mock.calls[0];
+    expect(options?.askIntent).toBe(edit ? "edit_summary" : undefined);
+    const classification = classifyAskQuery(prompt, "meeting", {
+      hasPriorTurns: true,
+      explicitIntent: options?.askIntent,
+    });
+    expect(classification.intent).not.toBe("unrelated");
+    expect(classification.mentionsOtherMeeting).toBe(false);
+    expect(classification.decidedBy).toBe("rules");
+    if (edit) expect(classification.explicitEdit).toBe(true);
   });
 });

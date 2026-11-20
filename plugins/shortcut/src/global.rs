@@ -30,6 +30,16 @@ struct Registration {
 #[tauri::command]
 #[specta::specta]
 pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Result<(), String> {
+    tracing::info!(?shortcut, "dictation_shortcut_configure");
+    let result = configure_inner(app, shortcut).await;
+    match &result {
+        Ok(()) => tracing::info!("dictation_shortcut_configured"),
+        Err(error) => tracing::warn!(%error, "dictation_shortcut_configure_failed"),
+    }
+    result
+}
+
+async fn configure_inner(app: tauri::AppHandle, shortcut: Option<String>) -> Result<(), String> {
     if let Some(value) = &shortcut {
         validate(app.clone(), value.clone())?;
     }
@@ -103,6 +113,7 @@ pub async fn configure(app: tauri::AppHandle, shortcut: Option<String>) -> Resul
             if down.swap(pressed, Ordering::SeqCst) == pressed {
                 return;
             }
+            tracing::info!(pressed, "dictation_shortcut_event");
             let event = if pressed {
                 ShortcutEvent::Pressed
             } else {

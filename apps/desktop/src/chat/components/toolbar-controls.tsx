@@ -23,12 +23,15 @@ import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import {
   type ChatGroupRecord,
+  usePreviousChatGroups,
   useRecentChatGroups,
 } from "~/chat/store/queries";
 import type { ChatScope } from "~/chat/types";
 
 export function ChatToolbarControls({
   chatScope,
+  askThreadKey,
+  onSelectPreviousChat,
   currentChatGroupId,
   layout = "floating",
   onClose,
@@ -39,6 +42,10 @@ export function ChatToolbarControls({
   surface = "light",
 }: {
   chatScope: ChatScope;
+  /** Limits history to the active Ask thread (scope + meeting). */
+  askThreadKey?: string;
+  /** Opens a pre-scope chat read-only in General. */
+  onSelectPreviousChat?: (chatGroupId: string) => void;
   currentChatGroupId: string | undefined;
   layout?: "floating" | "right-panel";
   onClose?: () => void;
@@ -70,6 +77,8 @@ export function ChatToolbarControls({
       >
         <ChatGroups
           chatScope={chatScope}
+          askThreadKey={askThreadKey}
+          onSelectPreviousChat={onSelectPreviousChat}
           currentChatGroupId={currentChatGroupId}
           layout={layout}
           onSelectChat={onSelectChat}
@@ -150,12 +159,16 @@ function ChatActionButton({
 
 function ChatGroups({
   chatScope,
+  askThreadKey,
+  onSelectPreviousChat,
   currentChatGroupId,
   layout,
   onSelectChat,
   surface = "light",
 }: {
   chatScope: ChatScope;
+  askThreadKey?: string;
+  onSelectPreviousChat?: (chatGroupId: string) => void;
   currentChatGroupId: string | undefined;
   layout: "floating" | "right-panel";
   onSelectChat: (chatGroupId: string) => void;
@@ -165,7 +178,11 @@ function ChatGroups({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isDark = surface === "dark";
 
-  const recentChatGroups = useRecentChatGroups(chatScope, 5);
+  const recentChatGroups = useRecentChatGroups(chatScope, 5, askThreadKey);
+  const previousChatGroups = usePreviousChatGroups(
+    Boolean(askThreadKey && onSelectPreviousChat),
+    5,
+  );
 
   return (
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
@@ -235,6 +252,28 @@ function ChatGroups({
               </p>
             </div>
           )}
+          {previousChatGroups.length > 0 && onSelectPreviousChat ? (
+            <div data-previous-chats>
+              <div className="px-2 pt-2.5 pb-1.5">
+                <h4 className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+                  <Trans>Previous chats</Trans>
+                </h4>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {previousChatGroups.map((chatGroup) => (
+                  <ChatGroupItem
+                    key={chatGroup.id}
+                    chatGroup={chatGroup}
+                    isActive={chatGroup.id === currentChatGroupId}
+                    onSelect={(id) => {
+                      onSelectPreviousChat(id);
+                      setIsDropdownOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -66,6 +66,7 @@ import {
   setSettingValue,
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { resolveConfigValue } from "~/shared/config";
 import { isKeychainAccessError, repairKeychainAccess } from "~/shared/keychain";
 import { buildWebAppUrl } from "~/shared/utils";
@@ -683,7 +684,7 @@ export function SettingsSync() {
         return {
           kind: "local" as const,
           label: t`Connecting this device`,
-          description: t`Open Anarlog on an existing synced device signed in to the same account. This device will connect automatically.`,
+          description: t`Open ${APP_NAME} on an existing synced device signed in to the same account. This device will connect automatically.`,
         };
       }
       if (credentialBlock === "device_limit") {
@@ -704,7 +705,7 @@ export function SettingsSync() {
         return {
           kind: "error" as const,
           label: t`Sync needs attention`,
-          description: t`Anarlog could not start cloud sync on this device. It will keep retrying.`,
+          description: t`${APP_NAME} could not start cloud sync on this device. It will keep retrying.`,
           detail: status?.configuration_error ?? null,
         };
       }
@@ -716,7 +717,7 @@ export function SettingsSync() {
             ? t`Set up your recovery key to start encrypted cloud sync.`
             : credentialBlock === "keychain_access"
               ? t`macOS could not access your recovery key. Repair Keychain access, then resume sync.`
-              : t`Anarlog could not start cloud sync on this device.`,
+              : t`${APP_NAME} could not start cloud sync on this device.`,
       };
     }
     if (statusQuery.isError) {
@@ -739,8 +740,8 @@ export function SettingsSync() {
           status.last_error_kind === "auth"
             ? t`Sign out and sign in again to resume cloud sync.`
             : status.last_error_kind === "transient"
-              ? t`Anarlog will retry automatically.`
-              : t`Anarlog will keep retrying.`,
+              ? t`${APP_NAME} will retry automatically.`
+              : t`${APP_NAME} will keep retrying.`,
       };
     }
     if (status?.activity_paused) {
@@ -761,7 +762,7 @@ export function SettingsSync() {
           ? t`Cloud sync delayed`
           : t`Restoring cloud sync...`,
         description: status.recovery_delayed
-          ? t`Your notes remain available locally. Anarlog will keep retrying.`
+          ? t`Your notes remain available locally. ${APP_NAME} will keep retrying.`
           : t`Your notes remain available locally.`,
         detail: status.recovery_delayed
           ? (status.recovery_error ?? null)
@@ -1164,8 +1165,8 @@ export function SettingsSync() {
             </DialogTitle>
             <DialogDescription>
               <Trans>
-                Install Anarlog and sign in with this account on the new device.
-                Keep this device online and the new device will connect
+                Install {APP_NAME} and sign in with this account on the new
+                device. Keep this device online and the new device will connect
                 automatically.
               </Trans>
             </DialogDescription>

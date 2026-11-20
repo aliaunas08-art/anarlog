@@ -25,6 +25,7 @@ import {
   registerCanonicalSessionEditor,
   unregisterCanonicalSessionEditor,
 } from "~/session-sharing/editor-activity";
+import { appendParagraphToView } from "~/session/bookmark";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { SharedNoteSummary } from "~/shared-notes";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
@@ -42,6 +43,11 @@ export interface NoteInputHandle {
   replaceContent: (content: JSONContent) => void;
   flushPendingChanges: () => void;
   prepareForTabChange: () => void;
+  /**
+   * Appends a plain paragraph to the end of the memo when the memo editor is
+   * the mounted view. Returns false (and does nothing) otherwise.
+   */
+  appendMemoParagraph: (text: string) => boolean;
 }
 
 type NoteInputProps = {
@@ -56,6 +62,10 @@ type NoteInputProps = {
   currentTab?: TabEditorView;
   handleTabChange?: (view: TabEditorView) => void;
   hideHeader?: boolean;
+  /** Rendered above the note body inside the scroll area (not on transcript). */
+  renderLeadingContent?: (view: TabEditorView) => React.ReactNode;
+  /** Rendered under the note body inside the scroll area (not on transcript). */
+  renderTrailingContent?: (view: TabEditorView) => React.ReactNode;
   sessionMode?: SessionMode;
   transcriptEditMode?: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
@@ -154,6 +164,8 @@ const NoteInputContent = forwardRef<
       currentTab,
       commitTabChange,
       hideHeader = false,
+      renderLeadingContent,
+      renderTrailingContent,
       sessionMode,
       transcriptEditMode = false,
       onTranscriptEditModeChange,
@@ -168,6 +180,9 @@ const NoteInputContent = forwardRef<
     )
       ? deferredCurrentTab
       : currentTab;
+
+    const renderedCurrentTabTypeRef = useRef(renderedCurrentTab.type);
+    renderedCurrentTabTypeRef.current = renderedCurrentTab.type;
 
     const isMeetingInProgress =
       sessionMode === "active" ||
@@ -197,6 +212,10 @@ const NoteInputContent = forwardRef<
         flushPendingChanges: () =>
           internalEditorRef.current?.flushPendingChanges(),
         prepareForTabChange: onBeforeTabChange,
+        appendMemoParagraph: (text) =>
+          renderedCurrentTabTypeRef.current === "raw"
+            ? appendParagraphToView(internalEditorRef.current?.view, text)
+            : false,
       }),
       [currentTab, onBeforeTabChange],
     );
@@ -368,48 +387,74 @@ const NoteInputContent = forwardRef<
             onMouseDown={handleContainerMouseDown}
             onScroll={onScroll}
             className={cn([
-              "h-full px-3",
+              // The column carries the board's side padding; the editor's
+              // hover rows bleed 0.75rem into it.
+              "h-full",
               "pt-2",
+              // Bottom padding clears the floating glass bar (46px capsules
+              // 22px off the bottom) with room to spare.
               renderedCurrentTab.type === "transcript"
                 ? "overflow-hidden pb-0"
-                : "scroll-pb-20 overflow-x-hidden overflow-y-auto pb-24",
+                : "scroll-pb-32 overflow-x-hidden overflow-y-auto pb-40",
+              // Scroll-edge fade: text dissolves before it reaches the
+              // translucent bar instead of showing through it.
+              renderedCurrentTab.type !== "transcript" &&
+                "[mask-image:linear-gradient(to_bottom,black_calc(100%-136px),transparent_calc(100%-44px))]",
             ])}
           >
-            {renderedCurrentTab.type === "enhanced" && (
-              <Enhanced
-                ref={internalEditorRef}
-                sessionId={sessionId}
-                sessionTitle={sessionTitle}
-                enhancedNoteId={renderedCurrentTab.id}
-                onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleSessionViewReady}
-                onViewDisposed={handleSessionViewDisposed}
-              />
-            )}
-            {renderedCurrentTab.type === "raw" && (
-              <RawEditor
-                ref={internalEditorRef}
-                sessionId={sessionId}
-                rawMd={rawMd}
-                sessionTitle={sessionTitle}
-                eventTitle={eventTitle}
-                eventDescription={eventDescription}
-                onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleSessionViewReady}
-                onViewDisposed={handleSessionViewDisposed}
-              />
-            )}
-            {renderedCurrentTab.type === "shared" && (
-              <SharedNoteSummary shareId={renderedCurrentTab.id} />
-            )}
-            {renderedCurrentTab.type === "transcript" && (
-              <Transcript
-                sessionId={sessionId}
-                scrollRef={scrollRef}
-                editMode={transcriptEditMode}
-                onEditModeChange={onTranscriptEditModeChange}
-              />
-            )}
+            <div
+              data-session-content-column
+              // Editorial title, section heads and prose sizes for this view
+              // live in styles/c-final.css, keyed off data-cf-view.
+              data-cf-view={renderedCurrentTab.type}
+              // Board: 720px column with 32px sides (border-box).
+              className={cn([
+                "relative mx-auto box-border w-full max-w-[720px] px-5 @3xl:px-8",
+                renderedCurrentTab.type === "transcript" && "h-full",
+              ])}
+            >
+              {renderLeadingContent && renderedCurrentTab.type !== "transcript"
+                ? renderLeadingContent(renderedCurrentTab)
+                : null}
+              {renderedCurrentTab.type === "enhanced" && (
+                <Enhanced
+                  ref={internalEditorRef}
+                  sessionId={sessionId}
+                  sessionTitle={sessionTitle}
+                  enhancedNoteId={renderedCurrentTab.id}
+                  onNavigateToTitle={onNavigateToTitle}
+                  onViewReady={handleSessionViewReady}
+                  onViewDisposed={handleSessionViewDisposed}
+                />
+              )}
+              {renderedCurrentTab.type === "raw" && (
+                <RawEditor
+                  ref={internalEditorRef}
+                  sessionId={sessionId}
+                  rawMd={rawMd}
+                  sessionTitle={sessionTitle}
+                  eventTitle={eventTitle}
+                  eventDescription={eventDescription}
+                  onNavigateToTitle={onNavigateToTitle}
+                  onViewReady={handleSessionViewReady}
+                  onViewDisposed={handleSessionViewDisposed}
+                />
+              )}
+              {renderedCurrentTab.type === "shared" && (
+                <SharedNoteSummary shareId={renderedCurrentTab.id} />
+              )}
+              {renderedCurrentTab.type === "transcript" && (
+                <Transcript
+                  sessionId={sessionId}
+                  scrollRef={scrollRef}
+                  editMode={transcriptEditMode}
+                  onEditModeChange={onTranscriptEditModeChange}
+                />
+              )}
+              {renderTrailingContent && renderedCurrentTab.type !== "transcript"
+                ? renderTrailingContent(renderedCurrentTab)
+                : null}
+            </div>
           </div>
         </div>
       </div>

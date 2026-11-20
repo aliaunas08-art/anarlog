@@ -14,6 +14,7 @@ import {
 } from "./client";
 
 import { env } from "~/env";
+import { APP_NAME } from "~/shared/app-name";
 
 export async function deliverWorkspaceInvitation({
   context,
@@ -82,7 +83,7 @@ export function getTeamSenderName(user: {
     ? metadata.full_name.trim()
     : typeof metadata?.name === "string" && metadata.name.trim()
       ? metadata.name.trim()
-      : user.email || "An Anarlog user";
+      : user.email || `A ${APP_NAME} user`;
 }
 
 function buildTeamInvitationUrl(invitation: {

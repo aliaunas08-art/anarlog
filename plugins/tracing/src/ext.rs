@@ -248,9 +248,11 @@ pub enum Level {
 pub const JS_INIT_SCRIPT: &str = r#"
 (function() {
     function initConsoleOverride() {
-        if (typeof window.__TAURI__ === 'undefined' || 
-            typeof window.__TAURI__.core === 'undefined' ||
-            typeof window.__TAURI__.core.invoke === 'undefined') {
+        // `withGlobalTauri` is off (ASPC A3.1), so use the internal IPC bridge
+        // that Tauri injects before plugin init scripts.
+        const internals = window.__TAURI_INTERNALS__;
+        if (typeof internals === 'undefined' ||
+            typeof internals.invoke !== 'function') {
             setTimeout(initConsoleOverride, 10);
             return;
         }
@@ -261,7 +263,7 @@ pub const JS_INIT_SCRIPT: &str = r#"
         const originalWarn = console.warn.bind(console);
         const originalError = console.error.bind(console);
         
-        const invoke = window.__TAURI__.core.invoke;
+        const invoke = internals.invoke.bind(internals);
         const log = (level, ...args) => invoke('plugin:tracing|do_log', { level, data: args });
         
         console.log = (...args) => { originalLog(...args); log('INFO', ...args); };
@@ -278,6 +280,30 @@ pub const JS_INIT_SCRIPT: &str = r#"
 #[cfg(test)]
 mod tests {
     use rquickjs::{Context, Runtime};
+
+    /// ASPC C4.2: webview `console.*` calls carrying meeting content (the
+    /// enhance error path logs the error and the note) record nothing of it
+    /// in `app.log`: only the level and the argument count, plus a static
+    /// allowlisted prefix.
+    #[test]
+    fn webview_console_content_never_reaches_the_log() {
+        const MARKER: &str = "zqxcontentmarker4417";
+        for data in [
+            vec![serde_json::json!(format!("enhance failed: {MARKER}"))],
+            vec![
+                serde_json::json!("[enhancer] failed"),
+                serde_json::json!({ "title": MARKER, "transcript": MARKER }),
+            ],
+            vec![serde_json::json!({ "message": MARKER })],
+            vec![
+                serde_json::json!("[cloudsync] sync failed"),
+                serde_json::json!(MARKER),
+            ],
+        ] {
+            let kept = super::diagnostic_message(&data).unwrap_or_default();
+            assert!(!kept.contains(MARKER), "{kept}");
+        }
+    }
 
     #[test]
     fn cloudsync_log_filters_before_limiting_and_reads_rotated_activity() {
@@ -371,10 +397,8 @@ mod tests {
                     };
                 }
                 
-                globalThis.window.__TAURI__ = {
-                    core: {
-                        invoke: function() { return Promise.resolve(); }
-                    }
+                globalThis.window.__TAURI_INTERNALS__ = {
+                    invoke: function() { return Promise.resolve(); }
                 };
             "#;
             ctx.eval::<(), _>(setup).unwrap();

@@ -18,6 +18,8 @@ Default permissions for the plugin
 - `allow-get-preferred-languages`
 - `allow-get-current-locale-identifier`
 - `allow-set-mic-active-threshold`
+- `allow-start-active-speaker-tracking`
+- `allow-stop-active-speaker-tracking`
 
 ## Permission Table
 
@@ -388,6 +390,58 @@ Enables the set_respect_do_not_disturb command without any pre-configured scope.
 <td>
 
 Denies the set_respect_do_not_disturb command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-start-active-speaker-tracking`
+
+</td>
+<td>
+
+Enables the start_active_speaker_tracking command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-start-active-speaker-tracking`
+
+</td>
+<td>
+
+Denies the start_active_speaker_tracking command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-stop-active-speaker-tracking`
+
+</td>
+<td>
+
+Enables the stop_active_speaker_tracking command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-stop-active-speaker-tracking`
+
+</td>
+<td>
+
+Denies the stop_active_speaker_tracking command without any pre-configured scope.
 
 </td>
 </tr>

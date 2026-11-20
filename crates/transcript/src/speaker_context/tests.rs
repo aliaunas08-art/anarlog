@@ -46,6 +46,7 @@ fn request(context: SpeakerContext, speakers: &[(i32, i32)]) -> RenderTranscript
                     synthetic_timing: None,
                 })
                 .collect(),
+            speaker_hints: None,
         }],
     }
 }
@@ -58,13 +59,11 @@ fn no_attendees_call_names_self_and_title_candidate_without_creating_identities(
             .iter()
             .map(|s| s.speaker_label.as_str())
             .collect::<Vec<_>>(),
-        ["John", "덕행"]
+        // A meeting title is text, never a speaker signal.
+        ["John", "Them"]
     );
     assert!(segments.iter().all(|s| s.key.speaker_human_id.is_none()));
-    assert_eq!(
-        segments[1].provisional_speaker.as_ref().unwrap().human_id,
-        None
-    );
+    assert!(segments[1].provisional_speaker.is_none());
 }
 
 #[test]
@@ -73,7 +72,7 @@ fn unknown_title_leaves_remote_numbered_from_one() {
     context.intervals[0].self_names.clear();
     let segments = render_transcript_segments(request(context, &[(0, 0), (1, 1)]));
     assert_eq!(segments[0].speaker_label, "John");
-    assert_eq!(segments[1].speaker_label, "Speaker 1");
+    assert_eq!(segments[1].speaker_label, "Them");
 }
 
 // Diarization indices restart with every stream refresh, so one invitee routinely shows up as
@@ -91,11 +90,20 @@ fn every_remote_voice_on_a_call_is_the_sole_other_invitee() {
     req.participant_human_ids = vec!["remote".into()];
     let segments = render_transcript_segments(req);
     assert_eq!(segments.len(), 3);
-    assert!(segments.iter().all(|s| {
-        s.speaker_label == "Alex"
-            && s.key.speaker_human_id.is_none()
-            && s.provisional_speaker.as_ref().unwrap().human_id.as_deref() == Some("remote")
-    }));
+    // Calendar invitees never name system audio: several diarized remote
+    // voices stay lettered.
+    assert_eq!(
+        segments
+            .iter()
+            .map(|s| s.speaker_label.as_str())
+            .collect::<Vec<_>>(),
+        ["Speaker A", "Speaker B", "Speaker C"]
+    );
+    assert!(
+        segments
+            .iter()
+            .all(|s| s.key.speaker_human_id.is_none() && s.provisional_speaker.is_none())
+    );
 }
 
 // call-evidence changes split context intervals even while mic_isolated stays true on both
@@ -215,7 +223,7 @@ fn several_remote_voices_stay_anonymous_when_several_people_were_invited() {
             .iter()
             .map(|s| s.speaker_label.as_str())
             .collect::<Vec<_>>(),
-        ["Speaker 1", "Speaker 2", "Speaker 3"]
+        ["Speaker A", "Speaker B", "Speaker C"]
     );
     assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
 }
@@ -223,7 +231,13 @@ fn several_remote_voices_stay_anonymous_when_several_people_were_invited() {
 #[test]
 fn one_on_one_title_names_every_remote_voice() {
     let segments = render_transcript_segments(request(context(), &[(1, 3), (1, 5)]));
-    assert!(segments.iter().all(|s| s.speaker_label == "덕행"));
+    // Titles are text, never a speaker signal.
+    assert!(
+        segments
+            .iter()
+            .all(|s| s.speaker_label == "Speaker A" || s.speaker_label == "Speaker B")
+    );
+    assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
 }
 
 #[test]
@@ -236,11 +250,9 @@ fn sole_remote_participant_wins_over_title() {
             name: "Alex".into(),
         });
     let segments = render_transcript_segments(request(context, &[(1, 8)]));
-    assert_eq!(segments[0].speaker_label, "Alex");
-    assert_eq!(
-        segments[0].provisional_speaker.as_ref().unwrap().reason,
-        SpeakerResolutionReason::SoleRemoteParticipant
-    );
+    // Neither the invitee list nor the title names system audio.
+    assert_eq!(segments[0].speaker_label, "Them");
+    assert!(segments[0].provisional_speaker.is_none());
 }
 
 #[test]
@@ -461,7 +473,7 @@ fn channel_defaults_do_not_override_specific_corrections() {
 // A live segment carrying the self identity must not surface a raw UUID when
 // the human row is unnamed (signed-out or local profiles keep `humans` empty).
 #[test]
-fn preview_names_unnamed_self_as_you() {
+fn preview_names_unnamed_self_as_me() {
     let mut req = request(context(), &[]);
     req.humans.clear();
     req.preview = Some(vec![RenderedTranscriptSegment {
@@ -473,6 +485,8 @@ fn preview_names_unnamed_self_as_you() {
             speaker_human_id: Some("self".into()),
         },
         speaker_label: String::new(),
+        speaker_id: String::new(),
+        attribution: Default::default(),
         start_ms: 0,
         end_ms: 500,
         text: "hello".into(),
@@ -487,7 +501,7 @@ fn preview_names_unnamed_self_as_you() {
     }]);
     let segments = render_transcript_segments(req);
     assert_eq!(segments.len(), 1);
-    assert_eq!(segments[0].speaker_label, "You");
+    assert_eq!(segments[0].speaker_label, "Me");
 }
 
 #[test]

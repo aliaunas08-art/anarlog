@@ -456,6 +456,46 @@ describe("SessionViewSwitcher", () => {
     expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
   });
 
+  it("labels glass bar segments Minutes / Notes / Transcript and switches views", () => {
+    hoisted.activeTemplateTitle = "";
+    const { handleTabChange } = renderSwitcher({ variant: "glass" });
+
+    const group = screen.getByRole("group", { name: "Session note views" });
+    expect(group.getAttribute("data-variant")).toBe("glass");
+    // Segments sit inside the bottom bar's single glass capsule.
+    expect(group.className).not.toContain("cf-glass");
+
+    const notes = screen.getByRole("button", { name: "Notes" });
+    expect(notes.getAttribute("aria-current")).toBe("page");
+    expect(notes.textContent).toBe("Notes");
+    expect(screen.getByRole("button", { name: "Minutes" }).textContent).toBe(
+      "Minutes",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Minutes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(handleTabChange).toHaveBeenNthCalledWith(1, {
+      type: "enhanced",
+      id: "note-1",
+    });
+    expect(handleTabChange).toHaveBeenNthCalledWith(2, { type: "transcript" });
+  });
+
+  it("keeps template names and the template picker on the glass summary segment", () => {
+    renderSwitcher({
+      variant: "glass",
+      currentTab: { type: "enhanced", id: "note-1" },
+    });
+
+    const summary = screen.getByRole("button", { name: "Customer Call" });
+    expect(summary.textContent).toContain("Customer Call");
+
+    fireEvent.click(summary);
+
+    expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
+  });
+
   it("shows the used template's icon in the active summary pill", () => {
     hoisted.activeTemplateTitle = "Scrum";
     hoisted.activeTemplateIcon = {

@@ -81,60 +81,7 @@ impl QueryEventSink for QueryEventChannel {
     }
 }
 
-struct ExplicitRollbackTransaction {
-    transaction: Option<sqlx::Transaction<'static, sqlx::Sqlite>>,
-}
-
-impl ExplicitRollbackTransaction {
-    fn new(transaction: sqlx::Transaction<'static, sqlx::Sqlite>) -> Self {
-        Self {
-            transaction: Some(transaction),
-        }
-    }
-
-    fn connection(&mut self) -> &mut sqlx::SqliteConnection {
-        &mut *self
-            .transaction
-            .as_mut()
-            .expect("transaction should be present")
-    }
-
-    async fn commit(mut self) -> std::result::Result<(), sqlx::Error> {
-        self.transaction
-            .take()
-            .expect("transaction should be present")
-            .commit()
-            .await
-    }
-
-    async fn rollback(mut self) -> std::result::Result<(), sqlx::Error> {
-        self.transaction
-            .take()
-            .expect("transaction should be present")
-            .rollback()
-            .await
-    }
-}
-
-impl Drop for ExplicitRollbackTransaction {
-    fn drop(&mut self) {
-        let Some(transaction) = self.transaction.take() else {
-            return;
-        };
-
-        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
-            tracing::error!("sqlite_transaction_cancelled_without_async_runtime");
-            drop(transaction);
-            return;
-        };
-
-        runtime.spawn(async move {
-            if let Err(error) = transaction.rollback().await {
-                tracing::error!(%error, "sqlite_cancelled_transaction_rollback_failed");
-            }
-        });
-    }
-}
+pub type ContentAccessObserver = std::sync::Arc<dyn Fn(&'static str, &str) + Send + Sync>;
 
 pub struct PluginDbRuntime {
     db: std::sync::Arc<Db>,
@@ -142,6 +89,13 @@ pub struct PluginDbRuntime {
     startup_tx: tokio::sync::watch::Sender<Option<std::result::Result<(), String>>>,
     startup_status: std::sync::RwLock<crate::StartupStatus>,
     synced_write_barrier: tokio::sync::RwLock<()>,
+    webview_sql: std::sync::Arc<anlg_db_core::WebviewSqlAuthorizer>,
+    /// The app's access state (ASPC), set at startup when the app manages one.
+    access_state: std::sync::OnceLock<std::sync::Arc<anlg_aspc::AspcState>>,
+    /// Told when a Rust read command hands out sensitive content (a
+    /// transcript page). The desktop app audit-logs it (D1.4); this plugin
+    /// itself has no handle to the audit log (D1.1).
+    content_access_observer: std::sync::OnceLock<ContentAccessObserver>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
     renderer_subscriptions: renderer::RendererSubscriptions,
@@ -224,6 +178,10 @@ impl PluginDbRuntime {
             std::sync::Arc::clone(&e2ee_sync_hook),
         );
         let (startup_tx, _) = tokio::sync::watch::channel(None);
+        let webview_sql = anlg_db_core::WebviewSqlAuthorizer::new();
+        // ASPC C1 interim: webview SQL reaches content only while the device
+        // holds a single workspace (see `anlg_db_core::WorkspaceGuard`).
+        webview_sql.enable_workspace_guard();
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
@@ -232,8 +190,17 @@ impl PluginDbRuntime {
                 crate::StartupPhase::PreparingDatabase,
             )),
             synced_write_barrier: tokio::sync::RwLock::new(()),
-            executor: DbExecutor::new(std::sync::Arc::clone(&db)),
-            live_query_runtime: LiveQueryRuntime::new(db),
+            executor: DbExecutor::for_webview(
+                std::sync::Arc::clone(&db),
+                std::sync::Arc::clone(&webview_sql),
+            ),
+            live_query_runtime: LiveQueryRuntime::new_for_webview(
+                db,
+                std::sync::Arc::clone(&webview_sql),
+            ),
+            webview_sql,
+            access_state: Default::default(),
+            content_access_observer: Default::default(),
             renderer_subscriptions: Default::default(),
             e2ee_sync_hook,
             _witness_watch: witness_watch,
@@ -566,8 +533,43 @@ impl PluginDbRuntime {
     ) -> Result<Vec<u64>> {
         let _write_guard = self.synced_write_barrier.read().await;
         self.ensure_app_schema().await?;
-        let mut transaction =
-            ExplicitRollbackTransaction::new(self.db.pool().begin_with("BEGIN IMMEDIATE").await?);
+        let mut authorized =
+            anlg_db_core::AuthorizedConnection::acquire(self.db.pool(), &self.webview_sql).await?;
+        let guard = authorized.workspace_guard();
+        let result = self
+            .run_webview_transaction(authorized.connection(), statements, guard.as_ref())
+            .await;
+        authorized.release().await?;
+        result
+    }
+
+    /// Runs on a connection that has the webview SQL authorizer installed. If
+    /// the caller is cancelled, dropping the borrowed transaction queues a
+    /// rollback before `AuthorizedConnection` clears the authorizer.
+    async fn run_webview_transaction(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+        statements: Vec<TransactionStatement>,
+        guard: Option<&anlg_db_core::WorkspaceGuard>,
+    ) -> Result<Vec<u64>> {
+        use sqlx::Connection as _;
+
+        // ASPC C1 guard: only Rust's BEGIN/COMMIT/ROLLBACK pass the
+        // authorizer, and the census runs inside the write transaction.
+        let control = |allowed: bool| {
+            if let Some(guard) = guard {
+                guard.allow_transaction_control(allowed);
+            }
+        };
+        control(true);
+        let begun = connection.begin_with("BEGIN IMMEDIATE").await;
+        control(false);
+        let mut transaction = begun?;
+        let mut changes_before = 0;
+        if let Some(guard) = guard {
+            guard.check(&mut transaction).await;
+            changes_before = guard.changes(&mut transaction).await?;
+        }
         #[cfg(test)]
         if self
             .pause_transaction_after_begin
@@ -583,12 +585,15 @@ impl PluginDbRuntime {
                 sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
                 &statement.params,
             )
-            .execute(transaction.connection())
+            .execute(&mut *transaction)
             .await
             {
                 Ok(result) => result,
                 Err(error) => {
-                    if let Err(rollback_error) = transaction.rollback().await {
+                    control(true);
+                    let rolled_back = transaction.rollback().await;
+                    control(false);
+                    if let Err(rollback_error) = rolled_back {
                         tracing::error!(
                             %rollback_error,
                             "sqlite_failed_transaction_rollback_failed"
@@ -606,7 +611,10 @@ impl PluginDbRuntime {
                     expected,
                     actual,
                 };
-                if let Err(rollback_error) = transaction.rollback().await {
+                control(true);
+                let rolled_back = transaction.rollback().await;
+                control(false);
+                if let Err(rollback_error) = rolled_back {
                     tracing::error!(
                         %rollback_error,
                         "sqlite_mismatched_transaction_rollback_failed"
@@ -617,8 +625,96 @@ impl PluginDbRuntime {
             rows_affected.push(actual);
         }
 
-        transaction.commit().await?;
+        if let Some(guard) = guard
+            && let Err(error) = guard.check_writes(&mut transaction, changes_before).await
+        {
+            control(true);
+            let _ = transaction.rollback().await;
+            control(false);
+            return Err(error.into());
+        }
+        control(true);
+        let committed = transaction.commit().await;
+        control(false);
+        committed?;
         Ok(rows_affected)
+    }
+
+    /// Lock or unlock all SQL from the webview (`db:execute*`, live queries).
+    /// While locked, the SQLite authorizer denies every webview statement
+    /// except the lock screen's settings reads. Internal Rust paths are
+    /// unaffected. Default: unlocked. The desktop app drives this from the
+    /// Rust-held app lock.
+    pub fn set_webview_sql_locked(&self, locked: bool) {
+        self.webview_sql.set_locked(locked);
+    }
+
+    /// Receives every webview SQL denial (the desktop app audit-logs them,
+    /// D1.4). The sink must only queue; it runs inside the SQLite callback.
+    pub fn set_webview_sql_denial_sink(
+        &self,
+        sink: impl Fn(anlg_db_core::SqlDenial) + Send + Sync + 'static,
+    ) {
+        self.webview_sql.set_denial_sink(sink);
+    }
+
+    /// The access context every webview statement is checked against, per
+    /// table (A2.4).
+    pub fn set_webview_sql_context(&self, context: anlg_aspc::AccessContext) {
+        self.webview_sql.set_context(context);
+    }
+
+    pub fn set_content_access_observer(
+        &self,
+        observer: impl Fn(&'static str, &str) + Send + Sync + 'static,
+    ) {
+        let _ = self
+            .content_access_observer
+            .set(std::sync::Arc::new(observer));
+    }
+
+    pub(crate) fn observe_content_access(&self, kind: &'static str, id: &str) {
+        if let Some(observer) = self.content_access_observer.get() {
+            observer(kind, id);
+        }
+    }
+
+    pub fn set_access_state(&self, state: std::sync::Arc<anlg_aspc::AspcState>) {
+        let _ = self.access_state.set(state);
+    }
+
+    /// ASPC C1: resolves the local workspace and owner ids, gives unassigned
+    /// content rows those ids (idempotent; no sync churn, see
+    /// `anlg_db_app::backfill_content_identity`), and hands the ids to the
+    /// access state. Runs at startup once the schema is ready and again after
+    /// an account claims the device. Failures are logged; without an identity
+    /// the access state keeps an empty workspace and denies (fail closed).
+    pub(crate) async fn apply_content_identity(&self) {
+        let identity = match anlg_db_app::local_content_identity(self.db.pool()).await {
+            Ok(Some(identity)) => identity,
+            Ok(None) => {
+                tracing::error!("aspc_content_identity_missing");
+                return;
+            }
+            Err(error) => {
+                tracing::error!(%error, "aspc_content_identity_failed");
+                return;
+            }
+        };
+        match anlg_db_app::backfill_content_identity(self.db.pool(), &identity).await {
+            Ok(report) if report.total() > 0 => {
+                tracing::info!(rows = report.total(), "aspc_content_identity_backfilled");
+            }
+            Ok(_) => {}
+            Err(error) => tracing::error!(%error, "aspc_content_identity_backfill_failed"),
+        }
+        if let Some(state) = self.access_state.get() {
+            state.set_identity(identity.owner_user_id, identity.workspace_id);
+        }
+    }
+
+    pub fn webview_sql_locked(&self) -> bool {
+        self.webview_sql.is_locked()
     }
 
     pub async fn execute_proxy(
@@ -1275,7 +1371,10 @@ impl PluginDbRuntime {
         )
         .await
         {
-            Ok(()) => Ok(true),
+            Ok(()) => {
+                self.apply_content_identity().await;
+                Ok(true)
+            }
             Err(anlg_db_app::CloudsyncWorkspaceError::ClaimCancelled) => {
                 Err(crate::Error::CloudsyncConfigurationCancelled)
             }
@@ -1307,7 +1406,10 @@ impl PluginDbRuntime {
         )
         .await
         {
-            Ok(()) => Ok(true),
+            Ok(()) => {
+                self.apply_content_identity().await;
+                Ok(true)
+            }
             Err(anlg_db_app::CloudsyncWorkspaceError::ClaimCancelled) => {
                 Err(crate::Error::CloudsyncConfigurationCancelled)
             }

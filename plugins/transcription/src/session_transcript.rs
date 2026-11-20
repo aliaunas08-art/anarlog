@@ -25,11 +25,33 @@ pub struct RenderedSessionTranscript {
     pub ended_at: Option<i64>,
 }
 
+/// Renders a meeting's transcript. A meeting outside `scope` renders as
+/// nothing (ASPC C1.2): the session gate runs in the same transaction as the
+/// reads, so every transcript, participant and human read below belongs to a
+/// session of this workspace.
 pub async fn render_session_transcript(
     pool: &SqlitePool,
+    scope: &anlg_aspc::WorkspaceScope,
     request: RenderSessionTranscriptRequest,
 ) -> Result<Option<RenderedSessionTranscript>, String> {
     let mut transaction = pool.begin().await.map_err(|error| error.to_string())?;
+    let [workspace, unassigned] = scope.sql_values();
+    let in_scope: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ? AND workspace_id IN (?, ?))",
+    )
+    .bind(&request.session_id)
+    .bind(workspace)
+    .bind(unassigned)
+    .fetch_one(&mut *transaction)
+    .await
+    .map_err(|error| error.to_string())?;
+    if !in_scope {
+        transaction
+            .commit()
+            .await
+            .map_err(|error| error.to_string())?;
+        return Ok(None);
+    }
     let rows = load_session_render_transcripts(&mut transaction, &request.session_id)
         .await
         .map_err(|error| error.to_string())?;
@@ -258,8 +280,24 @@ mod tests {
     async fn render_session_transcript_materializes_pending_words_with_assigned_human_and_transcript_dates()
      {
         let db = test_db().await;
+        let other_workspace = anlg_aspc::WorkspaceScope::new("workspace-2").unwrap();
+        assert!(
+            render_session_transcript(
+                db.pool(),
+                &other_workspace,
+                RenderSessionTranscriptRequest {
+                    session_id: "session-1".to_string(),
+                    self_human_id: None,
+                },
+            )
+            .await
+            .unwrap()
+            .is_none(),
+            "another workspace's meeting renders as nothing"
+        );
         let rendered = render_session_transcript(
             db.pool(),
+            &anlg_aspc::WorkspaceScope::local("workspace-1").unwrap(),
             RenderSessionTranscriptRequest {
                 session_id: "session-1".to_string(),
                 self_human_id: Some("owner-human".to_string()),

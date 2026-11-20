@@ -17,12 +17,16 @@ pub async fn insert_pending_session_proposal(
     proposed_markdown: &str,
     source: &str,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(
+    // C1.1: the session's workspace, else the local one; never ''.
+    let result = sqlx::query(sqlx::AssertSqlSafe(format!(
         "INSERT INTO session_proposals (
-          id, session_id, kind, target_id, base_updated_at,
+          id, workspace_id, session_id, kind, target_id, base_updated_at,
           current_markdown, proposed_markdown, status, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
-    )
+        ) VALUES (?1, COALESCE(
+          (SELECT NULLIF(workspace_id, '') FROM sessions WHERE id = ?2),
+          {}, ''), ?2, ?3, ?4, ?5, ?6, ?7, 'pending', ?8)",
+        crate::LOCAL_WORKSPACE_ID_SQL
+    )))
     .bind(id)
     .bind(session_id)
     .bind(kind)

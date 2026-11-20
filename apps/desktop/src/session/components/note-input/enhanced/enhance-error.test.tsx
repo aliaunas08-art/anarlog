@@ -40,7 +40,10 @@ import { EnhanceError } from "./enhance-error";
 
 import { withAIErrorSource } from "~/store/zustand/ai-task/shared/error-source";
 
-function renderError(isUnauthenticated: boolean) {
+function renderError(
+  isUnauthenticated: boolean,
+  options: { error?: Error; compact?: boolean } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -50,11 +53,15 @@ function renderError(isUnauthenticated: boolean) {
       <EnhanceError
         sessionId="session-1"
         enhancedNoteId="note-1"
-        error={withAIErrorSource(
-          new Error("AI generation did not return any text."),
-          { kind: "provider", provider: "Anthropic" },
-        )}
+        error={
+          options.error ??
+          withAIErrorSource(
+            new Error("AI generation did not return any text."),
+            { kind: "provider", provider: "Anthropic" },
+          )
+        }
         isUnauthenticated={isUnauthenticated}
+        compact={options.compact}
       />
     </QueryClientProvider>,
   );
@@ -74,7 +81,7 @@ describe("EnhanceError", () => {
     expect(screen.getByText("Sign in to generate this summary")).toBeTruthy();
     expect(
       screen.getByText(
-        "Anarlog could not generate this summary because you were not signed in. Sign in, then try again.",
+        "Notes could not generate this summary because you were not signed in. Sign in, then try again.",
       ),
     ).toBeTruthy();
     expect(
@@ -109,5 +116,17 @@ describe("EnhanceError", () => {
       },
     });
     expect(mocks.signIn).not.toHaveBeenCalled();
+  });
+
+  it("calls an AI pause a pause and offers a compact notice", () => {
+    renderError(false, {
+      error: new Error("AI paused: no API key is set."),
+      compact: true,
+    });
+    expect(
+      screen.getByText("AI is paused. Showing the last saved summary."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

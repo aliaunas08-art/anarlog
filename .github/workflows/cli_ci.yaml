@@ -30,6 +30,7 @@ on:
       - crates/e2ee/**
       - crates/tiptap/**
       - docs/**
+      - scripts/check-secrets.mjs
       - scripts/publish-anarlog-skill.mjs
       - scripts/publish-anarlog-skill.test.mjs
       - skills/**
@@ -64,6 +65,7 @@ on:
       - crates/e2ee/**
       - crates/tiptap/**
       - docs/**
+      - scripts/check-secrets.mjs
       - scripts/publish-anarlog-skill.mjs
       - scripts/publish-anarlog-skill.test.mjs
       - skills/**
@@ -104,6 +106,8 @@ jobs:
           cargo test --locked -p db-core --lib
           cargo test --locked -p db-migrate --lib
           cargo test --locked -p tiptap
+      # ASPC C3.1: a database freshly created by the app's migrations holds no key.
+      - run: node scripts/check-secrets.mjs --fresh-db
       - run: |
           cargo clippy --locked \
             -p agent-access \

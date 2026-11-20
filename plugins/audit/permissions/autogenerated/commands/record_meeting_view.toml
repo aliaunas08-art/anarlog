@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-record-meeting-view"
+description = "Enables the record_meeting_view command without any pre-configured scope."
+commands.allow = ["record_meeting_view"]
+
+[[permission]]
+identifier = "deny-record-meeting-view"
+description = "Denies the record_meeting_view command without any pre-configured scope."
+commands.deny = ["record_meeting_view"]

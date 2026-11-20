@@ -3,7 +3,8 @@ import { beginCloudsyncActivity } from "@anlg/plugin-db";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
 import { commands as templateCommands } from "@anlg/plugin-template";
 
-import { createTaskId, type TaskConfig } from ".";
+import type { TaskConfig } from ".";
+import { takeGeneratedTitle } from "./enhance-title";
 import { getPersistableGeneratedTitle } from "./title-success";
 
 import { runNoteEnhancedAutomations } from "~/automations/engine";
@@ -29,9 +30,6 @@ export const runEnhanceSuccess = async ({
   taskId,
   args,
   transformedArgs,
-  model,
-  startTask,
-  getTaskState,
   signal,
   onPersisted,
 }: EnhanceSuccessParams) => {
@@ -56,7 +54,6 @@ export const runEnhanceSuccess = async ({
   }
 
   const { text: preparedText, tag_names: tagNames } = preparedResult.data;
-  const textWithTags = preparedResult.data.text_with_tags;
   const cloudsyncLeaseKey = `${taskId}:${id()}`;
   const initialSnapshot = await loadSessionContentSnapshot(args.sessionId);
   if (!initialSnapshot) {
@@ -68,31 +65,11 @@ export const runEnhanceSuccess = async ({
   let shouldPersistGeneratedTitle = false;
 
   if (!trimmedTitle && !hasLiveSessionTitleDraft(args.sessionId)) {
-    const titleTaskId = createTaskId(args.sessionId, "title");
-    const titleTask = getTaskState(titleTaskId);
-
-    // A finished title task belongs to an earlier summary; regenerate so the
-    // title reflects the new content.
-    if (titleTask?.status === "generating") {
-      generatedTitle = getPersistableGeneratedTitle(titleTask.streamedText);
-    } else {
-      await startTask(titleTaskId, {
-        model,
-        taskType: "title",
-        args: {
-          sessionId: args.sessionId,
-          enhancedNote: textWithTags,
-          skipPersist: true,
-        },
-        onComplete: (title) => {
-          generatedTitle = getPersistableGeneratedTitle(title);
-        },
-      });
-    }
-
-    if (signal.aborted) {
-      return;
-    }
+    // The title came back in the same call as the summary (C7.5); no second
+    // model call is made for it.
+    generatedTitle = getPersistableGeneratedTitle(
+      takeGeneratedTitle(transformedArgs) ?? "",
+    );
   }
 
   await beginCloudsyncActivity("enhance", cloudsyncLeaseKey);

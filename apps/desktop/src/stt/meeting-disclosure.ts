@@ -8,8 +8,9 @@ import {
 } from "./meeting-consent";
 import { persistDisclosureAttempt } from "./meeting-consent-store";
 
-export const MEETING_DISCLOSURE_MESSAGE =
-  "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so";
+import { APP_NAME } from "~/shared/app-name";
+
+export const MEETING_DISCLOSURE_MESSAGE = `I'm using ${APP_NAME} to record and transcribe this meeting.`;
 
 const MEETING_DISCLOSURE_MAX_ATTEMPTS = 30;
 const MEETING_DISCLOSURE_RETRY_INTERVAL_MS = 1_000;
@@ -141,7 +142,7 @@ function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
   const detail = reason instanceof Error ? reason.message : String(reason);
   console.warn("[listener] meeting disclosure was not sent", reason);
   toast.warning(
-    "Recording started, but Anarlog could not post the meeting chat disclosure.",
+    `Recording started, but ${APP_NAME} could not post the meeting chat disclosure.`,
     { id: "meeting-disclosure-send-failed", duration: Infinity },
   );
   return { status: "notSent", reason: detail };

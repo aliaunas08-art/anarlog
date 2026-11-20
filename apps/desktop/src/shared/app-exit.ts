@@ -4,6 +4,7 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as store2Commands } from "@anlg/plugin-store2";
 
 import { flushDatabaseWritesWithin } from "~/db/write-queue";
+import { markCleanExit } from "~/shared/unexpected-quit";
 import { confirmAllPendingDeletions } from "~/store/zustand/undo-delete";
 import { commands } from "~/types/tauri.gen";
 
@@ -32,7 +33,7 @@ async function flushApplicationStateWithin(timeoutMs: number): Promise<void> {
       Promise.allSettled([
         analyticsCommands.event({ event: "app_exit_requested" }),
         flushDatabaseWritesWithin(timeoutMs),
-        store2Commands.save(),
+        markCleanExit().then(() => store2Commands.save()),
       ]),
       new Promise<never>((_, reject) => {
         timeout = setTimeout(

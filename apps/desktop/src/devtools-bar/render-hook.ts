@@ -2,9 +2,9 @@
  * Minimal React DevTools global hook so commits can be observed without
  * react-scan. React only reports to a hook that exists before react-dom
  * evaluates, so this module must stay the first import of the app entry.
- * With no listeners attached it costs one no-op call per commit, which is why
- * it is safe to install in every build; all real work is gated behind
- * `onReactCommit` subscribers.
+ * With no listeners attached it costs one no-op call per commit; all real work
+ * is gated behind `onReactCommit` subscribers. It installs only in dev builds,
+ * like the devtools bar that uses it, so release builds carry no global hook.
  */
 
 export type Fiber = {
@@ -93,7 +93,7 @@ function install() {
   };
 }
 
-install();
+if (import.meta.env.DEV) install();
 
 export function onReactCommit(listener: CommitListener): () => void {
   listeners.add(listener);

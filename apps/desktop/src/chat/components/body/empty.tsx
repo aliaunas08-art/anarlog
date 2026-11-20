@@ -14,29 +14,43 @@ import {
 import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
+import type { AskExplicitIntent } from "~/chat/guardrails/classifier";
+import type { AskScope } from "~/chat/guardrails/scope";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
+import { APP_NAME } from "~/shared/app-name";
 import { useTabs } from "~/store/zustand/tabs";
+
+type Suggestion = {
+  label: string;
+  icon: typeof Envelope;
+  prompt: string;
+  /** Summary chips are explicit edit requests (edit tools stay available). */
+  askIntent?: AskExplicitIntent;
+};
 
 export function ChatBodyEmpty({
   isModelConfigured = true,
   hasContext = false,
   isLiveMeeting = false,
   hasSummary = false,
+  askScope,
   onSendMessage,
 }: {
   isModelConfigured?: boolean;
   hasContext?: boolean;
   isLiveMeeting?: boolean;
   hasSummary?: boolean;
+  askScope?: AskScope;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
     contextRefs?: ContextRef[],
+    options?: { askIntent?: AskExplicitIntent },
   ) => void;
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
-  const liveMeetingSuggestions = [
+  const liveMeetingSuggestions: Suggestion[] = [
     {
       label: t`Recap the last 5 minutes.`,
       icon: ClockCounterClockwise,
@@ -53,21 +67,23 @@ export function ChatBodyEmpty({
       prompt: t`What action items have come up so far in this meeting?`,
     },
   ];
-  const summarySuggestions = hasSummary
+  const summarySuggestions: Suggestion[] = hasSummary
     ? [
         {
           label: t`Make the summary shorter.`,
           icon: ArrowsInSimple,
+          askIntent: "edit_summary",
           prompt: t`Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail.`,
         },
         {
           label: t`Make the summary longer.`,
           icon: ArrowsOutSimple,
+          askIntent: "edit_summary",
           prompt: t`Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything.`,
         },
       ]
     : [];
-  const meetingSuggestions = [
+  const meetingSuggestions: Suggestion[] = [
     ...summarySuggestions,
     {
       label: t`List action items.`,
@@ -94,14 +110,25 @@ export function ChatBodyEmpty({
   const suggestions = isLiveMeeting
     ? liveMeetingSuggestions
     : meetingSuggestions;
+  const threadNotice =
+    askScope === "meeting"
+      ? t`This meeting · separate thread. Answers use only this meeting.`
+      : askScope === "library"
+        ? t`All meetings · separate thread. Answers use excerpts from your meetings.`
+        : null;
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
   }, [openNew]);
 
   const handleSuggestionClick = useCallback(
-    (prompt: string) => {
-      onSendMessage?.(prompt, [{ type: "text", text: prompt }]);
+    (prompt: string, askIntent?: AskExplicitIntent) => {
+      onSendMessage?.(
+        prompt,
+        [{ type: "text", text: prompt }],
+        undefined,
+        askIntent ? { askIntent } : undefined,
+      );
     },
     [onSendMessage],
   );
@@ -119,7 +146,7 @@ export function ChatBodyEmpty({
                   : "text-foreground",
               ])}
             >
-              Anarlog AI
+              {APP_NAME} AI
             </span>
             <BetaChip isDarkAppearance={isDarkAppearance} />
           </div>
@@ -131,7 +158,7 @@ export function ChatBodyEmpty({
                 : "text-muted-foreground",
             ])}
           >
-            {t`Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help.`}
+            {t`Hi, I'm ${APP_NAME} AI. Set up a language model and I'll be ready to help.`}
           </p>
           <button
             onClick={handleGoToSettings}
@@ -151,11 +178,24 @@ export function ChatBodyEmpty({
   return (
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
+        {threadNotice ? (
+          <p
+            data-ask-thread-notice
+            className={cn([
+              "pb-1.5 text-xs",
+              isDarkAppearance
+                ? "text-primary-foreground/60"
+                : "text-muted-foreground",
+            ])}
+          >
+            {threadNotice}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-0.5">
-          {suggestions.map(({ label, icon: Icon, prompt }) => (
+          {suggestions.map(({ label, icon: Icon, prompt, askIntent }) => (
             <button
               key={label}
-              onClick={() => handleSuggestionClick(prompt)}
+              onClick={() => handleSuggestionClick(prompt, askIntent)}
               className={cn([
                 "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
                 isDarkAppearance

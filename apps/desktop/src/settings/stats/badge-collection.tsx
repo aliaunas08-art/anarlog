@@ -23,6 +23,7 @@ import type { ActivityRecord } from "./queries";
 import { ProgressBar } from "./tremor/progress-bar";
 
 import { useAuth } from "~/auth";
+import { APP_NAME } from "~/shared/app-name";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { commands } from "~/types/tauri.gen";
 
@@ -144,8 +145,8 @@ export function BadgeGallery({
   const [selectedId, setSelectedId] = useState<BadgeId | null>(null);
   const details = {
     hello: {
-      name: t`Hello, Anarlog`,
-      description: t`Create your Anarlog account. A place for your conversations to call home.`,
+      name: t`Hello, ${APP_NAME}`,
+      description: t`Create your ${APP_NAME} account. A place for your conversations to call home.`,
     },
     "all-set": {
       name: t`All Set`,

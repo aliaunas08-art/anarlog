@@ -1,0 +1,28 @@
+[package]
+name = "local-accounts"
+version = "0.1.0"
+edition = "2024"
+description = "Google and Microsoft sign-in from the desktop app (OAuth with PKCE and a loopback redirect), tokens kept in the system keychain."
+
+[features]
+default = []
+specta = ["dep:specta"]
+
+[dependencies]
+base64 = { workspace = true }
+chrono = { workspace = true }
+keyring = { workspace = true }
+reqwest = { workspace = true, features = ["json", "form"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+specta = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["net", "io-util", "sync", "time", "macros", "rt"] }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
+wiremock = { workspace = true }

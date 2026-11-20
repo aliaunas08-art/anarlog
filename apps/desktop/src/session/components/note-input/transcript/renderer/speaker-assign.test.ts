@@ -19,6 +19,8 @@ import {
   buildSpeakerParticipantGroups,
   getAssignmentAnchorWordId,
   getAssignmentWordIds,
+  isSelfSegment,
+  resolveRenameHumanId,
   SpeakerAssignPopover,
   type SpeakerParticipantOption,
 } from "./speaker-assign";
@@ -32,7 +34,13 @@ const {
   createHumanMock,
   useHumansMock,
   useSessionParticipantsMock,
+  shouldOfferVoiceImprovementMock,
+  declineVoiceImprovementMock,
+  improveVoiceProfileFromSegmentMock,
 } = vi.hoisted(() => ({
+  shouldOfferVoiceImprovementMock: vi.fn(),
+  declineVoiceImprovementMock: vi.fn(),
+  improveVoiceProfileFromSegmentMock: vi.fn(),
   assignSessionTranscriptSpeakerMock: vi.fn(),
   assignTranscriptSpeakerMock: vi.fn(),
   addSessionParticipantMock: vi.fn(),
@@ -134,6 +142,16 @@ vi.mock("~/session/queries", () => ({
   useSessionParticipants: useSessionParticipantsMock,
 }));
 
+vi.mock("~/speakers/voice-improve", () => ({
+  shouldOfferVoiceImprovement: shouldOfferVoiceImprovementMock,
+  declineVoiceImprovement: declineVoiceImprovementMock,
+  improveVoiceProfileFromSegment: improveVoiceProfileFromSegmentMock,
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
+
 vi.mock("~/stt/queries", () => ({
   assignSessionTranscriptSpeaker: assignSessionTranscriptSpeakerMock,
   assignTranscriptSpeaker: assignTranscriptSpeakerMock,
@@ -155,6 +173,9 @@ beforeEach(() => {
     },
   ]);
   useSessionParticipantsMock.mockReturnValue([]);
+  shouldOfferVoiceImprovementMock.mockResolvedValue(false);
+  declineVoiceImprovementMock.mockResolvedValue(undefined);
+  improveVoiceProfileFromSegmentMock.mockResolvedValue({ enrolled: true });
 });
 
 function option(
@@ -203,6 +224,7 @@ describe("SpeakerAssignPopover", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Unknown speaker" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose a person…" }));
     expect(screen.queryByRole("checkbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
@@ -258,6 +280,7 @@ describe("SpeakerAssignPopover", () => {
 
     fireEvent.click(trigger);
     expect(trigger.className.split(/\s+/)).toContain("underline");
+    fireEvent.click(screen.getByRole("button", { name: "Choose a person…" }));
     expect(
       screen.getByRole("button", { name: "Create new speaker" }),
     ).toBeTruthy();
@@ -334,6 +357,7 @@ describe("SpeakerAssignPopover", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Speaker 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose a person…" }));
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
@@ -349,6 +373,209 @@ describe("SpeakerAssignPopover", () => {
         }),
       );
     });
+  });
+});
+
+function remoteSegment(overrides: Partial<Segment["key"]> = {}): Segment {
+  return {
+    id: "segment-1",
+    key: {
+      channel: "RemoteParty",
+      speaker_index: 1,
+      speaker_human_id: null,
+      ...overrides,
+    },
+    start_ms: 1_000,
+    end_ms: 4_000,
+    text: "hello",
+    words: [
+      {
+        id: "word-1",
+        text: "hello",
+        start_ms: 1_000,
+        end_ms: 4_000,
+        channel: "RemoteParty",
+        is_final: true,
+      },
+    ],
+  } as Segment;
+}
+
+function renderPopover(segment = remoteSegment(), label = "Speaker B") {
+  render(
+    createElement(SpeakerAssignPopover, {
+      segment,
+      transcriptId: "transcript-1",
+      sessionId: "session-1",
+      color: "red",
+      label,
+      audioOffsetMs: 60_000,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: label }));
+}
+
+describe("SpeakerAssignPopover rename", () => {
+  it("renames the whole speaker for this meeting by default", async () => {
+    renderPopover();
+    fireEvent.change(screen.getByRole("textbox", { name: "Rename speaker" }), {
+      target: { value: "Dana" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+
+    await waitFor(() =>
+      expect(assignSessionTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "session-1",
+          transcriptId: "transcript-1",
+          humanId: "human-new",
+          segmentKey: expect.objectContaining({ speaker_index: 1 }),
+        }),
+      ),
+    );
+    expect(createHumanMock).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerUserId: "user-1", name: "Dana" }),
+    );
+    expect(addSessionParticipantMock).toHaveBeenCalledWith(
+      "session-1",
+      "human-new",
+    );
+    expect(assignTranscriptSpeakerMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses an existing person and can rename only this line", async () => {
+    renderPopover();
+    fireEvent.change(screen.getByRole("textbox", { name: "Rename speaker" }), {
+      target: { value: "alice" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "This line only" }));
+
+    await waitFor(() =>
+      expect(assignTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({ humanId: "human-1", mode: "segment" }),
+      ),
+    );
+    expect(createHumanMock).not.toHaveBeenCalled();
+    expect(assignSessionTranscriptSpeakerMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("SpeakerAssignPopover assign to me", () => {
+  it("assigns the speaker to the owner and closes when no prompt is due", async () => {
+    renderPopover();
+    fireEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+
+    await waitFor(() =>
+      expect(assignSessionTranscriptSpeakerMock).toHaveBeenCalledWith(
+        expect.objectContaining({ humanId: "user-1" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Assign to me" })).toBeNull(),
+    );
+    expect(
+      screen.queryByText("Use this to improve your voice profile?"),
+    ).toBeNull();
+    expect(improveVoiceProfileFromSegmentMock).not.toHaveBeenCalled();
+  });
+
+  it("improves the voice profile only after the user accepts", async () => {
+    shouldOfferVoiceImprovementMock.mockResolvedValue(true);
+    renderPopover();
+    fireEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+
+    await screen.findByText("Use this to improve your voice profile?");
+    expect(improveVoiceProfileFromSegmentMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Improve" }));
+
+    await waitFor(() =>
+      expect(improveVoiceProfileFromSegmentMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
+        channel: 1,
+        startMs: 61_000,
+        endMs: 64_000,
+      }),
+    );
+  });
+
+  it("records a decline without touching the voice profile", async () => {
+    shouldOfferVoiceImprovementMock.mockResolvedValue(true);
+    renderPopover();
+    fireEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+
+    await screen.findByText("Use this to improve your voice profile?");
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+
+    expect(declineVoiceImprovementMock).toHaveBeenCalledTimes(1);
+    expect(improveVoiceProfileFromSegmentMock).not.toHaveBeenCalled();
+  });
+
+  it("hides Assign to me on the user's own lines", () => {
+    renderPopover(remoteSegment({ speaker_human_id: "user-1" }), "Me");
+    expect(screen.queryByRole("button", { name: "Assign to me" })).toBeNull();
+  });
+});
+
+describe("isSelfSegment", () => {
+  it("treats the undiarized mic and the owner's assignment as self", () => {
+    expect(
+      isSelfSegment(
+        {
+          key: {
+            channel: "DirectMic",
+            speaker_index: null,
+            speaker_human_id: null,
+          },
+        } as Segment,
+        "user-1",
+      ),
+    ).toBe(true);
+    expect(
+      isSelfSegment(
+        {
+          key: {
+            channel: "DirectMic",
+            speaker_index: 0,
+            speaker_human_id: null,
+          },
+        } as Segment,
+        "user-1",
+      ),
+    ).toBe(false);
+    expect(
+      isSelfSegment(remoteSegment({ speaker_human_id: "user-1" }), "user-1"),
+    ).toBe(true);
+  });
+});
+
+describe("resolveRenameHumanId", () => {
+  it("ignores blank names and needs an owner to create people", async () => {
+    const create = vi.fn().mockResolvedValue("created");
+    await expect(
+      resolveRenameHumanId({
+        name: "  ",
+        candidates: [],
+        ownerUserId: "u",
+        create,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      resolveRenameHumanId({
+        name: "Eve",
+        candidates: [],
+        ownerUserId: null,
+        create,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      resolveRenameHumanId({
+        name: " Eve ",
+        candidates: [],
+        ownerUserId: "u",
+        create,
+      }),
+    ).resolves.toBe("created");
+    expect(create).toHaveBeenCalledWith({ ownerUserId: "u", name: "Eve" });
   });
 });
 

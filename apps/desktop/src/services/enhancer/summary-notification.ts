@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
+import { APP_NAME } from "~/shared/app-name";
 import { shouldShowNotification } from "~/shared/notification-policy";
 import { isAppWindowInactive } from "~/shared/window-activity";
 
@@ -41,7 +42,7 @@ export async function showSummaryReadyNotification(
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: t`Open Anarlog`,
+      action_label: t`Open ${APP_NAME}`,
       action: null,
       action_menu: null,
       action_variant: null,

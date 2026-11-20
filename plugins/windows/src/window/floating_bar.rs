@@ -75,6 +75,9 @@ pub struct FloatingBarState {
     pub layout: Option<FloatingBarOverlayLayout>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    // Recording time shown on the bar; absent for dictation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elapsed_seconds: Option<u32>,
 }
 
 pub const WINDOW_LABEL: &str = "floating-bar";
@@ -86,8 +89,10 @@ pub(crate) mod layout {
     pub const INSET: f64 = 4.0;
     pub const SCREEN_MARGIN: f64 = 8.0;
     pub const COMPACT_HEIGHT: f64 = 38.0;
-    pub const COMPACT_STOP_WIDTH: f64 = 62.0;
-    pub const COMPACT_SOLO_STOP_WIDTH: f64 = 68.0;
+    // Live dot, timer, level meter and Stop; keep in sync with layout.ts and
+    // FloatingBarLayout (Swift).
+    pub const COMPACT_STOP_WIDTH: f64 = 176.0;
+    pub const COMPACT_SOLO_STOP_WIDTH: f64 = 180.0;
     pub const COMPACT_ICON_SIZE: f64 = 30.0;
     pub const COMPACT_GAP: f64 = 0.0;
     pub const COMPACT_HORIZONTAL_PADDING: f64 = 4.0;
@@ -417,7 +422,7 @@ mod cross_platform {
             WINDOW_LABEL,
             WebviewUrl::App("app/floating-bar".into()),
         )
-        .title("Anarlog")
+        .title(app.package_info().name.clone())
         .inner_size(width, height)
         .visible(false)
         .focused(false)

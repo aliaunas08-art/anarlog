@@ -226,6 +226,7 @@ export function initializeErrorReporting() {
     tracePropagationTargets: [],
     beforeSend: (event) =>
       errorReportingEnabled ? sanitizeErrorEvent(event) : null,
+    // Only used once the user opts in to session replay (C4.3).
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     initialScope: {
@@ -291,9 +292,15 @@ function startSessionReplay() {
   }
 
   Sentry.addIntegration(
+    // ASPC C4.3: replay runs only after an explicit opt-in, and never
+    // records meeting content: all text and inputs are masked, media is
+    // blocked, and network bodies and headers are not captured.
     Sentry.replayIntegration({
       blockAllMedia: true,
       maskAllText: true,
+      maskAllInputs: true,
+      networkDetailAllowUrls: [],
+      networkCaptureBodies: false,
     }),
   );
   sessionReplayInstalled = true;

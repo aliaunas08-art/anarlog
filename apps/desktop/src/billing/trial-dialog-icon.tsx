@@ -1,6 +1,8 @@
 import { cn } from "@anlg/utils";
 
-const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
+import { APP_MARK_ICON_SRC } from "~/shared/app-mark";
+
+const ANARLOG_ICON_SRC = APP_MARK_ICON_SRC;
 
 export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
   const isStarted = state === "started";

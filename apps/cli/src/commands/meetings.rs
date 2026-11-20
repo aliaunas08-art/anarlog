@@ -29,11 +29,21 @@ impl DataSource {
     async fn list_meetings(
         &self,
         input: anlg_agent_access::ListMeetingsInput,
+        include_private: bool,
     ) -> Result<MeetingPage> {
         match self {
-            Self::Local(db) => anlg_agent_access::list_meetings(db.pool(), input)
-                .await
-                .map_err(Into::into),
+            Self::Local(db) => {
+                let scope = anlg_agent_access::local_scope(db.pool()).await?;
+                if include_private {
+                    anlg_agent_access::list_meetings_including_private(db.pool(), &scope, input)
+                        .await
+                        .map_err(Into::into)
+                } else {
+                    anlg_agent_access::list_meetings(db.pool(), &scope, input)
+                        .await
+                        .map_err(Into::into)
+                }
+            }
             Self::Cloud(_) if input.folder_path.is_some() => Err(local_only("--folder")),
             Self::Cloud(client) => client.list_meetings(input).await,
         }
@@ -41,18 +51,26 @@ impl DataSource {
 
     async fn list_folders(&self, input: ListFoldersInput) -> Result<FolderPage> {
         match self {
-            Self::Local(db) => anlg_agent_access::list_folders(db.pool(), input)
-                .await
-                .map_err(Into::into),
+            Self::Local(db) => anlg_agent_access::list_folders(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                input,
+            )
+            .await
+            .map_err(Into::into),
             Self::Cloud(_) => Err(local_only("meetings folders")),
         }
     }
 
     async fn get_meeting(&self, input: GetMeetingInput) -> Result<Meeting> {
         match self {
-            Self::Local(db) => anlg_agent_access::get_meeting(db.pool(), input)
-                .await
-                .map_err(Into::into),
+            Self::Local(db) => anlg_agent_access::get_meeting(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                input,
+            )
+            .await
+            .map_err(Into::into),
             Self::Cloud(client) => client.get_meeting(input).await,
         }
     }
@@ -62,9 +80,13 @@ impl DataSource {
         input: GetMeetingTranscriptInput,
     ) -> Result<TranscriptPage> {
         match self {
-            Self::Local(db) => anlg_agent_access::get_meeting_transcript(db.pool(), input)
-                .await
-                .map_err(Into::into),
+            Self::Local(db) => anlg_agent_access::get_meeting_transcript(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                input,
+            )
+            .await
+            .map_err(Into::into),
             Self::Cloud(client) => client.get_meeting_transcript(input).await,
         }
     }
@@ -74,18 +96,26 @@ impl DataSource {
         input: GetRecurringMeetingHistoryInput,
     ) -> Result<MeetingPage> {
         match self {
-            Self::Local(db) => anlg_agent_access::get_recurring_meeting_history(db.pool(), input)
-                .await
-                .map_err(Into::into),
+            Self::Local(db) => anlg_agent_access::get_recurring_meeting_history(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                input,
+            )
+            .await
+            .map_err(Into::into),
             Self::Cloud(client) => client.get_recurring_meeting_history(input).await,
         }
     }
 
     async fn get_meeting_export(&self, meeting_id: String) -> Result<MeetingExport> {
         match self {
-            Self::Local(db) => anlg_agent_access::get_meeting_export(db.pool(), meeting_id)
-                .await
-                .map_err(Into::into),
+            Self::Local(db) => anlg_agent_access::get_meeting_export(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                meeting_id,
+            )
+            .await
+            .map_err(Into::into),
             Self::Cloud(client) => client.get_meeting_export(meeting_id).await,
         }
     }
@@ -127,15 +157,19 @@ pub async fn run(source: &DataSource, command: MeetingCommand, json: bool) -> Re
             folder,
             limit,
             offset,
+            include_private,
         } => {
             let page = source
-                .list_meetings(ListMeetingsInput {
-                    query,
-                    series_id,
-                    folder_path: folder,
-                    limit: Some(limit),
-                    offset: Some(offset),
-                })
+                .list_meetings(
+                    ListMeetingsInput {
+                        query,
+                        series_id,
+                        folder_path: folder,
+                        limit: Some(limit),
+                        offset: Some(offset),
+                    },
+                    include_private,
+                )
                 .await?;
             let rendered = if json {
                 output::json("meetings.list", &page.meetings, Some(&page.pagination))?
@@ -271,7 +305,12 @@ pub async fn run(source: &DataSource, command: MeetingCommand, json: bool) -> Re
             if matches!(format, ExportFormat::Json)
                 && let DataSource::Local(db) = source
             {
-                let meeting = anlg_agent_access::get_local_meeting_export(db.pool(), id).await?;
+                let meeting = anlg_agent_access::get_local_meeting_export(
+                    db.pool(),
+                    &anlg_agent_access::local_scope(db.pool()).await?,
+                    id,
+                )
+                .await?;
                 let content = if json {
                     output::json("meetings.export", &meeting, None)?
                 } else {

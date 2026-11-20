@@ -15,13 +15,24 @@ impl<C: HttpClient> GoogleCalendarClient<C> {
         Self { http }
     }
 
+    /// Every calendar on the user's list, following `nextPageToken`.
     pub async fn list_calendars(&self) -> Result<ListCalendarsResponse, Error> {
-        let bytes = self
-            .http
-            .get("/calendar/v3/users/me/calendarList")
-            .await
-            .map_err(Error::Http)?;
-        let response: ListCalendarsResponse = serde_json::from_slice(&bytes)?;
+        const PATH: &str = "/calendar/v3/users/me/calendarList?maxResults=250";
+        const MAX_PAGES: usize = 20;
+        let bytes = self.http.get(PATH).await.map_err(Error::Http)?;
+        let mut response: ListCalendarsResponse = serde_json::from_slice(&bytes)?;
+        let mut seen = std::collections::HashSet::new();
+        while let Some(token) = response.next_page_token.take().filter(|t| !t.is_empty()) {
+            if seen.len() >= MAX_PAGES || !seen.insert(token.clone()) {
+                break;
+            }
+            let path = format!("{PATH}&pageToken={}", urlencoding::encode(&token));
+            let bytes = self.http.get(&path).await.map_err(Error::Http)?;
+            let page: ListCalendarsResponse = serde_json::from_slice(&bytes)?;
+            response.items.extend(page.items);
+            response.next_page_token = page.next_page_token;
+            response.next_sync_token = page.next_sync_token;
+        }
         Ok(response)
     }
 

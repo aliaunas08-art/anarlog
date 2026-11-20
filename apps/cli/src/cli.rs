@@ -246,6 +246,11 @@ pub enum MeetingCommand {
         limit: u32,
         #[arg(long, default_value_t = 0, help = "Number of results to skip")]
         offset: u32,
+        #[arg(
+            long,
+            help = "Also list meetings marked Private (local source only; left out by default)"
+        )]
+        include_private: bool,
     },
     /// List meeting folders, including empty and parent folders (local source only)
     Folders {

@@ -44,7 +44,7 @@ describe("SidebarNoteFilterMenu", () => {
 
     openSortMenu();
     openSubmenu("Grouping, Date");
-    fireEvent.click(screen.getByRole("menuitem", { name: "Folder" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Project" }));
 
     expect(useSidebarNotes.getState().groupBy).toBe("folder");
   });
@@ -57,5 +57,20 @@ describe("SidebarNoteFilterMenu", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Oldest" }));
 
     expect(useSidebarNotes.getState().sortOrder).toBe("oldest");
+  });
+
+  it("shows the By date calendar by default and toggles it", () => {
+    expect(useSidebarNotes.getState().showDateFilter).toBe(true);
+    render(<SidebarNoteFilterMenu />);
+
+    useSidebarNotes.getState().setDateFilter("2026-11-14");
+    openSortMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "By date" }));
+    expect(useSidebarNotes.getState().showDateFilter).toBe(false);
+    expect(useSidebarNotes.getState().dateFilter).toBeNull();
+
+    openSortMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "By date" }));
+    expect(useSidebarNotes.getState().showDateFilter).toBe(true);
   });
 });

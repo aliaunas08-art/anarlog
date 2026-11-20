@@ -406,7 +406,10 @@ async fn oversized_audio_is_uploaded_one_segment_at_a_time() {
     let uploads = SEGMENT_UPLOADS.lock().unwrap().clone();
     assert_eq!(uploads.len(), 3, "3s of audio in 1s segments");
     for upload in &uploads {
-        assert!(upload.ends_with(".mp3"), "segment was not re-encoded");
+        assert!(
+            upload.ends_with(&format!(".{}", anlg_audio_encode::UPLOAD_EXTENSION)),
+            "segment was not re-encoded"
+        );
         assert!(!std::path::Path::new(upload).exists(), "segment leaked");
     }
 
@@ -428,7 +431,10 @@ async fn compresses_oversized_legacy_wav_before_anarlog_upload() {
         .await
         .unwrap();
 
-    assert_eq!(upload.path().extension().unwrap(), "mp3");
+    assert_eq!(
+        upload.path().extension().unwrap(),
+        anlg_audio_encode::UPLOAD_EXTENSION
+    );
     assert!(std::fs::metadata(upload.path()).unwrap().len() <= max_bytes);
     assert!(source.path().exists());
 }

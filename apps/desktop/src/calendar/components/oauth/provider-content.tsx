@@ -13,8 +13,13 @@ import {
   OAuthCalendarSelection,
   useOAuthCalendarSelection,
 } from "./calendar-selection";
+import { LocalProviderContent } from "./local-provider-content";
 import { ReconnectRequiredIndicator } from "./status";
 
+import {
+  localProviderForCalendar,
+  useLocalAccountProviders,
+} from "~/accounts/local";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
@@ -29,6 +34,37 @@ export function OAuthProviderContent({
 }: {
   config: CalendarProvider;
   returnTo?: string;
+  onConnectStarted?: () => void;
+}) {
+  const { data: localProviders } = useLocalAccountProviders();
+  const localProvider = localProviderForCalendar(config.id);
+  // When this build can sign in to the provider from the Mac, that replaces
+  // the server connection: no app account or plan needed.
+  if (localProvider && localProviders?.includes(localProvider)) {
+    return (
+      <LocalProviderContent
+        config={config}
+        provider={localProvider}
+        onConnectStarted={onConnectStarted}
+      />
+    );
+  }
+  return (
+    <ServerProviderContent
+      config={config}
+      returnTo={returnTo}
+      onConnectStarted={onConnectStarted}
+    />
+  );
+}
+
+function ServerProviderContent({
+  config,
+  returnTo,
+  onConnectStarted,
+}: {
+  config: CalendarProvider;
+  returnTo: string;
   onConnectStarted?: () => void;
 }) {
   const auth = useAuth();

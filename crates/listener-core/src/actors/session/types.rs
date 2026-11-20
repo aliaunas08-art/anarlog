@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::{Instant, SystemTime};
+use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use std::time::{Duration, Instant, SystemTime};
 
 use anlg_audio::AudioProvider;
 use anlg_transcript::IdentityAssignment;
@@ -21,6 +21,8 @@ pub struct SessionParams {
     pub retain_audio: Option<bool>,
     pub languages: Vec<anlg_language::Language>,
     pub onboarding: bool,
+    #[serde(default)]
+    pub mic_only: bool,
     #[serde(default)]
     pub transcription_mode: TranscriptionMode,
     pub model: String,
@@ -154,6 +156,59 @@ pub struct SessionContext {
     /// The live transcript outlives any one listener: a reconnecting listener resumes it so the
     /// audio it replays cannot finalize words twice and segments continue across the gap.
     pub live_transcript: SharedLiveTranscript,
+    /// Set while the user has paused the recording. The source drops every captured frame while
+    /// it is set, so nothing reaches the recorder or live transcription. Shared so a restarted
+    /// source inherits it before its first frame.
+    pub paused: Arc<AtomicBool>,
+}
+
+/// Tracks user pauses so the session's audio timeline (what the recorder wrote and what the
+/// provider heard) can be told apart from wall-clock time since the session started.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct PauseClock {
+    paused_at: Option<Instant>,
+    total: Duration,
+}
+
+impl PauseClock {
+    pub fn is_paused(&self) -> bool {
+        self.paused_at.is_some()
+    }
+
+    /// Returns false when already paused.
+    pub fn pause(&mut self, now: Instant) -> bool {
+        if self.paused_at.is_some() {
+            return false;
+        }
+        self.paused_at = Some(now);
+        true
+    }
+
+    /// Returns how long the pause that just ended lasted, or `None` when not paused.
+    pub fn resume(&mut self, now: Instant) -> Option<Duration> {
+        let paused_at = self.paused_at.take()?;
+        let length = now.saturating_duration_since(paused_at);
+        self.total += length;
+        Some(length)
+    }
+
+    /// The pause in progress, zero when recording.
+    pub fn current_pause(&self, now: Instant) -> Duration {
+        self.paused_at.map_or(Duration::ZERO, |paused_at| {
+            now.saturating_duration_since(paused_at)
+        })
+    }
+
+    /// All paused time so far, including a pause in progress.
+    pub fn paused_total(&self, now: Instant) -> Duration {
+        self.total + self.current_pause(now)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PauseState {
+    pub paused: bool,
+    pub paused_ms: u64,
 }
 
 pub type SharedLiveTranscript = Arc<Mutex<Option<LiveTranscriptEngine>>>;
@@ -172,6 +227,7 @@ mod tests {
             retain_audio: None,
             languages: vec![],
             onboarding: false,
+            mic_only: false,
             transcription_mode: mode,
             model: model.to_string(),
             base_url: base_url.to_string(),
@@ -341,5 +397,52 @@ mod tests {
         let params: SessionParams = serde_json::from_value(value).unwrap();
 
         assert_eq!(params.transcription_mode, TranscriptionMode::Live);
+    }
+
+    #[test]
+    fn pause_clock_accumulates_only_paused_time() {
+        let start = Instant::now();
+        let mut clock = PauseClock::default();
+        assert!(!clock.is_paused());
+        assert_eq!(clock.resume(start), None);
+
+        assert!(clock.pause(start + Duration::from_secs(10)));
+        assert!(clock.is_paused());
+        assert!(
+            !clock.pause(start + Duration::from_secs(12)),
+            "second pause is a no-op"
+        );
+        assert_eq!(
+            clock.current_pause(start + Duration::from_secs(13)),
+            Duration::from_secs(3)
+        );
+        assert_eq!(
+            clock.paused_total(start + Duration::from_secs(13)),
+            Duration::from_secs(3)
+        );
+
+        assert_eq!(
+            clock.resume(start + Duration::from_secs(15)),
+            Some(Duration::from_secs(5))
+        );
+        assert!(!clock.is_paused());
+        assert_eq!(
+            clock.current_pause(start + Duration::from_secs(20)),
+            Duration::ZERO
+        );
+
+        assert!(clock.pause(start + Duration::from_secs(30)));
+        assert_eq!(
+            clock.paused_total(start + Duration::from_secs(32)),
+            Duration::from_secs(7)
+        );
+        assert_eq!(
+            clock.resume(start + Duration::from_secs(34)),
+            Some(Duration::from_secs(4))
+        );
+        assert_eq!(
+            clock.paused_total(start + Duration::from_secs(60)),
+            Duration::from_secs(9)
+        );
     }
 }

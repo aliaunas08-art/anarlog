@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-configured-providers"
+description = "Enables the configured_providers command without any pre-configured scope."
+commands.allow = ["configured_providers"]
+
+[[permission]]
+identifier = "deny-configured-providers"
+description = "Denies the configured_providers command without any pre-configured scope."
+commands.deny = ["configured_providers"]

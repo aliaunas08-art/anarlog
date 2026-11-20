@@ -4,6 +4,8 @@ mod events;
 mod ext;
 mod tab;
 mod window;
+#[cfg(target_os = "macos")]
+mod zoom_animation;
 
 pub use errors::*;
 pub use events::*;

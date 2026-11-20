@@ -9,6 +9,7 @@ import { cn } from "@anlg/utils";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useNotifyPlanRequired } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import {
   type AppIconPreference,
@@ -78,7 +79,7 @@ export function AppIconSelector() {
           <Trans>App icon</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose how Anarlog appears in the Dock.</Trans>
+          <Trans>Choose how {APP_NAME} appears in the Dock.</Trans>
         </p>
       </div>
       <div

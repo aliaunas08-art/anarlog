@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
 
+import { segmentAttributionEqual } from "~/speakers/attribution";
 import type { Segment } from "~/stt/live-segment";
 import { getTranscriptTimingSource } from "~/stt/timing";
 
@@ -46,6 +47,7 @@ function segmentsEqual(a: Segment, b: Segment) {
     a.end_ms !== b.end_ms ||
     a.text !== b.text ||
     a.speaker_label !== b.speaker_label ||
+    !segmentAttributionEqual(a, b) ||
     JSON.stringify(a.provisional_speaker) !==
       JSON.stringify(b.provisional_speaker) ||
     a.key.channel !== b.key.channel ||

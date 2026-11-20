@@ -28,6 +28,7 @@ import {
 } from "~/shared-notes/cache";
 import { useSharedNotePreview } from "~/shared-notes/preview";
 import { useSharedAttachmentResolver } from "~/shared-notes/use-shared-attachment-resolver";
+import { APP_NAME } from "~/shared/app-name";
 import type { Tab } from "~/store/zustand/tabs";
 
 export function TabContentSharedNote({
@@ -63,7 +64,7 @@ export function TabContentSharedNote({
       <SharedNoteUnavailable
         icon={WarningCircle}
         title={t`Shared note unavailable`}
-        description={t`Anarlog could not read the local shared-note cache.`}
+        description={t`${APP_NAME} could not read the local shared-note cache.`}
       />
     );
   }

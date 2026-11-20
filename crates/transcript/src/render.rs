@@ -35,6 +35,11 @@ pub struct RenderTranscriptInput {
     pub started_at: Option<i64>,
     pub words: Vec<RenderTranscriptWordInput>,
     pub assignments: Vec<IdentityAssignment>,
+    /// Raw stored speaker hints of this transcript. Optional: when present the
+    /// renderer derives each segment's attribution (source, confidence,
+    /// uncertainty) from them; without them it falls back to the segment key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_hints: Option<Vec<crate::RenderSpeakerHint>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -60,6 +65,12 @@ pub struct RenderedTranscriptSegment {
     pub end_ms: i64,
     pub text: String,
     pub words: Vec<SegmentWord>,
+    /// Who the segment belongs to: a human id, or a synthetic id such as
+    /// `diar:1:0` (diarized cluster on a channel) or `channel:0`.
+    #[serde(default)]
+    pub speaker_id: String,
+    #[serde(default)]
+    pub attribution: crate::SegmentAttribution,
 }
 
 pub fn render_transcript_segments(
@@ -81,33 +92,23 @@ pub(crate) fn render_transcript_segments_ungrouped(
     } = request;
 
     let base_started_at = earliest_started_at(&transcripts);
-    if let Some(mut segments) = preview {
-        for segment in &mut segments {
-            if let Some(id) = &segment.key.speaker_human_id {
-                // Unnamed humans are not in `humans` (name <> '' filter) — a
-                // raw UUID is never a good label, so fall back the way
-                // `resolve_speaker` does for the local user.
-                segment.speaker_label = humans
-                    .iter()
-                    .find(|human| &human.human_id == id)
-                    .map(|human| human.name.trim())
-                    .filter(|name| !name.is_empty())
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| {
-                        if self_human_id.as_deref() == Some(id.as_str()) {
-                            "You".to_string()
-                        } else {
-                            id.clone()
-                        }
-                    });
-            }
-        }
-        return match speaker_context {
+    let attribution_index = crate::AttributionIndex::from_inputs(&transcripts);
+    if let Some(segments) = preview {
+        let capture_context_present = speaker_context.is_some();
+        let mut segments = match speaker_context {
             Some(context) => {
                 context.label_segments(segments, base_started_at, self_human_id.as_deref(), &humans)
             }
             None => segments,
         };
+        crate::finalize_speaker_labels(
+            &mut segments,
+            self_human_id.as_deref(),
+            &humans,
+            &attribution_index,
+            capture_context_present,
+        );
+        return segments;
     }
 
     let mut all_segments = Vec::new();
@@ -202,6 +203,8 @@ pub(crate) fn render_transcript_segments_ungrouped(
                 provisional_speaker: None,
                 id: stable_segment_id(&segment.key, &words),
                 speaker_label: render_speaker_label(&segment.key, Some(&ctx), Some(&mut labeler)),
+                speaker_id: String::new(),
+                attribution: crate::SegmentAttribution::default(),
                 start_ms: first.start_ms,
                 end_ms: last.end_ms,
                 text,
@@ -210,12 +213,21 @@ pub(crate) fn render_transcript_segments_ungrouped(
             })
         })
         .collect();
-    match speaker_context {
+    let capture_context_present = speaker_context.is_some();
+    let mut segments = match speaker_context {
         Some(context) => {
             context.label_segments(segments, base_started_at, self_human_id.as_deref(), &humans)
         }
         None => segments,
-    }
+    };
+    crate::finalize_speaker_labels(
+        &mut segments,
+        self_human_id.as_deref(),
+        &humans,
+        &attribution_index,
+        capture_context_present,
+    );
+    segments
 }
 
 fn offset_transcript_data(
@@ -387,6 +399,7 @@ mod tests {
                     channel_assignment("human-1", ChannelProfile::DirectMic),
                     channel_assignment("human-2", ChannelProfile::RemoteParty),
                 ],
+                speaker_hints: None,
             }],
             participant_human_ids: vec!["human-1".to_string(), "human-2".to_string()],
             self_human_id: Some("human-1".to_string()),
@@ -422,6 +435,7 @@ mod tests {
                         word("mic-2", " world.", 400, 800, 0),
                     ],
                     assignments: vec![],
+                    speaker_hints: None,
                 },
                 RenderTranscriptInput {
                     started_at: Some(0),
@@ -430,6 +444,7 @@ mod tests {
                         word("remote-2", " reply.", 400, 800, 1),
                     ],
                     assignments: vec![],
+                    speaker_hints: None,
                 },
             ],
             participant_human_ids: vec![],
@@ -471,6 +486,7 @@ mod tests {
                     word_si("w3", " three", 400, 500, 2, 2),
                 ],
                 assignments: vec![],
+                speaker_hints: None,
             }],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],
             self_human_id: Some("self".to_string()),
@@ -496,6 +512,7 @@ mod tests {
                     word_si("w3", " again", 200, 300, 0, 0),
                 ],
                 assignments: vec![],
+                speaker_hints: None,
             }],
             participant_human_ids: vec![],
             self_human_id: Some("self".to_string()),
@@ -532,6 +549,7 @@ mod tests {
                     "human-pinned",
                     ChannelProfile::RemoteParty,
                 )],
+                speaker_hints: None,
             }],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],
             self_human_id: Some("self".to_string()),
@@ -552,7 +570,8 @@ mod tests {
         });
 
         assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0].speaker_label, "Speaker 1");
+        // The mic channel is the user (named "Me" here) without any capture context.
+        assert_eq!(segments[0].speaker_label, "Me");
         assert_eq!(segments[1].speaker_label, "Pinned");
     }
 
@@ -602,6 +621,7 @@ mod tests {
                     word("w2", " reply", 120, 220, 1),
                 ],
                 assignments: vec![channel_assignment("remote", ChannelProfile::RemoteParty)],
+                speaker_hints: None,
             }],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],
             self_human_id: None,
@@ -636,6 +656,7 @@ mod tests {
                     speaker_assignment("john", ChannelProfile::DirectMic, 0),
                     speaker_assignment("janet", ChannelProfile::RemoteParty, 0),
                 ],
+                speaker_hints: None,
             }],
             participant_human_ids: vec![],
             self_human_id: None,
@@ -667,11 +688,13 @@ mod tests {
                     started_at: Some(5_000),
                     words: vec![word("late", " later", 100, 200, 1)],
                     assignments: vec![],
+                    speaker_hints: None,
                 },
                 RenderTranscriptInput {
                     started_at: Some(1_000),
                     words: vec![word("early", " hello", 0, 100, 0)],
                     assignments: vec![],
+                    speaker_hints: None,
                 },
             ],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],
@@ -702,6 +725,7 @@ mod tests {
                     word("w3", " more", 240, 340, 1),
                 ],
                 assignments: vec![channel_assignment("remote", ChannelProfile::RemoteParty)],
+                speaker_hints: None,
             }],
             participant_human_ids: vec!["remote".to_string()],
             self_human_id: Some("self".to_string()),
@@ -718,7 +742,7 @@ mod tests {
         });
 
         assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0].speaker_label, "Speaker 1");
+        assert_eq!(segments[0].speaker_label, "Me");
         assert_eq!(segments[1].speaker_label, "Remote");
         assert_eq!(segments[1].text, "remote more");
     }
@@ -733,11 +757,13 @@ mod tests {
                     started_at: None,
                     words: vec![word("missing-start", " hello", 0, 100, 0)],
                     assignments: vec![],
+                    speaker_hints: None,
                 },
                 RenderTranscriptInput {
                     started_at: Some(1_000),
                     words: vec![word("known-start", " later", 100, 200, 1)],
                     assignments: vec![],
+                    speaker_hints: None,
                 },
             ],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],

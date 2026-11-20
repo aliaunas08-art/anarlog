@@ -1,10 +1,12 @@
 #![forbid(unsafe_code)]
 
+mod audit;
 mod cli;
 mod cloud;
 mod commands;
 mod db;
 mod error;
+mod lock;
 mod mcp;
 mod output;
 
@@ -55,6 +57,11 @@ pub async fn run(mut args: Args) -> Result<u8> {
                     ));
                 }
                 commands::meeting_delete::run(&args, id, if_export_sha256, json).await?;
+                audit::record(
+                    &args,
+                    audit::meeting_entry(anlg_audit_log::actions::MEETING_DELETED, id),
+                )
+                .await;
                 return Ok(0);
             }
             if matches!(&command, cli::MeetingCommand::InitializeManaged) {
@@ -87,16 +94,29 @@ pub async fn run(mut args: Args) -> Result<u8> {
                 }
                 return commands::recording_import::run(&args, command, json).await;
             }
+            let exported = match (&source, &command) {
+                (cli::MeetingSource::Local, cli::MeetingCommand::Export { id, .. }) => {
+                    Some(id.clone())
+                }
+                _ => None,
+            };
             let source = commands::meetings::DataSource::open(&args, source).await?;
-            commands::meetings::run(&source, command, json).await?
+            commands::meetings::run(&source, command, json).await?;
+            if let Some(id) = exported {
+                audit::record(
+                    &args,
+                    audit::meeting_entry(anlg_audit_log::actions::MEETING_EXPORTED, &id),
+                )
+                .await;
+            }
         }
         cli::Command::Proposals { command } => {
             let db = db::open_write(&args).await?;
             commands::proposals::run(&db, command, json).await?
         }
         cli::Command::Mcp => {
-            let db = std::sync::Arc::new(db::open_write(&args).await?);
-            mcp::serve(db).await?
+            let db = std::sync::Arc::new(db::connect_write(&args).await?);
+            mcp::serve(db, audit::audit_path(&args)).await?
         }
     }
 

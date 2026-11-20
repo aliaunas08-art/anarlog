@@ -10,11 +10,19 @@ const SUPPORTED_EXTENSIONS: &[&str] = &["csv", "json", "md", "markdown", "srt", 
 
 #[tauri::command]
 #[specta::specta]
-pub async fn begin_connected_import(
+pub async fn begin_connected_import<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     provider_id: String,
     mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
     cli_state: tauri::State<'_, crate::connected_cli::ConnectedImportCliState>,
 ) -> Result<ConnectedImportAuthorization, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     if crate::connected_cli::is_cli_provider(&provider_id) {
         crate::connected_cli::begin_connection(&provider_id, &cli_state).await
     } else {
@@ -38,11 +46,19 @@ pub async fn cancel_connected_import(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn complete_connected_import(
+pub async fn complete_connected_import<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     provider_id: String,
     mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
     cli_state: tauri::State<'_, crate::connected_cli::ConnectedImportCliState>,
 ) -> Result<ConnectedImportCredentials, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     if crate::connected_cli::is_cli_provider(&provider_id) {
         crate::connected_cli::complete_connection(&provider_id, &cli_state).await
     } else {
@@ -52,11 +68,19 @@ pub async fn complete_connected_import(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn sync_connected_import(
+pub async fn sync_connected_import<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     provider_id: String,
     credentials: ConnectedImportCredentials,
     known_meeting_ids: Vec<String>,
 ) -> Result<ConnectedImportSyncResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     if crate::connected_cli::is_cli_provider(&provider_id) {
         crate::connected_cli::sync(&provider_id, credentials, known_meeting_ids).await
     } else {
@@ -66,7 +90,20 @@ pub async fn sync_connected_import(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn read_text_files(paths: Vec<String>) -> Result<Vec<ImportTextFile>, String> {
+pub async fn read_text_files<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    app: tauri::AppHandle<R>,
+    paths: Vec<String>,
+) -> Result<Vec<ImportTextFile>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
+    use tauri_plugin_fs2::Fs2PluginExt;
+
     if paths.len() > MAX_IMPORT_FILE_COUNT {
         return Err(format!(
             "select at most {MAX_IMPORT_FILE_COUNT} files per import"
@@ -76,7 +113,11 @@ pub async fn read_text_files(paths: Vec<String>) -> Result<Vec<ImportTextFile>, 
     let mut total_bytes = 0_u64;
     let mut files = Vec::with_capacity(paths.len());
     for path in paths {
-        let path_buf = std::path::PathBuf::from(&path);
+        // ASPC A3.6: only files the user just picked (or inside the vault).
+        let path_buf = app
+            .fs2()
+            .authorize_read(std::path::Path::new(&path))
+            .map_err(|error| error.to_string())?;
         let name = path_buf
             .file_name()
             .and_then(|name| name.to_str())

@@ -1,7 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
-import { save } from "@tauri-apps/plugin-dialog";
 import { useMemo, useState } from "react";
 
 import { json2md } from "@anlg/editor/markdown";
@@ -37,7 +36,6 @@ import {
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
 import { useDurableSharedNote } from "~/shared-notes/cache";
-import { isAppStoreBuild } from "~/shared/app-store";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useSessionTranscriptMetadata } from "~/stt/queries";
 
@@ -100,7 +98,7 @@ function readExportConfig(values: {
     format: parseExportFormat(values.export_format),
     includeMemo: values.export_include_memo ?? false,
     includeSummary: values.export_include_summary ?? true,
-    includeTranscript: values.export_include_transcript ?? false,
+    includeTranscript: values.export_include_transcript ?? true,
   };
 }
 
@@ -434,18 +432,17 @@ function ExportModalContent({
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `${sanitizedTitle}_${timestamp}.${submitted.format}`;
       const defaultPath = await join(directory, filename);
-      // App Store sandbox grants must be reacquired after relaunch.
-      const path = isAppStoreBuild()
-        ? await save({
-            defaultPath,
-            filters: [
-              {
-                name: submitted.format.toUpperCase(),
-                extensions: [submitted.format],
-              },
-            ],
-          })
-        : defaultPath;
+      // Always confirm in a native save dialog opened by Rust: writes outside
+      // the vault are only accepted for a path the user just picked there
+      // (ASPC A3.6). It also reacquires App Store sandbox grants.
+      const picked = await fs2Commands.pickSavePath(defaultPath, [
+        {
+          name: submitted.format.toUpperCase(),
+          extensions: [submitted.format],
+        },
+      ]);
+      if (picked.status === "error") throw new Error(picked.error);
+      const path = picked.data;
       if (!path) return null;
 
       if (submitted.format === "pdf") {

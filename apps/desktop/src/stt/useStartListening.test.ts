@@ -93,7 +93,11 @@ const {
   idMock,
   openNewMock,
   emptyCaptureMock,
+  attributeSessionSpeakersMock,
+  maybeShowSpeakerSetupPromptMock,
 } = vi.hoisted(() => ({
+  attributeSessionSpeakersMock: vi.fn(),
+  maybeShowSpeakerSetupPromptMock: vi.fn(),
   emptyCaptureMock: vi.fn(),
   queueAutoEnhanceMock: vi.fn(),
   queueAutoEnhanceIfSummaryEmptyMock: vi.fn(),
@@ -290,6 +294,14 @@ vi.mock("./useRunBatch", () => ({
 
 vi.mock("./useSTTConnection", () => ({
   useSTTConnection: useSTTConnectionMock,
+}));
+
+vi.mock("~/speakers/api", () => ({
+  attributeSessionSpeakers: attributeSessionSpeakersMock,
+}));
+
+vi.mock("~/speakers/setup-prompt", () => ({
+  maybeShowSpeakerSetupPrompt: maybeShowSpeakerSetupPromptMock,
 }));
 
 vi.mock("~/services/enhancer", () => ({
@@ -554,6 +566,15 @@ describe("getPostCaptureAction", () => {
 describe("useStartListening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    attributeSessionSpeakersMock.mockResolvedValue({
+      diarizedChannels: [1],
+      speakerCount: 2,
+      selfMatchScore: null,
+      selfMatched: false,
+      uncertainWords: 0,
+      skippedReason: null,
+    });
+    maybeShowSpeakerSetupPromptMock.mockResolvedValue(false);
     getCaptureSnapshotMock.mockResolvedValue({
       status: "ok",
       data: { activeSessionId: null, finalizingSessionIds: [] },
@@ -3581,6 +3602,69 @@ describe("useStartListening", () => {
       expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
     });
 
+    test("runs the online speaker pass after repair and before the summary", async () => {
+      const callbacks = await startWithLiveTranscript();
+      await act(
+        async () => await callbacks.onStopped("session-1", stoppedDetails),
+      );
+
+      expect(attributeSessionSpeakersMock).toHaveBeenCalledWith({
+        sessionId: "session-1",
+        transcriptId: expect.any(String),
+        mode: "online",
+      });
+      expect(runBatchMock).toHaveBeenCalledBefore(attributeSessionSpeakersMock);
+      expect(attributeSessionSpeakersMock).toHaveBeenCalledBefore(
+        requestAutoEnhanceMock,
+      );
+      expect(maybeShowSpeakerSetupPromptMock).toHaveBeenCalledWith("user-1");
+    });
+
+    test("uses in-person speaker mode for mic-only captures", async () => {
+      const { result } = renderHook(() =>
+        useStartListening("session-in-person"),
+      );
+      await act(async () => {
+        await result.current({ micOnly: true });
+      });
+      const callbacks = startMock.mock.calls[0]?.[1];
+      callbacks.handlePersist({
+        new_words: [
+          { id: "word-1", text: "Hi", start_ms: 0, end_ms: 100, channel: 0 },
+        ],
+        replaced_ids: [],
+        partials: [],
+      });
+      await act(
+        async () =>
+          await callbacks.onStopped("session-in-person", stoppedDetails),
+      );
+
+      expect(attributeSessionSpeakersMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "session-in-person",
+          mode: "in_person",
+        }),
+      );
+    });
+
+    test("still summarizes when the speaker pass fails", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      attributeSessionSpeakersMock.mockRejectedValueOnce("diarizer missing");
+      const callbacks = await startWithLiveTranscript();
+      await act(
+        async () => await callbacks.onStopped("session-1", stoppedDetails),
+      );
+
+      expect(attributeSessionSpeakersMock).toHaveBeenCalledOnce();
+      expect(requestAutoEnhanceMock).toHaveBeenCalledWith(
+        "session-1",
+        "refresh",
+      );
+      expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledOnce();
+      warn.mockRestore();
+    });
+
     test.each(["upload failed", "Transcription stopped."])(
       "does not summarize when repair ends with %s",
       async (message) => {
@@ -3682,7 +3766,7 @@ describe("useStartListening", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith(
-      "Anarlog could not save part of the live transcript.",
+      "Timbre could not save part of the live transcript.",
       { id: "live-transcript-persist-failed" },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
@@ -3732,7 +3816,7 @@ describe("useStartListening", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith(
-      "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
+      "Timbre could not finish saving the transcript. The recording was kept so you can try again.",
       { id: "post-capture-transcript-incomplete" },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
@@ -4219,12 +4303,12 @@ describe("useStartListening", () => {
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(2);
     expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining("https://anarlog.so"),
+      expect.stringContaining("to record and transcribe this meeting"),
       ["com.anarlog.dev"],
     );
     expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining("https://anarlog.so"),
+      expect.stringContaining("to record and transcribe this meeting"),
       ["us.zoom.xos"],
     );
     expect(toastWarningMock).not.toHaveBeenCalled();
@@ -4376,7 +4460,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
+          "I'm using Timbre to record and transcribe this meeting.",
         ],
         onParticipantDeclined: expect.any(Function),
       });
@@ -4415,7 +4499,7 @@ describe("useStartListening", () => {
       expect(startMeetingChatCaptureMock).toHaveBeenCalledWith({
         sessionId: "session-1",
         excludedTexts: [
-          "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
+          "I'm using Timbre to record and transcribe this meeting.",
         ],
         onParticipantDeclined: expect.any(Function),
       });

@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { LiveQueryClient } from "@anlg/db-runtime";
 
-import { createUseDrizzleLiveQuery, createUseLiveQuery } from "./index";
+import {
+  createUseDrizzleLiveQuery,
+  createUseLiveQuery,
+  restartLiveQueries,
+} from "./index";
 
 describe("@anlg/db-react", () => {
   const subscribeMock = vi.fn<LiveQueryClient["subscribe"]>();
@@ -54,6 +58,39 @@ describe("@anlg/db-react", () => {
 
     await waitFor(() => {
       expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("restarts mounted queries and clears a lock-time error", async () => {
+    const useLiveQuery = createUseLiveQuery(client);
+    const unsubscribe = vi.fn().mockResolvedValue(undefined);
+    const handlers: Array<{
+      onData: (rows: Array<{ id: number }>) => void;
+      onError: (message: string) => void;
+    }> = [];
+    subscribeMock.mockImplementation(async (_sql, _params, options) => {
+      handlers.push(options as never);
+      return unsubscribe;
+    });
+
+    const { result } = renderHook(() =>
+      useLiveQuery<{ id: number }, { id: number }[]>({
+        sql: "SELECT id FROM restart_test",
+      }),
+    );
+    await waitFor(() => expect(handlers).toHaveLength(1));
+    act(() => handlers[0]!.onData([{ id: 1 }]));
+    act(() => handlers[0]!.onError("aspc.locked: not authorized"));
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.data).toEqual([{ id: 1 }]);
+
+    act(() => restartLiveQueries());
+    await waitFor(() => expect(handlers).toHaveLength(2));
+    await waitFor(() => expect(unsubscribe).toHaveBeenCalledTimes(1));
+    act(() => handlers[1]!.onData([{ id: 2 }]));
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+      expect(result.current.data).toEqual([{ id: 2 }]);
     });
   });
 

@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   }>,
 }));
 
+vi.mock("@tauri-apps/plugin-os", () => ({ platform: () => "macos" }));
+
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: { user: { id: "viewer-1" } } }),
 }));
@@ -54,7 +56,7 @@ vi.mock("~/store/zustand/tabs", () => ({
     }),
 }));
 
-import { OpenNoteDialog } from "./open-note-dialog";
+import { OpenNoteDialog, OpenNoteDialogProvider } from "./open-note-dialog";
 
 describe("OpenNoteDialog", () => {
   beforeEach(() => {
@@ -70,6 +72,27 @@ describe("OpenNoteDialog", () => {
   });
 
   afterEach(cleanup);
+
+  it("opens from ⌘K only, leaving ⌘P to Ask and Ctrl+K to text fields", () => {
+    render(
+      <OpenNoteDialogProvider>
+        <div />
+      </OpenNoteDialogProvider>,
+    );
+    const press = (key: string, modifier: "metaKey" | "ctrlKey") =>
+      fireEvent.keyDown(document.body, {
+        key,
+        code: `Key${key.toUpperCase()}`,
+        [modifier]: true,
+      });
+
+    press("p", "metaKey");
+    press("k", "ctrlKey");
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    press("k", "metaKey");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
 
   it("closes through the shared dialog escape behavior", () => {
     render(<OpenNoteDialog open onOpenChange={mocks.onOpenChange} />);

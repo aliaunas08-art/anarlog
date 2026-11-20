@@ -98,7 +98,7 @@ export function CalendarSelection({
 
         return (
           <div
-            key={group.id ?? group.sourceName}
+            key={`${group.id ?? ""}:${group.sourceName}`}
             className="flex flex-col gap-1"
           >
             {showHeader ? (
@@ -186,7 +186,7 @@ function CalendarToggleRow({
   enabled: boolean;
   onToggle: (enabled: boolean) => void | Promise<unknown>;
 }) {
-  const color = calendar.color ?? "#888";
+  const color = calendar.color || "#888";
 
   // Optimistic check state: the write goes through the DB queue and the
   // enabled prop only flips after the live query re-emits. The sequence

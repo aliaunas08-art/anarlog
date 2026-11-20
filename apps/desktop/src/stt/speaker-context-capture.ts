@@ -19,6 +19,10 @@ import {
 } from "~/stt/speaker-context";
 
 const captures = new Map<string, ReturnType<typeof createCapture>>();
+// Stops still saving their evidence; the post-capture speaker pass waits on
+// these so it sees the platform's active-speaker timeline.
+const stopping = new Map<string, Promise<void>>();
+const STOP_WAIT_MS = 5_000;
 const POLL_MS = 5_000;
 const EVIDENCE_LEASE_MS = 10_000;
 // Apps a scheduled meeting link can be joined from; browsers cover Meet and web clients.
@@ -42,7 +46,92 @@ export function observeSpeakerMicrophone(
 export function stopSpeakerContextCapture(sessionId: string) {
   const capture = captures.get(sessionId);
   captures.delete(sessionId);
-  return capture?.stop() ?? Promise.resolve();
+  if (!capture) return stopping.get(sessionId) ?? Promise.resolve();
+  const done = capture.stop().finally(() => {
+    if (stopping.get(sessionId) === done) stopping.delete(sessionId);
+  });
+  stopping.set(sessionId, done);
+  return done;
+}
+
+/** Resolves once a stopping capture saved its evidence (bounded wait). */
+export async function waitForSpeakerContextStop(
+  sessionId: string,
+  timeoutMs = STOP_WAIT_MS,
+): Promise<void> {
+  const pending = stopping.get(sessionId);
+  if (!pending) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    pending,
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+// Platform active-speaker tags (Zoom/Teams/Meet accessibility labels) are
+// optional evidence: any failure leaves the speaker pass on diarization.
+function startActiveSpeakerTracking() {
+  try {
+    void Promise.resolve(detectCommands.startActiveSpeakerTracking?.()).catch(
+      () => null,
+    );
+  } catch {
+    /* Unavailable on this build. */
+  }
+}
+
+async function stopActiveSpeakerTracking() {
+  try {
+    const result = await detectCommands.stopActiveSpeakerTracking?.();
+    return result?.status === "ok" ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+type PlatformSpeakerTimeline = NonNullable<
+  Awaited<ReturnType<typeof stopActiveSpeakerTracking>>
+>;
+
+/**
+ * Appends a capture's active-speaker intervals to the session's timeline, so
+ * a resumed recording keeps the earlier capture's tags.
+ */
+function savePlatformSpeakers(
+  sessionId: string,
+  timeline: PlatformSpeakerTimeline,
+) {
+  return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
+    const rows = await liveQueryClient.execute<{ platform: string | null }>(
+      "SELECT json_extract(metadata_json, '$.platform_speakers') AS platform FROM sessions WHERE id = ? AND deleted_at IS NULL",
+      [sessionId],
+    );
+    if (!rows[0]) return;
+    let previous: PlatformSpeakerTimeline | null = null;
+    try {
+      previous = rows[0].platform ? JSON.parse(rows[0].platform) : null;
+    } catch {
+      previous = null;
+    }
+    const intervals = [
+      ...(Array.isArray(previous?.intervals) ? previous.intervals : []),
+      ...timeline.intervals,
+    ].sort((a, b) => a.start_ms - b.start_ms);
+    const merged: PlatformSpeakerTimeline = {
+      ...timeline,
+      samples: (previous?.samples ?? 0) + timeline.samples,
+      tagged_samples: (previous?.tagged_samples ?? 0) + timeline.tagged_samples,
+      intervals,
+    };
+    await executeTransaction([
+      {
+        sql: "UPDATE sessions SET metadata_json = json_set(metadata_json, '$.platform_speakers', json(?)), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+        params: [JSON.stringify(merged), new Date().toISOString(), sessionId],
+      },
+    ]);
+  });
 }
 
 function createCapture(sessionId: string) {
@@ -199,6 +288,7 @@ function createCapture(sessionId: string) {
   };
   const timer = setInterval(schedule, POLL_MS);
   schedule();
+  startActiveSpeakerTracking();
   return {
     microphone(update: {
       device?: string | null;
@@ -218,12 +308,18 @@ function createCapture(sessionId: string) {
       repoll = pending !== null;
       schedule();
     },
-    stop() {
+    async stop() {
       stopped = true;
       generation++;
       clearInterval(timer);
       const at = Date.now();
-      return persist(null, at).catch(report);
+      const [timeline] = await Promise.all([
+        stopActiveSpeakerTracking(),
+        persist(null, at).catch(report),
+      ]);
+      if (timeline && timeline.intervals.length > 0) {
+        await savePlatformSpeakers(sessionId, timeline).catch(report);
+      }
     },
   };
 }

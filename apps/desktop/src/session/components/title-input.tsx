@@ -18,6 +18,12 @@ import { useSession, useUpdateSession } from "~/session/queries";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 
+type TitleInputVariant = "title" | "breadcrumb" | "editorial";
+
+// C · Final editorial title: large, bold, tight tracking, single line.
+const EDITORIAL_TEXT =
+  "text-[46px] leading-[1.15] font-bold tracking-[-0.035em] text-[var(--cf-label)]";
+
 export interface TitleInputHandle {
   focus: () => void;
   focusAtEnd: () => void;
@@ -31,7 +37,7 @@ export const TitleInput = forwardRef<
     onTransferContentToEditor?: (content: string) => void;
     onFocusEditorAtStart?: () => void;
     onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
-    variant?: "title" | "breadcrumb";
+    variant?: TitleInputVariant;
   }
 >(
   (
@@ -60,7 +66,11 @@ export const TitleInput = forwardRef<
           data-tauri-drag-region="false"
           className={cn([
             "flex w-full items-center justify-start",
-            variant === "breadcrumb" ? "h-5" : "h-8",
+            variant === "breadcrumb"
+              ? "h-5"
+              : variant === "editorial"
+                ? "h-[53px]"
+                : "h-8",
           ])}
         >
           <span
@@ -68,7 +78,9 @@ export const TitleInput = forwardRef<
               "text-muted-foreground animate-pulse",
               variant === "breadcrumb"
                 ? "text-sm leading-5"
-                : "text-xl font-semibold",
+                : variant === "editorial"
+                  ? cn([EDITORIAL_TEXT, "text-[var(--cf-tertiary)]"])
+                  : "text-xl font-semibold",
             ])}
           >
             <Trans>Generating title...</Trans>
@@ -102,7 +114,7 @@ const TitleInputInner = memo(
       onTransferContentToEditor?: (content: string) => void;
       onFocusEditorAtStart?: () => void;
       onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
-      variant: "title" | "breadcrumb";
+      variant: TitleInputVariant;
     }
   >(
     (
@@ -355,7 +367,9 @@ const TitleInputInner = memo(
             "group/title-input relative grid w-fit max-w-full grid-cols-[minmax(0,1fr)] items-center overflow-hidden",
             variant === "breadcrumb"
               ? "h-5 text-sm leading-5"
-              : "h-8 text-xl font-semibold",
+              : variant === "editorial"
+                ? cn(["h-[53px]", EDITORIAL_TEXT])
+                : "h-8 text-xl font-semibold",
           ])}
         >
           <span
@@ -407,9 +421,14 @@ const TitleInputInner = memo(
               "border-none bg-transparent focus:outline-hidden",
               "placeholder:text-muted-foreground text-left",
               variant === "breadcrumb"
-                ? "h-5 appearance-none p-0 text-sm leading-5 text-neutral-700 focus:underline dark:text-white"
-                : "text-xl font-semibold",
-              variant === "breadcrumb" &&
+                ? "h-5 appearance-none p-0 text-sm leading-5 text-[var(--cf-label)] focus:underline"
+                : variant === "editorial"
+                  ? cn([
+                      "h-[53px] appearance-none p-0 placeholder:text-[var(--cf-tertiary)]",
+                      EDITORIAL_TEXT,
+                    ])
+                  : "text-xl font-semibold",
+              (variant === "breadcrumb" || variant === "editorial") &&
                 (isTitleFocused
                   ? "overflow-x-auto whitespace-nowrap"
                   : "truncate"),
@@ -427,7 +446,9 @@ const TitleInputInner = memo(
                   "group-hover/title-input:animate-title-hover-scroll whitespace-nowrap group-hover/title-input:will-change-transform",
                   variant === "breadcrumb"
                     ? "text-sm leading-5"
-                    : "text-xl font-semibold",
+                    : variant === "editorial"
+                      ? EDITORIAL_TEXT
+                      : "text-xl font-semibold",
                 ])}
               >
                 {title}

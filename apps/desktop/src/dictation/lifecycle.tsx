@@ -19,6 +19,7 @@ import { useDictationStatus } from "./state";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useSettingsReady } from "~/settings/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
@@ -33,7 +34,7 @@ export function waitForDictationCleanup() {
 
 export function DictationLifecycle() {
   const { session } = useAuth();
-  const { isPro, isReady } = useBillingAccess();
+  const { isPro } = useBillingAccess();
   const settingsReady = useSettingsReady();
   const enabled = useConfigValue("dictation_enabled");
   const shortcut = useConfigValue("dictation_shortcut");
@@ -46,9 +47,11 @@ export function DictationLifecycle() {
     (state) => state.live.status !== "inactive" || state.live.loading,
   );
 
-  if (!session || !isReady || !isPro || !settingsReady || !enabled) return null;
+  // Dictation runs on the device, so it does not wait for a cloud sign-in.
+  // A cloud transcription model still asks for the session when it starts.
+  if (!isPro || !settingsReady || !enabled) return null;
   return (
-    <TranscriptRetention key={session.user.id}>
+    <TranscriptRetention key={session?.user.id ?? "local"}>
       {!meetingActive && !capturingShortcut && (
         <ActiveDictation
           key={`${shortcut}:${handsFree}:${retry}`}
@@ -164,7 +167,7 @@ function ActiveDictation({
         const capture = unwrap(await transcription.getCaptureState());
         if (capture !== "inactive")
           throw new Error(
-            "Dictation is unavailable while Anarlog is recording a meeting.",
+            `Dictation is unavailable while ${APP_NAME} is recording a meeting.`,
           );
         abort.signal.throwIfAborted();
         target = unwrap(await dictation.captureTarget());
@@ -249,6 +252,9 @@ function ActiveDictation({
           signal: abort.signal,
           deferAudioFinalization: true,
           notifyOnCompletion: false,
+          // Dictation always falls back to on-device transcription; a toast on
+          // every dictation would only repeat that.
+          warnOnFallback: false,
           numSpeakers: 1,
           handlePersist: (words) => {
             text = words

@@ -72,12 +72,14 @@ describe("getFloatingRouteState", () => {
           status: "active",
           sessionId: "session-1",
           amplitude: { mic: 0.6, speaker: 0.8 },
+          seconds: 754.6,
         }),
       ),
     ).toEqual({
       sessionId: "session-1",
       title: "Live transcript",
       amplitude: 1,
+      elapsedSeconds: 754,
       status: "recording",
       colorScheme: "dark",
       opacity: 0.78,
@@ -187,6 +189,22 @@ describe("getFloatingRouteState", () => {
     expect(getFloatingRouteState(failed)?.status).toBe("error");
     expect(getFloatingRouteState(failed)?.transcriptNotice).toBeTruthy();
     expect(haveFloatingRouteInputsChanged(failed, healthy)).toBe(true);
+  });
+
+  it("refreshes the floating bar timer as recording time advances", () => {
+    const before = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+      seconds: 10,
+    });
+    const after = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+      seconds: 11,
+    });
+
+    expect(haveFloatingRouteInputsChanged(after, before)).toBe(true);
+    expect(getFloatingRouteState(after)?.elapsedSeconds).toBe(11);
   });
 
   it("keeps recording status and adds a quiet notice when live transcription is interrupted", () => {

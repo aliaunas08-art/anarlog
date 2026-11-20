@@ -37,6 +37,8 @@ export type FloatingRouteState = {
   sessionId: string;
   title: string;
   amplitude: number;
+  /** Recording time for the bar's timer; absent for dictation. */
+  elapsedSeconds?: number | null;
   status: FloatingBarStatus;
   colorScheme: FloatingBarColorScheme;
   opacity: number;
@@ -94,6 +96,9 @@ export function getFloatingRouteState(
       Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
       1,
     ),
+    elapsedSeconds: Number.isFinite(state.live.seconds)
+      ? Math.max(0, Math.floor(state.live.seconds))
+      : null,
     status: getCaptureWarning(state.live) ? "error" : "recording",
     colorScheme,
     opacity: settings.floatingBarOpacity,
@@ -335,6 +340,7 @@ export function isSameFloatingRouteState(
   return (
     left?.sessionId === right?.sessionId &&
     left?.amplitude === right?.amplitude &&
+    (left?.elapsedSeconds ?? null) === (right?.elapsedSeconds ?? null) &&
     left?.status === right?.status &&
     left?.colorScheme === right?.colorScheme &&
     left?.opacity === right?.opacity &&

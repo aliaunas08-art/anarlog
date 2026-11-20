@@ -14,6 +14,15 @@ pub enum Error {
     Http(#[from] reqwest::Error),
     #[error(transparent)]
     InvalidHeader(#[from] reqwest::header::InvalidHeaderValue),
+    /// The ASPC guard refused the call; the message carries the stable code.
+    #[error("{0}")]
+    Denied(String),
+}
+
+impl From<anlg_aspc::Denied> for Error {
+    fn from(denied: anlg_aspc::Denied) -> Self {
+        Error::Denied(denied.to_string())
+    }
 }
 
 impl serde::Serialize for Error {

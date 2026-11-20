@@ -46,7 +46,8 @@ it("refreshes the open note and sidebar together when a calendar event is resche
   database.exec(`
     CREATE TABLE sessions (
       id TEXT, owner_user_id TEXT, created_at TEXT, folder_path TEXT,
-      event_id TEXT, event_json TEXT, title TEXT, locked INTEGER, deleted_at TEXT
+      event_id TEXT, event_json TEXT, title TEXT, locked INTEGER, deleted_at TEXT,
+      private INTEGER DEFAULT 0
     );
     CREATE TABLE session_documents (
       id TEXT, kind TEXT, body TEXT, body_format TEXT, template_id TEXT, deleted_at TEXT
@@ -62,7 +63,7 @@ it("refreshes the open note and sidebar together when a calendar event is resche
     );
     INSERT INTO sessions VALUES (
       'plain-note', 'user-1', '2026-10-01T09:00:00.000Z', '',
-      NULL, '', 'Independent note', 0, NULL
+      NULL, '', 'Independent note', 0, NULL, 0
     );
     INSERT INTO events VALUES (
       'untracked-event', '', '', 'Untracked event',
@@ -81,7 +82,7 @@ it("refreshes the open note and sidebar together when a calendar event is resche
     );
   `);
   database
-    .prepare("INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)")
+    .prepare("INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)")
     .run(
       "session-1",
       "user-1",

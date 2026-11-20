@@ -29,6 +29,7 @@ import {
 import { Input } from "@anlg/ui/components/ui/input";
 
 import { env } from "~/env";
+import { APP_NAME } from "~/shared/app-name";
 
 const RECOVERY_KEY_CLIPBOARD_TTL_MS = 60_000;
 
@@ -112,17 +113,26 @@ export function E2eeSetupDialog({
     mutationFn: async (recoveryKey: string) => {
       const downloadsPath = await downloadDir();
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const path = await join(
+      const defaultPath = await join(
         downloadsPath,
         `anarlog-recovery-key_${timestamp}.txt`,
       );
+      // Writes outside the vault need a path picked in the native dialog (ASPC A3.6).
+      const picked = await fs2Commands.pickSavePath(defaultPath, [
+        { name: "Text", extensions: ["txt"] },
+      ]);
+      if (picked.status === "error") throw new Error(picked.error);
+      const path = picked.data;
+      if (!path) return null;
       const result = await fs2Commands.writeTextFile(path, `${recoveryKey}\n`);
       if (result.status === "error") {
         throw new Error(result.error);
       }
       return path;
     },
-    onSuccess: (path) => void openerCommands.revealItemInDir(path),
+    onSuccess: (path) => {
+      if (path) void openerCommands.revealItemInDir(path);
+    },
   });
   const importForm = useForm({
     defaultValues: { recoveryKey: "" },
@@ -162,7 +172,7 @@ export function E2eeSetupDialog({
           <DialogDescription className="text-foreground max-w-[260px] text-center text-[13px] leading-[1.36]">
             <Trans>
               Your recovery key encrypts synced notes before they leave this
-              device. Anarlog cannot read or recover it.
+              device. {APP_NAME} cannot read or recover it.
             </Trans>
           </DialogDescription>
         </DialogHeader>

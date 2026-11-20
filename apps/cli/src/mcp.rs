@@ -14,6 +14,8 @@ use anlg_agent_access as access;
 #[derive(Clone)]
 struct AnarlogMcpServer {
     db: Arc<anlg_db_core::Db>,
+    lock: Arc<crate::lock::McpLock>,
+    audit: Option<anlg_audit_log::AuditWriter>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,8 +34,49 @@ enum ResourceRequest {
 }
 
 impl AnarlogMcpServer {
-    fn new(db: Arc<anlg_db_core::Db>) -> Self {
-        Self { db }
+    fn new(
+        db: Arc<anlg_db_core::Db>,
+        lock: Arc<crate::lock::McpLock>,
+        audit: Option<anlg_audit_log::AuditWriter>,
+    ) -> Self {
+        Self { db, lock, audit }
+    }
+
+    async fn record(&self, entry: anlg_audit_log::NewEntry) {
+        if let Some(writer) = &self.audit {
+            let _ = writer
+                .append(entry.source(anlg_audit_log::Source::Cli))
+                .await;
+        }
+    }
+
+    /// Before every data request (ASPC A2.7): the app lock check, then an
+    /// audit entry naming the tool and, when there is one, the meeting id.
+    /// Never the query, content or other arguments (D1.5).
+    async fn guard(
+        &self,
+        tool: &'static str,
+        meeting_id: Option<&str>,
+    ) -> std::result::Result<(), McpError> {
+        match self.lock.ensure_unlocked().await {
+            Ok(true) => {
+                self.record(anlg_audit_log::NewEntry::new(
+                    anlg_audit_log::actions::APP_UNLOCKED,
+                    "app",
+                    "",
+                ))
+                .await;
+            }
+            Ok(false) => {}
+            Err(error) => return Err(McpError::invalid_request(error.to_string(), None)),
+        }
+        let mut entry =
+            anlg_audit_log::NewEntry::new(anlg_audit_log::actions::MCP_CALL, "mcp_tool", tool);
+        if let Some(id) = meeting_id.filter(|id| anlg_audit_log::is_identifier(id)) {
+            entry = entry.id("meeting_id", id);
+        }
+        self.record(entry).await;
+        Ok(())
     }
 }
 
@@ -49,6 +92,7 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ImportRecordingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
+        self.guard("import_recording", None).await?;
         structured(
             &access::import_recording(self.db.pool(), input)
                 .await
@@ -66,6 +110,7 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetRecordingImportInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
+        self.guard("get_recording_import", None).await?;
         structured(
             &access::get_recording_import(self.db.pool(), &input.job_id)
                 .await
@@ -88,9 +133,16 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ListMeetingsInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::list_meetings(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("list_meetings", None).await?;
+        let page = access::list_meetings(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -109,9 +161,16 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ListFoldersInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::list_folders(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("list_folders", None).await?;
+        let page = access::list_folders(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -130,9 +189,16 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let meeting = access::get_meeting(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("get_meeting", Some(&input.meeting_id)).await?;
+        let meeting = access::get_meeting(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         let meeting = access::local_meeting(self.db.pool(), meeting)
             .await
             .map_err(command_error)?;
@@ -154,9 +220,17 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetMeetingTranscriptInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::get_meeting_transcript(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("get_meeting_transcript", Some(&input.meeting_id))
+            .await?;
+        let page = access::get_meeting_transcript(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -175,9 +249,16 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetRecurringMeetingHistoryInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::get_recurring_meeting_history(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("get_recurring_meeting_history", None).await?;
+        let page = access::get_recurring_meeting_history(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -196,9 +277,17 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let export = access::get_meeting_export(self.db.pool(), input.meeting_id)
-            .await
-            .map_err(command_error)?;
+        self.guard("export_meeting", Some(&input.meeting_id))
+            .await?;
+        let export = access::get_meeting_export(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input.meeting_id,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&export)
     }
 
@@ -217,8 +306,13 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<ProposeSummaryInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
+        self.guard("propose_summary_edit", Some(&input.meeting_id))
+            .await?;
         let proposal = access::create_proposal(
             self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
             access::CreateProposalInput {
                 meeting_id: input.meeting_id,
                 kind: "summary_replace".to_string(),
@@ -247,8 +341,13 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<ProposeMemoInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
+        self.guard("propose_memo_edit", Some(&input.meeting_id))
+            .await?;
         let proposal = access::create_proposal(
             self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
             access::CreateProposalInput {
                 meeting_id: input.meeting_id,
                 kind: "memo_replace".to_string(),
@@ -277,9 +376,17 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::ListProposalsInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let page = access::list_proposals(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("list_proposals", input.meeting_id.as_deref())
+            .await?;
+        let page = access::list_proposals(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&page)
     }
 
@@ -298,9 +405,16 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::GetProposalInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let proposal = access::get_proposal(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("get_proposal", None).await?;
+        let proposal = access::get_proposal(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&proposal)
     }
 
@@ -319,9 +433,16 @@ impl AnarlogMcpServer {
         &self,
         Parameters(input): Parameters<access::DeclineProposalInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
-        let proposal = access::decline_proposal(self.db.pool(), input)
-            .await
-            .map_err(command_error)?;
+        self.guard("decline_proposal", None).await?;
+        let proposal = access::decline_proposal(
+            self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
+            input,
+        )
+        .await
+        .map_err(command_error)?;
         structured(&proposal)
     }
 }
@@ -362,6 +483,7 @@ impl ServerHandler for AnarlogMcpServer {
         params: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ListResourcesResult, McpError> {
+        self.guard("list_resources", None).await?;
         let offset = params
             .and_then(|params| params.cursor)
             .map(|cursor| {
@@ -373,6 +495,9 @@ impl ServerHandler for AnarlogMcpServer {
             .unwrap_or(0);
         let page = access::list_meetings(
             self.db.pool(),
+            &access::local_scope(self.db.pool())
+                .await
+                .map_err(command_error)?,
             access::ListMeetingsInput {
                 query: None,
                 series_id: None,
@@ -431,12 +556,23 @@ impl ServerHandler for AnarlogMcpServer {
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ReadResourceResponse, McpError> {
         let request = parse_resource_uri(&params.uri)?;
+        let meeting_id = match &request {
+            ResourceRequest::Meeting { meeting_id }
+            | ResourceRequest::Transcript { meeting_id, .. } => Some(meeting_id.as_str()),
+            ResourceRequest::Series { .. } => None,
+        };
+        self.guard("read_resource", meeting_id).await?;
         let contents = match request {
             ResourceRequest::Meeting { meeting_id } => {
-                let meeting =
-                    access::get_meeting(self.db.pool(), access::GetMeetingInput { meeting_id })
+                let meeting = access::get_meeting(
+                    self.db.pool(),
+                    &access::local_scope(self.db.pool())
                         .await
-                        .map_err(command_error)?;
+                        .map_err(command_error)?,
+                    access::GetMeetingInput { meeting_id },
+                )
+                .await
+                .map_err(command_error)?;
                 ResourceContents::text(meeting.to_markdown(), params.uri)
                     .with_mime_type("text/markdown")
             }
@@ -447,6 +583,9 @@ impl ServerHandler for AnarlogMcpServer {
             } => {
                 let page = access::get_meeting_transcript(
                     self.db.pool(),
+                    &access::local_scope(self.db.pool())
+                        .await
+                        .map_err(command_error)?,
                     access::GetMeetingTranscriptInput {
                         meeting_id,
                         offset: Some(offset),
@@ -460,6 +599,9 @@ impl ServerHandler for AnarlogMcpServer {
             ResourceRequest::Series { series_id } => {
                 let page = access::list_meetings(
                     self.db.pool(),
+                    &access::local_scope(self.db.pool())
+                        .await
+                        .map_err(command_error)?,
                     access::ListMeetingsInput {
                         query: None,
                         series_id: Some(series_id),
@@ -496,8 +638,21 @@ impl ServerHandler for AnarlogMcpServer {
     }
 }
 
-pub async fn serve(db: Arc<anlg_db_core::Db>) -> crate::Result<()> {
-    let running = AnarlogMcpServer::new(db)
+pub async fn serve(
+    db: Arc<anlg_db_core::Db>,
+    audit_path: Option<std::path::PathBuf>,
+) -> crate::Result<()> {
+    let lock = crate::lock::McpLock::new(
+        Arc::clone(&db),
+        crate::lock::system_authenticator(),
+        crate::lock::system_idle(),
+    );
+    lock.start_idle_watch();
+    let audit = match audit_path {
+        Some(path) => anlg_audit_log::open_append_only(&path).await.ok(),
+        None => None,
+    };
+    let running = AnarlogMcpServer::new(db, lock, audit)
         .serve(rmcp::transport::stdio())
         .await
         .map_err(|error| Error::operation("start MCP server", error.to_string()))?;
@@ -612,6 +767,76 @@ mod tests {
         assert!(parse_resource_uri("file:///tmp/meeting").is_err());
     }
 
+    /// A server whose lock prompt is never confirmed (the test databases
+    /// have the lock off, so it is not shown) and with no audit log.
+    fn test_server(db: Arc<anlg_db_core::Db>) -> AnarlogMcpServer {
+        let lock = crate::lock::McpLock::new(
+            Arc::clone(&db),
+            Arc::new(|_| anlg_device_auth::Outcome::NotConfirmed),
+            Arc::new(|| Some(0.0)),
+        );
+        AnarlogMcpServer::new(db, lock, None)
+    }
+
+    #[tokio::test]
+    async fn locked_app_refuses_tools_and_calls_are_audit_logged() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query("INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Secret plan', '2026-07-13')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        anlg_db_app::app_lock_settings::write_lock_setting(db.pool(), true)
+            .await
+            .unwrap();
+        let audit_path = dir.path().join(anlg_audit_log::AUDIT_DB_FILENAME);
+        let writer = anlg_audit_log::open_append_only(&audit_path).await.unwrap();
+
+        let refused = crate::lock::McpLock::new(
+            Arc::clone(&db),
+            Arc::new(|_| anlg_device_auth::Outcome::NotConfirmed),
+            Arc::new(|| Some(0.0)),
+        );
+        let server = AnarlogMcpServer::new(Arc::clone(&db), refused, Some(writer.clone()));
+        let error = server
+            .get_meeting(Parameters(access::GetMeetingInput {
+                meeting_id: "meeting-1".to_string(),
+            }))
+            .await
+            .unwrap_err();
+        assert!(error.message.contains("locked"), "{}", error.message);
+
+        let confirmed = crate::lock::McpLock::new(
+            Arc::clone(&db),
+            Arc::new(|_| anlg_device_auth::Outcome::Confirmed),
+            Arc::new(|| Some(0.0)),
+        );
+        let server = AnarlogMcpServer::new(Arc::clone(&db), confirmed, Some(writer));
+        server
+            .get_meeting(Parameters(access::GetMeetingInput {
+                meeting_id: "meeting-1".to_string(),
+            }))
+            .await
+            .unwrap();
+
+        let read = anlg_db_core::Db::connect_local_read_only(&audit_path)
+            .await
+            .unwrap();
+        let rows: Vec<(String, String, String, String)> = sqlx::query_as(
+            "SELECT action, object_id, source, detail FROM audit_entries ORDER BY seq",
+        )
+        .fetch_all(read.pool())
+        .await
+        .unwrap();
+        let actions: Vec<_> = rows.iter().map(|row| row.0.as_str()).collect();
+        assert_eq!(actions, ["app.unlocked", "mcp.call"]);
+        assert_eq!(rows[1].1, "get_meeting");
+        assert_eq!(rows[1].2, "cli");
+        assert!(rows[1].3.contains("meeting-1"));
+        assert!(rows.iter().all(|row| !row.3.contains("Secret")));
+    }
+
     #[tokio::test]
     async fn list_tool_returns_structured_meeting_data() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
@@ -625,7 +850,7 @@ mod tests {
         .execute(db.pool())
         .await
         .unwrap();
-        let server = AnarlogMcpServer::new(Arc::new(db));
+        let server = test_server(Arc::new(db));
 
         let result = server
             .list_meetings(Parameters(access::ListMeetingsInput {
@@ -686,7 +911,7 @@ mod tests {
         .await
         .unwrap();
         let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
-        let server = AnarlogMcpServer::new(Arc::new(db));
+        let server = test_server(Arc::new(db));
         let info = server.get_info();
         let server_handle = tokio::spawn(async move { server.serve(server_transport).await });
 
@@ -825,7 +1050,7 @@ mod tests {
         let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
         anlg_db_app::prepare_schema(&db).await.unwrap();
         let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
-        let server = AnarlogMcpServer::new(db);
+        let server = test_server(db);
         let server_task =
             tokio::spawn(async move { server.serve(server_transport).await.unwrap() });
         let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);

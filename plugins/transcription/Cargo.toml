@@ -16,8 +16,10 @@ rodio = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-audio = { workspace = true }
 anlg-audio-utils = { workspace = true }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
 anlg-db-app = { workspace = true }
 anlg-embedding = { workspace = true }
 anlg-language = { workspace = true }

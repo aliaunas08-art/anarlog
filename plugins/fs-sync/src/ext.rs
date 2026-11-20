@@ -25,6 +25,17 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsSync<'a, R, M> {
             .await
     }
 
+    /// Retained audio file of a session (`audio.aac`, or an older `audio.mp3`,
+    /// `.wav` or `.ogg`), if any.
+    pub fn session_audio_path(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<std::path::PathBuf>, String> {
+        let app = self.manager.app_handle();
+        let session_dir = crate::commands::resolve_session_dir(app, session_id)?;
+        Ok(crate::audio::path(&session_dir))
+    }
+
     /// Deletes the session's local audio. Callers must hold `lock_session_audio`.
     pub fn delete_session_audio_locked(&self, session_id: &str) -> Result<bool, String> {
         let app = self.manager.app_handle();

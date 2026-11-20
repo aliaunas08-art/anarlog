@@ -34,8 +34,8 @@ const hoisted = vi.hoisted(() => ({
     | undefined,
   llmStatus: {
     status: "success",
-    providerId: "anarlog",
-    isHosted: true,
+    providerId: "engine",
+    isHosted: false,
   } as LLMConnectionStatus,
   content: "",
   noteExists: true,
@@ -125,7 +125,9 @@ vi.mock("./editor", () => ({
 }));
 
 vi.mock("./enhance-error", () => ({
-  EnhanceError: () => <div>Enhance error</div>,
+  EnhanceError: ({ compact }: { compact?: boolean }) => (
+    <div>{compact ? "Enhance error notice" : "Enhance error"}</div>
+  ),
 }));
 
 function Enhanced({
@@ -154,8 +156,8 @@ describe("Enhanced", () => {
     hoisted.titleTask = undefined;
     hoisted.llmStatus = {
       status: "success",
-      providerId: "anarlog",
-      isHosted: true,
+      providerId: "engine",
+      isHosted: false,
     };
     hoisted.content = "";
     hoisted.noteExists = true;
@@ -188,7 +190,7 @@ describe("Enhanced", () => {
     expect(screen.getByRole("status")).not.toBeNull();
     expect(screen.getByText("Analyzing structure...")).not.toBeNull();
     expect(
-      screen.getByText("Tip: The Anarlog team loves our users!"),
+      screen.getByText("Tip: The Notes team loves our users!"),
     ).not.toBeNull();
   });
 
@@ -365,35 +367,13 @@ describe("Enhanced", () => {
 
   it.each([
     [
-      "hosted subscription",
-      { status: "error", reason: "not_pro", providerId: "anarlog" },
-    ],
-    [
-      "hosted authentication",
-      { status: "error", reason: "unauthenticated", providerId: "anarlog" },
-    ],
-    [
-      "provider API key",
+      "engine API key",
       {
         status: "error",
         reason: "missing_config",
-        providerId: "openai",
+        providerId: "engine",
         missing: ["api_key"],
       },
-    ],
-    [
-      "provider base URL",
-      {
-        status: "error",
-        reason: "missing_config",
-        providerId: "openai",
-        missing: ["base_url"],
-      },
-    ],
-    ["provider setup", { status: "pending", reason: "missing_provider" }],
-    [
-      "model selection",
-      { status: "pending", reason: "missing_model", providerId: "openai" },
     ],
   ])(
     "shows a config error instead of the editor for missing %s",
@@ -455,5 +435,35 @@ describe("Enhanced", () => {
     view.rerender(element());
     expect(screen.getByText("Generated summary")).not.toBeNull();
     client.clear();
+  });
+
+  it("keeps a saved summary on screen when a regenerate fails", () => {
+    hoisted.content = "Stored summary";
+    hoisted.enhanceTask = {
+      status: "error",
+      error: new Error("AI paused: no API key is set"),
+      streamedText: "",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Enhance error notice")).toBeTruthy();
+    expect(screen.getByText("Stored summary")).toBeTruthy();
+    expect(screen.queryByText("Enhance error")).toBeNull();
+  });
+
+  it("shows the full error when there is no saved summary", () => {
+    hoisted.enhanceTask = {
+      status: "error",
+      error: new Error("AI paused: no API key is set"),
+      streamedText: "",
+      currentStep: undefined,
+      isGenerating: false,
+    };
+    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+
+    expect(screen.getByText("Enhance error")).toBeTruthy();
+    expect(screen.queryByText("Enhanced editor")).toBeNull();
   });
 });

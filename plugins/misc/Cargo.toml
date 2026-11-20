@@ -15,6 +15,7 @@ vergen-gix = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-buffer = { workspace = true }
 anlg-host = { workspace = true }
 
@@ -22,5 +23,10 @@ tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 specta = { workspace = true }
 sysinfo = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+url = { workspace = true }

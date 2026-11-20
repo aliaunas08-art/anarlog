@@ -8,6 +8,8 @@ Default permissions for the plugin
 - `allow-create-session-for-event`
 - `allow-soft-delete-session`
 - `allow-restore-deleted-session`
+- `allow-purge-deleted-session`
+- `allow-set-session-private`
 - `allow-add-session-participant`
 - `allow-remove-session-participant`
 - `allow-persist-chat-session-proposal`
@@ -61,6 +63,32 @@ Enables the add_session_participant command without any pre-configured scope.
 <td>
 
 Denies the add_session_participant command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:allow-backup-library`
+
+</td>
+<td>
+
+Enables the backup_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-backup-library`
+
+</td>
+<td>
+
+Denies the backup_library command without any pre-configured scope.
 
 </td>
 </tr>
@@ -354,6 +382,32 @@ Denies the persist_chat_session_proposal command without any pre-configured scop
 <tr>
 <td>
 
+`session:allow-purge-deleted-session`
+
+</td>
+<td>
+
+Enables the purge_deleted_session command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-purge-deleted-session`
+
+</td>
+<td>
+
+Denies the purge_deleted_session command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `session:allow-remove-session-participant`
 
 </td>
@@ -484,6 +538,32 @@ Denies the restore_deleted_session command without any pre-configured scope.
 <tr>
 <td>
 
+`session:allow-restore-library`
+
+</td>
+<td>
+
+Enables the restore_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-restore-library`
+
+</td>
+<td>
+
+Denies the restore_library command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `session:allow-set-attachment-cloud-sync-enabled`
 
 </td>
@@ -503,6 +583,32 @@ Enables the set_attachment_cloud_sync_enabled command without any pre-configured
 <td>
 
 Denies the set_attachment_cloud_sync_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:allow-set-session-private`
+
+</td>
+<td>
+
+Enables the set_session_private command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-set-session-private`
+
+</td>
+<td>
+
+Denies the set_session_private command without any pre-configured scope.
 
 </td>
 </tr>

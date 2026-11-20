@@ -38,6 +38,9 @@ async setDismissedToasts(v: string[]) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Returns an empty string for any key outside the allowlist.
+ */
 async getEnv(key: string) : Promise<string> {
     return await TAURI_INVOKE("get_env", { key });
 },
@@ -46,6 +49,13 @@ async showDevtool() : Promise<boolean> {
 },
 async isAppStoreBuild() : Promise<boolean> {
     return await TAURI_INVOKE("is_app_store_build");
+},
+/**
+ * Full name of the signed-in macOS account (`id -F`), used to greet the user
+ * on Home when there is no profile name. `None` when unavailable.
+ */
+async getAccountFullName() : Promise<string | null> {
+    return await TAURI_INVOKE("get_account_full_name");
 },
 async completeAppExit() : Promise<void> {
     await TAURI_INVOKE("complete_app_exit");
@@ -137,6 +147,21 @@ async installAgentSkill(agent: SkillAgent) : Promise<Result<SkillAgentStatus, st
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Whether FileVault is on, for the in-app warning. A device fact; no user
+ * data (registry: `Public`).
+ */
+async getDataProtectionStatus() : Promise<DataProtectionStatus> {
+    return await TAURI_INVOKE("get_data_protection_status");
+},
+async getDataLocations() : Promise<Result<DataLocations, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_data_locations") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -150,6 +175,17 @@ async installAgentSkill(agent: SkillAgent) : Promise<Result<SkillAgentStatus, st
 
 /** user-defined types **/
 
+/**
+ * Where the library lives on this Mac, for Settings → Where your data
+ * lives (ASPC D4.2). Read from the same places the app uses, so the screen
+ * can't drift from them. Paths only; nothing is read from the files.
+ */
+export type DataLocations = { data_dir: string | null; database: string | null; audit_log: string | null; vault: string | null; sessions: string | null; search_index: string | null; logs: string | null }
+export type DataProtectionStatus = { 
+/**
+ * `on`, `off` or `unknown`.
+ */
+filevault: string }
 export type EmbeddedCliState = "installed" | "missing" | "conflict" | "unsupported" | "resource_missing"
 export type EmbeddedCliStatus = { supported: boolean; commandName: string; installPath: string; state: EmbeddedCliState; details: string | null }
 export type SkillAgent = "claude_code" | "codex" | "cursor" | "opencode"

@@ -41,6 +41,9 @@ const TabContentSharedNotePreview = lazy(async () => ({
 const TabContentTask = lazy(async () => ({
   default: (await import("~/task")).TabContentTask,
 }));
+const TabContentTasks = lazy(async () => ({
+  default: (await import("~/task/tasks-view")).TabContentTasks,
+}));
 const TabContentTemplate = lazy(async () => ({
   default: (await import("~/templates")).TabContentTemplate,
 }));
@@ -92,6 +95,9 @@ function LazyTabContent({ tab }: { tab: Tab }) {
   }
   if (tab.type === "edit") {
     return <TabContentEdit tab={tab} />;
+  }
+  if (tab.type === "tasks") {
+    return <TabContentTasks />;
   }
   if (tab.type === "task") {
     return <TabContentTask tab={tab} />;

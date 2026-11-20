@@ -1,31 +1,36 @@
-use anlg_db_core::Db;
-use sqlx::{Column, Row, TypeInfo, ValueRef};
+use sqlx::{Column, Connection, Row, SqliteConnection, TypeInfo, ValueRef};
 
 use crate::{Error, ProxyQueryMethod, ProxyQueryResult, TransactionStatement};
 
-pub async fn run_query(
-    db: &Db,
+pub async fn run_query<'c, E>(
+    executor: E,
     sql: &str,
     params: &[serde_json::Value],
-) -> std::result::Result<Vec<serde_json::Value>, sqlx::Error> {
-    let rows = fetch_rows(db, sql, params).await?;
+) -> std::result::Result<Vec<serde_json::Value>, sqlx::Error>
+where
+    E: sqlx::SqliteExecutor<'c>,
+{
+    let rows = fetch_rows(executor, sql, params).await?;
     Ok(rows.iter().map(row_to_json).collect())
 }
 
-pub async fn run_query_proxy(
-    db: &Db,
+pub async fn run_query_proxy<'c, E>(
+    executor: E,
     sql: &str,
     params: &[serde_json::Value],
     method: ProxyQueryMethod,
-) -> std::result::Result<ProxyQueryResult, sqlx::Error> {
+) -> std::result::Result<ProxyQueryResult, sqlx::Error>
+where
+    E: sqlx::SqliteExecutor<'c>,
+{
     if method == ProxyQueryMethod::Run {
         bind_params(sqlx::query(sqlx::AssertSqlSafe(sql)), params)
-            .execute(db.pool())
+            .execute(executor)
             .await?;
         return Ok(ProxyQueryResult { rows: Vec::new() });
     }
 
-    let rows = fetch_rows(db, sql, params).await?;
+    let rows = fetch_rows(executor, sql, params).await?;
     let rows = match method {
         ProxyQueryMethod::Get => rows
             .first()
@@ -42,24 +47,59 @@ pub async fn run_query_proxy(
 }
 
 pub async fn run_transaction(
-    db: &Db,
+    connection: &mut SqliteConnection,
     statements: Vec<TransactionStatement>,
 ) -> crate::Result<Vec<u64>> {
-    let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await?;
+    run_transaction_guarded(connection, statements, None).await
+}
+
+/// Like [`run_transaction`]; with a C1 workspace guard, the census runs right
+/// after `BEGIN IMMEDIATE` and again before commit (see
+/// `anlg_db_core::WorkspaceGuard`).
+pub async fn run_transaction_guarded(
+    connection: &mut SqliteConnection,
+    statements: Vec<TransactionStatement>,
+    guard: Option<&anlg_db_core::WorkspaceGuard>,
+) -> crate::Result<Vec<u64>> {
+    let control = |allowed: bool| {
+        if let Some(guard) = guard {
+            guard.allow_transaction_control(allowed);
+        }
+    };
+    control(true);
+    let begun = connection.begin_with("BEGIN IMMEDIATE").await;
+    control(false);
+    let mut transaction = begun?;
+    let mut changes_before = 0;
+    if let Some(guard) = guard {
+        guard.check(&mut transaction).await;
+        changes_before = guard.changes(&mut transaction).await?;
+    }
     let mut rows_affected = Vec::with_capacity(statements.len());
 
     for (statement_index, statement) in statements.into_iter().enumerate() {
-        let result = bind_params(
+        let result = match bind_params(
             sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
             &statement.params,
         )
         .execute(&mut *transaction)
-        .await?;
+        .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                control(true);
+                let _ = transaction.rollback().await;
+                control(false);
+                return Err(error.into());
+            }
+        };
         let actual = result.rows_affected();
         if let Some(expected) = statement.expected_rows_affected
             && actual != expected
         {
+            control(true);
             transaction.rollback().await?;
+            control(false);
             return Err(Error::UnexpectedRowsAffected {
                 statement_index,
                 expected,
@@ -69,17 +109,31 @@ pub async fn run_transaction(
         rows_affected.push(actual);
     }
 
-    transaction.commit().await?;
+    if let Some(guard) = guard
+        && let Err(error) = guard.check_writes(&mut transaction, changes_before).await
+    {
+        control(true);
+        let _ = transaction.rollback().await;
+        control(false);
+        return Err(error.into());
+    }
+    control(true);
+    let committed = transaction.commit().await;
+    control(false);
+    committed?;
     Ok(rows_affected)
 }
 
-async fn fetch_rows(
-    db: &Db,
+async fn fetch_rows<'c, E>(
+    executor: E,
     sql: &str,
     params: &[serde_json::Value],
-) -> std::result::Result<Vec<sqlx::sqlite::SqliteRow>, sqlx::Error> {
+) -> std::result::Result<Vec<sqlx::sqlite::SqliteRow>, sqlx::Error>
+where
+    E: sqlx::SqliteExecutor<'c>,
+{
     bind_params(sqlx::query(sqlx::AssertSqlSafe(sql)), params)
-        .fetch_all(db.pool())
+        .fetch_all(executor)
         .await
 }
 
@@ -375,5 +429,61 @@ mod tests {
             .await
             .unwrap();
         assert!(rows.is_empty());
+    }
+
+    #[tokio::test]
+    async fn webview_executor_runs_under_authorizer() {
+        let db = std::sync::Arc::new(test_db().await);
+        sqlx::query("CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        let executor = DbExecutor::for_webview(std::sync::Arc::clone(&db), authorizer.clone());
+
+        executor
+            .execute_transaction(vec![TransactionStatement {
+                sql: "INSERT INTO notes (id, body) VALUES (?, ?)".to_string(),
+                params: vec![json!("a"), json!("hi")],
+                expected_rows_affected: Some(1),
+            }])
+            .await
+            .unwrap();
+        let rows = executor
+            .execute("SELECT body FROM notes".to_string(), vec![])
+            .await
+            .unwrap();
+        assert_eq!(rows, vec![json!({ "body": "hi" })]);
+
+        for sql in [
+            "ATTACH DATABASE ':memory:' AS x",
+            "PRAGMA writable_schema=1",
+        ] {
+            assert!(executor.execute(sql.to_string(), vec![]).await.is_err());
+            assert!(
+                executor
+                    .execute_proxy(sql.to_string(), vec![], ProxyQueryMethod::Run)
+                    .await
+                    .is_err()
+            );
+        }
+
+        authorizer.set_locked(true);
+        assert!(
+            executor
+                .execute("SELECT body FROM notes".to_string(), vec![])
+                .await
+                .is_err()
+        );
+        // Internal executors are not affected by the webview lock.
+        let internal = DbExecutor::new(db);
+        assert_eq!(
+            internal
+                .execute("SELECT body FROM notes".to_string(), vec![])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }

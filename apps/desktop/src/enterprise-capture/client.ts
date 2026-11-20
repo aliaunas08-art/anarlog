@@ -1,6 +1,8 @@
-import { fetch } from "@tauri-apps/plugin-http";
-
 import type { DeliveryItem, DeliveryPage, ScheduledCapture } from "./types";
+
+// The enterprise server URL is a build setting outside the static http
+// scope, so the first request asks the user to allow it (ASPC A3.3).
+import { scopedFetch as fetch } from "~/ai/provider-fetch";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_PAGE_BYTES = 24 * 1024 * 1024;

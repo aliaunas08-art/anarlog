@@ -1,6 +1,7 @@
 import type { TranscriptSpeakerHint } from "@anlg/plugin-fs-sync";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import type {
+  RenderSpeakerHint,
   IdentityAssignment,
   SpeakerContext,
   RenderTranscriptHuman,
@@ -120,6 +121,12 @@ export function getRenderTranscriptRequestKey(
       writeValue(
         syntheticChunkStartMs((word as { metadata?: unknown }).metadata),
       );
+    }
+
+    for (const hint of transcript.speaker_hints ?? []) {
+      writeValue(hint.word_id);
+      writeValue(hint.type);
+      writeValue(hint.value);
     }
 
     for (const assignment of transcript.assignments) {
@@ -350,6 +357,19 @@ function buildRenderTranscriptRequest(
           : null,
       words,
       assignments,
+      // Raw hints let the renderer derive each segment's attribution
+      // (source, confidence, uncertainty).
+      speaker_hints: (transcript.speaker_hints ?? [])
+        .filter(
+          (hint) =>
+            typeof hint.word_id === "string" && wordIndexById.has(hint.word_id),
+        )
+        .map((hint) => ({
+          id: "id" in hint && typeof hint.id === "string" ? hint.id : null,
+          word_id: hint.word_id ?? null,
+          type: hint.type,
+          value: hint.value as RenderSpeakerHint["value"],
+        })),
     });
   }
 

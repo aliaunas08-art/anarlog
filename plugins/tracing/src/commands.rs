@@ -22,8 +22,16 @@ pub async fn do_log<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn log_content<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     cloudsync_only: Option<bool>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.tracing()
         .filtered_log_content(cloudsync_only.unwrap_or(false))
         .map_err(|e| e.to_string())

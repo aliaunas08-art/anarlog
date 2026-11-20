@@ -14,8 +14,8 @@ pub enum Error {
     InvalidChannelCount,
     #[error("audio_import_empty_input")]
     EmptyInput,
-    #[error("audio_import_mp3_encode: {0}")]
-    Mp3Encode(String),
+    #[error("audio_import_aac_encode: {0}")]
+    Encode(String),
     #[error("audio_import_afconvert_failed: {0}")]
     AfconvertFailed(String),
 }

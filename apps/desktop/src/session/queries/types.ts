@@ -8,6 +8,8 @@ export type SessionRecord = {
   raw_md: string;
   raw_template_id: string;
   locked: boolean;
+  /** ASPC C6.4: left out of all-meetings Ask, bulk exports and sharing. */
+  private: boolean;
 };
 
 export type AppliedTemplateSnapshot = {

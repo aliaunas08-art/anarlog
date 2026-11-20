@@ -14,7 +14,11 @@ import {
   ShareManagementError,
 } from "~/session-sharing/client";
 import { trackPendingSoftDelete } from "~/session/pending-soft-deletes";
-import { finalizeSessionDeletion, softDeleteSession } from "~/session/queries";
+import {
+  finalizeSessionDeletion,
+  purgeDeletedSession,
+  softDeleteSession,
+} from "~/session/queries";
 import {
   loadManagedSharedNoteForSession,
   removeDurableSharedNoteCache,
@@ -195,6 +199,7 @@ export function useDeleteSession() {
               await finalizeSessionDeletion(sessionId);
               await revokeManagedShareBestEffort(sessionId);
               deleteCloudApiSnapshotBestEffort(sessionId);
+              await purgeDeletedSession(sessionId);
             })
             .catch(() => undefined);
         addDeletion(
@@ -242,9 +247,12 @@ export function useDeleteSession() {
             // The delete committed but main never learned about it, so its
             // finalize-time cleanup will not run. Finalize here — losing the
             // undo window beats leaving the shared link live forever.
-            void finalizeSessionDeletion(sessionId);
-            void revokeManagedShareBestEffort(sessionId);
-            deleteCloudApiSnapshotBestEffort(sessionId);
+            void (async () => {
+              await finalizeSessionDeletion(sessionId);
+              await revokeManagedShareBestEffort(sessionId);
+              deleteCloudApiSnapshotBestEffort(sessionId);
+              await purgeDeletedSession(sessionId);
+            })();
           }
         } finally {
           if (didDelete) {
@@ -286,6 +294,7 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
         await finalizeSessionDeletion(payload.sessionId);
         await revokeManagedShareBestEffort(payload.sessionId);
         deleteCloudApiSnapshotBestEffort(payload.sessionId);
+        await purgeDeletedSession(payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {

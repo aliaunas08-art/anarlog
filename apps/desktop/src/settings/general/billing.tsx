@@ -26,6 +26,7 @@ import { requestSyncDevices } from "~/auth/sync-devices";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
+import { APP_NAME } from "~/shared/app-name";
 import { buildWebAppUrl } from "~/shared/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -106,7 +107,7 @@ export function SettingsBilling() {
               openNew({ type: "settings", state: { tab: "account" } })
             }
           >
-            <Trans>Sign in to Anarlog</Trans>
+            <Trans>Sign in to {APP_NAME}</Trans>
           </button>
           <GuestPlanSection />
         </>
@@ -421,7 +422,7 @@ function PlanBillingSection({
           ) : (
             <>
               <p className="font-sans text-base font-medium">
-                {`Anarlog ${planLabel}`}
+                {`${APP_NAME} ${planLabel}`}
               </p>
               <div className="text-muted-foreground mt-1 flex flex-col gap-0.5 text-sm">
                 {priceText != null && <p>{priceText}</p>}

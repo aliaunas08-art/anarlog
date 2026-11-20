@@ -15,6 +15,7 @@ specta-typescript = { workspace = true }
 
 [dependencies]
 anlg-agent-core = { workspace = true, features = ["specta"] }
+anlg-aspc = { workspace = true, features = ["tauri"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }

@@ -5,6 +5,8 @@ permissions = [
   "allow-create-session-for-event",
   "allow-soft-delete-session",
   "allow-restore-deleted-session",
+  "allow-purge-deleted-session",
+  "allow-set-session-private",
   "allow-add-session-participant",
   "allow-remove-session-participant",
   "allow-persist-chat-session-proposal",

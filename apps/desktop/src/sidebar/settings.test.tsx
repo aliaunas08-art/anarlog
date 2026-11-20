@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  goBack: vi.fn(),
   currentTab: { type: "settings", state: { tab: "app" } } as {
     type: "settings";
     state: { tab?: string };
@@ -76,6 +77,7 @@ vi.mock("@lingui/react/macro", () => ({
 
 vi.mock("./custom-sidebar-header", () => ({
   CustomSidebarHeader: () => <div />,
+  useCustomSidebarBack: () => mocks.goBack,
 }));
 
 vi.mock("~/auth/billing-context", () => ({
@@ -142,7 +144,7 @@ describe("SettingsNav", () => {
     Boolean(
       screen
         .getByRole("button", { name })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
+        .querySelector("[aria-label='Requires Notes Pro']"),
     );
 
   it.each([
@@ -274,5 +276,11 @@ describe("SettingsNav", () => {
     clear();
 
     expect(screen.getByText("Appearance")).toBeTruthy();
+  });
+
+  it("offers a way back home inside the list", () => {
+    render(<SettingsNav />);
+    fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
+    expect(mocks.goBack).toHaveBeenCalled();
   });
 });

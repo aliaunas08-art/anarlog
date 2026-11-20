@@ -194,7 +194,7 @@ describe("SettingsDevelopers", () => {
         installPath: "/Users/test/.local/bin/anarlog",
         state: "installed",
         details:
-          "Installed at /Users/test/.local/bin/anarlog and managed by Anarlog.",
+          "Installed at /Users/test/.local/bin/anarlog and managed by Timbre.",
       },
     });
 
@@ -351,7 +351,9 @@ describe("SettingsDevelopers", () => {
         /separate server-readable copy of your meeting titles, notes, summaries, participants, action items, and transcripts/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/end-to-end encrypted/)).toBeTruthy();
+    expect(
+      screen.getByText(/still encrypts notes, transcripts and summaries/),
+    ).toBeTruthy();
     expect(screen.getByText(/deletes the server-readable copies/)).toBeTruthy();
     const toggle = await screen.findByRole("switch", {
       name: "Enable Cloud API & Connectors",
@@ -451,7 +453,7 @@ describe("SettingsDevelopers", () => {
     expect(screen.getByText(/server-readable copy/)).toBeTruthy();
     expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
+      "This requires Timbre Pro",
       {
         action: {
           label: "Upgrade",
@@ -531,14 +533,18 @@ describe("SettingsDevelopers", () => {
     const cursorItem = await screen.findByRole("button", { name: "Cursor" });
     expect(cursorItem.hasAttribute("disabled")).toBe(true);
     expect(
-      screen.getByRole("button", { name: /Claude Code/ }).querySelector("svg"),
+      screen
+        .getByRole("button", { name: /Claude Code/ })
+        .querySelector("svg, img"),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Codex" }).querySelector("svg"),
+      screen.getByRole("button", { name: "Codex" }).querySelector("svg, img"),
     ).toBeTruthy();
-    expect(cursorItem.querySelector("svg")).toBeTruthy();
+    expect(cursorItem.querySelector("svg, img")).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "OpenCode" }).querySelector("svg"),
+      screen
+        .getByRole("button", { name: "OpenCode" })
+        .querySelector("svg, img"),
     ).toBeTruthy();
     const installedIcon = screen.getByLabelText("Skill installed");
     expect(installedIcon.closest("button")?.textContent).toContain(
@@ -558,7 +564,7 @@ describe("SettingsDevelopers", () => {
     expect(mocks.installAgentSkill).not.toHaveBeenCalledWith("cursor");
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Anarlog skill added to 3 agents",
+        "Timbre skill added to 3 agents",
       ),
     );
   });
@@ -613,7 +619,7 @@ describe("SettingsDevelopers", () => {
     );
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Anarlog skill added to Codex",
+        "Timbre skill added to Codex",
       ),
     );
   });

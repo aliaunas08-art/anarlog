@@ -81,6 +81,11 @@ vi.mock("~/shared/utils", () => ({
 
 vi.mock("./account-profile", () => ({
   AccountProfile: () => <div>Profile editor</div>,
+  focusAccountProfileName: vi.fn(),
+}));
+
+vi.mock("./voice-profile", () => ({
+  VoiceProfileSection: () => <div>Voice profile</div>,
 }));
 
 import { SettingsAccount } from "./account";
@@ -135,7 +140,7 @@ describe("SettingsAccount", () => {
 
     expect(mocks.signOut).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("heading", { name: "Sign out of Anarlog?" }),
+      screen.getByRole("heading", { name: "Sign out of Timbre?" }),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

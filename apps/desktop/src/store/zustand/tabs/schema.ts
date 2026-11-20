@@ -31,6 +31,7 @@ export type TabInput =
   | SupportedWindowTabInput
   | { type: "automations" }
   | { type: "folders" }
+  | { type: "tasks" }
   | { type: "shared_sessions"; id: string }
   | { type: "shared_note_preview"; id: string };
 
@@ -61,6 +62,9 @@ export type SettingsTab =
   | "crm"
   | "developers"
   | "privacy"
+  | "audit"
+  | "data-locations"
+  | "about"
   | "permissions"
   | "dictionary"
   | "dictation"
@@ -86,6 +90,9 @@ const normalizeSettingsTab = (
     case "crm":
     case "developers":
     case "privacy":
+    case "audit":
+    case "data-locations":
+    case "about":
     case "permissions":
     case "dictionary":
     case "dictation":
@@ -139,6 +146,7 @@ export type Tab =
     })
   | (BaseTab & { type: "automations" })
   | (BaseTab & { type: "folders" })
+  | (BaseTab & { type: "tasks" })
   | (BaseTab & {
       type: "humans";
       id: string;
@@ -215,6 +223,8 @@ export const getDefaultState = (tab: TabInput): Tab => {
       return { ...base, type: "automations" };
     case "folders":
       return { ...base, type: "folders" };
+    case "tasks":
+      return { ...base, type: "tasks" };
     case "humans":
       return { ...base, type: "humans", id: tab.id };
     case "organizations":
@@ -278,6 +288,8 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `automations`;
     case "folders":
       return `folders`;
+    case "tasks":
+      return `tasks`;
     case "empty":
       return `empty-${tab.slotId}`;
     case "calendar":

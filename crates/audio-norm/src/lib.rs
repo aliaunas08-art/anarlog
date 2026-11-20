@@ -28,7 +28,7 @@ pub fn normalize_file(
         std::fs::remove_file(tmp_path)?;
     }
 
-    let result = decode_to_mp3_file(source_path, tmp_path, max_duration, on_progress)
+    let result = decode_to_aac_file(source_path, tmp_path, max_duration, on_progress)
         .and_then(|()| file_move::atomic_move(tmp_path, target_path).map_err(Into::into));
 
     match result {
@@ -42,7 +42,7 @@ pub fn normalize_file(
     }
 }
 
-fn decode_to_mp3_file(
+fn decode_to_aac_file(
     path: &Path,
     tmp_path: &Path,
     max_duration: Option<Duration>,
@@ -101,7 +101,7 @@ fn decode_with_rodio<W: Write>(
 ) -> Result<usize> {
     let file = File::open(path)?;
     let decoder = rodio::Decoder::try_from(file)?;
-    encode::encode_source_to_mp3(decoder, max_duration, output, on_progress)
+    encode::encode_source_to_aac(decoder, max_duration, output, on_progress)
 }
 
 #[cfg(test)]
@@ -111,7 +111,7 @@ mod tests {
 
     use super::*;
 
-    const MIN_MP3_BYTES: u64 = 1024;
+    const MIN_ENCODED_BYTES: u64 = 1024;
 
     #[test]
     fn normalize_file_imports_supported_formats() {
@@ -128,8 +128,8 @@ mod tests {
         ] {
             let source_path = std::path::Path::new(path);
             let temp = TempDir::new().unwrap();
-            let tmp_path = temp.path().join("tmp.mp3");
-            let target_path = temp.path().join("target.mp3");
+            let tmp_path = temp.path().join("tmp.aac");
+            let target_path = temp.path().join("target.aac");
 
             let result =
                 normalize_file(source_path, &tmp_path, &target_path, None, None::<fn(f64)>);
@@ -145,18 +145,18 @@ mod tests {
 
             let size = std::fs::metadata(&target_path).unwrap().len();
             assert!(
-                size > MIN_MP3_BYTES,
+                size > MIN_ENCODED_BYTES,
                 "{label}: output too small ({size} bytes), likely empty audio"
             );
         }
     }
 
     #[test]
-    fn test_import_stereo_mp3() {
+    fn test_import_stereo_mp3_source() {
         let source_path = std::path::Path::new(anlg_data::english_10::AUDIO_MP3_PATH);
         let temp = TempDir::new().unwrap();
-        let tmp_path = temp.path().join("tmp.mp3");
-        let target_path = temp.path().join("target.mp3");
+        let tmp_path = temp.path().join("tmp.aac");
+        let target_path = temp.path().join("target.aac");
 
         let result = normalize_file(source_path, &tmp_path, &target_path, None, None::<fn(f64)>);
         assert!(result.is_ok(), "normalize failed: {:?}", result.err());
@@ -164,7 +164,7 @@ mod tests {
 
         let size = std::fs::metadata(&target_path).unwrap().len();
         assert!(
-            size > MIN_MP3_BYTES,
+            size > MIN_ENCODED_BYTES,
             "Output too small ({size} bytes), likely empty audio"
         );
 

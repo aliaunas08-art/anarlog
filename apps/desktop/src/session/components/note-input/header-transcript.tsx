@@ -7,7 +7,11 @@ import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
-import { IconHeaderView, copyTextToClipboard } from "./header-shared";
+import {
+  IconHeaderView,
+  copyTextToClipboard,
+  useHeaderViewVariant,
+} from "./header-shared";
 import { TranscriptAudioIcon } from "./header-transcript-icon";
 
 import * as AudioPlayer from "~/audio-player";
@@ -92,6 +96,7 @@ function HeaderViewTranscriptButton({
   };
 }) {
   const { t } = useLingui();
+  const glass = useHeaderViewVariant() === "glass";
 
   return (
     <IconHeaderView
@@ -102,8 +107,8 @@ function HeaderViewTranscriptButton({
         live ? (
           <HeaderViewTranscriptLiveIcon live={live} />
         ) : isTranscribing ? (
-          <Spinner size={16} className="shrink-0" />
-        ) : (
+          <Spinner size={glass ? 14 : 16} className="shrink-0" />
+        ) : glass ? null : (
           <TranscriptAudioIcon />
         )
       }
@@ -113,7 +118,7 @@ function HeaderViewTranscriptButton({
       onContextMenu={onContextMenu}
       title={undefined}
       className={cn([
-        live
+        live && !glass
           ? [
               "group/transcript-live",
               isActive

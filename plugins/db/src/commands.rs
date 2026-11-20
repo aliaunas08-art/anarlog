@@ -54,10 +54,18 @@ async fn read_e2ee_secret_with_timeout(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn cleanup_recording_imports(
+pub(crate) async fn cleanup_recording_imports<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     vault_path: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     anlg_agent_access::cleanup_recording_imports(state.pool(), &vault_path)
         .await
         .map_err(|error| error.to_string())
@@ -65,55 +73,108 @@ pub(crate) async fn cleanup_recording_imports(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn list_meetings(
+pub(crate) async fn list_meetings<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::ListMeetingsInput,
 ) -> Result<anlg_agent_access::MeetingPage, String> {
-    anlg_agent_access::list_meetings(state.pool(), input)
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::list_meetings(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_meeting(
+pub(crate) async fn get_meeting<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::GetMeetingInput,
 ) -> Result<anlg_agent_access::Meeting, String> {
-    anlg_agent_access::get_meeting(state.pool(), input)
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_meeting(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_meeting_transcript(
+pub(crate) async fn get_meeting_transcript<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::GetMeetingTranscriptInput,
 ) -> Result<anlg_agent_access::TranscriptPage, String> {
-    anlg_agent_access::get_meeting_transcript(state.pool(), input)
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    state.observe_content_access("transcript", &input.meeting_id);
+    anlg_agent_access::get_meeting_transcript(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_recurring_meeting_history(
+pub(crate) async fn get_recurring_meeting_history<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     input: anlg_agent_access::GetRecurringMeetingHistoryInput,
 ) -> Result<anlg_agent_access::MeetingPage, String> {
-    anlg_agent_access::get_recurring_meeting_history(state.pool(), input)
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let scope = anlg_agent_access::local_scope(state.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_recurring_meeting_history(state.pool(), &scope, input)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn execute(
+pub(crate) async fn execute<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     sql: String,
     params: Vec<serde_json::Value>,
 ) -> Result<Vec<serde_json::Value>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .execute(sql, params)
         .await
@@ -122,10 +183,18 @@ pub(crate) async fn execute(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn execute_transaction(
+pub(crate) async fn execute_transaction<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     statements: Vec<TransactionStatement>,
 ) -> Result<Vec<u64>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .execute_transaction(statements)
         .await
@@ -134,12 +203,20 @@ pub(crate) async fn execute_transaction(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn execute_proxy(
+pub(crate) async fn execute_proxy<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     sql: String,
     params: Vec<serde_json::Value>,
     method: String,
 ) -> Result<ExecuteProxyResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let method = method
         .parse::<anlg_db_execute::ProxyQueryMethod>()
         .map_err(|error| error.to_string())?;
@@ -152,9 +229,17 @@ pub(crate) async fn execute_proxy(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_legacy_import_report(
+pub(crate) async fn get_legacy_import_report<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
 ) -> Result<crate::LegacyImportReport, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     crate::import::get_legacy_import_report(state.pool())
         .await
         .map_err(|error| error.to_string())
@@ -162,9 +247,17 @@ pub(crate) async fn get_legacy_import_report(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_legacy_cleanup_status(
+pub(crate) async fn get_legacy_cleanup_status<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
 ) -> Result<crate::LegacyCleanupStatus, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     crate::import::get_legacy_cleanup_status(state.pool())
         .await
         .map_err(|error| error.to_string())
@@ -172,9 +265,17 @@ pub(crate) async fn get_legacy_cleanup_status(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn cleanup_legacy_files(
+pub(crate) async fn cleanup_legacy_files<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
 ) -> Result<crate::LegacyCleanupResult, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .cleanup_legacy_files()
         .await
@@ -183,10 +284,18 @@ pub(crate) async fn cleanup_legacy_files(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn run_legacy_import(
+pub(crate) async fn run_legacy_import<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     dry_run: bool,
 ) -> Result<String, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .rerun_legacy_import(dry_run)
         .await
@@ -195,11 +304,19 @@ pub(crate) async fn run_legacy_import(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn apply_session_ingest(
+pub(crate) async fn apply_session_ingest<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     workspace_id: String,
     envelope: serde_json::Value,
 ) -> Result<crate::SessionIngestApplyResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let envelope = match serde_json::from_value(envelope) {
         Ok(envelope) => envelope,
         Err(error) => {
@@ -226,9 +343,17 @@ pub(crate) async fn apply_session_ingest(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<crate::E2eeIdentityStatus, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let recovery_key = load_e2ee_recovery_key(app, &account_user_id).await?;
     let (key_id, member_public_key) = match recovery_key {
         Some(recovery_key) => (
@@ -251,9 +376,17 @@ pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn inspect_e2ee_recovery_key(
+pub(crate) fn inspect_e2ee_recovery_key<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     recovery_key: String,
 ) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let recovery_key =
         anlg_e2ee::RecoveryKey::parse(&recovery_key).map_err(|error| error.to_string())?;
     Ok(crate::E2eeRecoveryKeyIdentity {
@@ -264,9 +397,17 @@ pub(crate) fn inspect_e2ee_recovery_key(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<String, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pending_key_name = format!("{}:pending", e2ee_recovery_key_name(&account_user_id)?);
     let _identity_guard = E2EE_DEVICE_IDENTITY_LOCK.lock().await;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
@@ -306,10 +447,18 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
     recovery_key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let key_name = e2ee_recovery_key_name(&account_user_id)?;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
         .await?
@@ -332,9 +481,17 @@ pub(crate) async fn import_e2ee_identity<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_or_create_e2ee_device_identity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<crate::E2eeDeviceIdentity, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let key_name = e2ee_device_key_name(&account_user_id)?;
     let _identity_guard = E2EE_DEVICE_IDENTITY_LOCK.lock().await;
     let existing = read_e2ee_secret_with_timeout(
@@ -371,11 +528,19 @@ pub(crate) async fn get_or_create_e2ee_device_identity<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn seal_e2ee_recovery_key_for_device<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
     request_id: String,
     recipient_public_key: String,
 ) -> Result<crate::E2eeDeviceEnrollmentPackage, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let request_id = canonical_e2ee_request_id(&request_id)?;
     let recovery_key = load_e2ee_recovery_key(app, &account_user_id)
@@ -394,6 +559,7 @@ pub(crate) async fn seal_e2ee_recovery_key_for_device<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
@@ -402,6 +568,13 @@ pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
     rotate: bool,
     source_grant: Option<crate::CloudsyncWorkspaceKeyGrant>,
 ) -> Result<crate::SealedWorkspaceE2eeKey, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let workspace_id = uuid::Uuid::parse_str(workspace_id.trim())
         .map(|workspace_id| workspace_id.to_string())
@@ -496,11 +669,19 @@ fn seal_workspace_e2ee_key(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn import_e2ee_device_enrollment<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     account_user_id: String,
     request_id: String,
     package: crate::E2eeDeviceEnrollmentPackage,
 ) -> Result<crate::E2eeRecoveryKeyIdentity, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let request_id = canonical_e2ee_request_id(&request_id)?;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
@@ -541,6 +722,13 @@ pub(crate) async fn subscribe<R: tauri::Runtime>(
     params: Vec<serde_json::Value>,
     on_event: Channel<QueryEvent>,
 ) -> Result<anlg_db_reactive::SubscriptionRegistration, String> {
+    anlg_aspc::require_ignoring_lock(
+        &webview,
+        &webview,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .subscribe(sql, params, state.query_channel(webview.label(), on_event))
         .await
@@ -561,10 +749,18 @@ pub(crate) async fn unsubscribe(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn configure_cloudsync(
+pub(crate) async fn configure_cloudsync<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     config_json: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     let result = state
         .configure_cloudsync(config_json)
         .await
@@ -576,6 +772,7 @@ pub(crate) async fn configure_cloudsync(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     database_id: String,
@@ -585,6 +782,13 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
     workspace_key_grants: Option<Vec<crate::CloudsyncWorkspaceKeyGrant>>,
     e2ee_witness: crate::CloudsyncE2eeWitness,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let result = async {
         let auth_generation = state.begin_cloudsync_auth_configuration();
         let personal_workspace_id = workspace_projection
@@ -702,6 +906,7 @@ fn open_shared_workspace_keyrings(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     workspace_id: String,
@@ -709,6 +914,13 @@ pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
     workspace_projection: Option<crate::CloudsyncWorkspaceProjection>,
     workspace_key_grants: Option<Vec<crate::CloudsyncWorkspaceKeyGrant>>,
 ) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let result = async {
         let auth_generation = state.begin_cloudsync_auth_configuration();
         let recovery_key = load_e2ee_recovery_key(app, &workspace_id)
@@ -746,10 +958,18 @@ pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn bind_cloudsync_account(
+pub(crate) async fn bind_cloudsync_account<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .bind_cloudsync_account(account_user_id)
         .await
@@ -758,7 +978,17 @@ pub(crate) async fn bind_cloudsync_account(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn start_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+pub(crate) async fn start_cloudsync<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    state: tauri::State<'_, ManagedState>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let result = state
         .start_cloudsync()
         .await
@@ -769,11 +999,19 @@ pub(crate) async fn start_cloudsync(state: tauri::State<'_, ManagedState>) -> Re
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn connect_local_library(
+pub(crate) async fn connect_local_library<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
     expected_library_workspace_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     state
         .connect_local_library(account_user_id, expected_library_workspace_id)
@@ -783,7 +1021,17 @@ pub(crate) async fn connect_local_library(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn stop_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+pub(crate) async fn stop_cloudsync<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    state: tauri::State<'_, ManagedState>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .stop_cloudsync()
         .await
@@ -792,7 +1040,17 @@ pub(crate) async fn stop_cloudsync(state: tauri::State<'_, ManagedState>) -> Res
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn suspend_cloudsync(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+pub(crate) async fn suspend_cloudsync<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    state: tauri::State<'_, ManagedState>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .suspend_cloudsync()
         .await
@@ -801,7 +1059,22 @@ pub(crate) async fn suspend_cloudsync(state: tauri::State<'_, ManagedState>) -> 
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn suspend_cloudsync_for_sign_out(
+pub(crate) async fn suspend_cloudsync_for_sign_out<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    state: tauri::State<'_, ManagedState>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
+    run_suspend_cloudsync_for_sign_out(state).await
+}
+
+/// The command body without the guard, for the pool-drain test.
+pub(crate) async fn run_suspend_cloudsync_for_sign_out(
     state: tauri::State<'_, ManagedState>,
 ) -> Result<(), String> {
     state
@@ -812,9 +1085,17 @@ pub(crate) async fn suspend_cloudsync_for_sign_out(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn suspend_cloudsync_after_auth_loss(
+pub(crate) async fn suspend_cloudsync_after_auth_loss<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .suspend_cloudsync_after_auth_loss()
         .await
@@ -823,9 +1104,17 @@ pub(crate) async fn suspend_cloudsync_after_auth_loss(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn get_cloudsync_status(
+pub(crate) async fn get_cloudsync_status<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
 ) -> Result<serde_json::Value, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .cloudsync_status()
         .await
@@ -834,9 +1123,17 @@ pub(crate) async fn get_cloudsync_status(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn sync_cloudsync_now(
+pub(crate) async fn sync_cloudsync_now<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
 ) -> Result<serde_json::Value, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .sync_cloudsync_now()
         .await
@@ -845,11 +1142,19 @@ pub(crate) async fn sync_cloudsync_now(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn begin_cloudsync_activity(
+pub(crate) async fn begin_cloudsync_activity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     activity: String,
     key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .begin_cloudsync_activity(activity, key)
         .await
@@ -858,11 +1163,19 @@ pub(crate) async fn begin_cloudsync_activity(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn end_cloudsync_activity(
+pub(crate) async fn end_cloudsync_activity<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, ManagedState>,
     activity: String,
     key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state
         .end_cloudsync_activity(activity, key)
         .await

@@ -5,7 +5,6 @@
     ".": "./src/index.ts",
     "./attachment-backups": "./src/attachment-backups.ts",
     "./billing": "./src/billing.ts",
-    "./middleware": "./src/middleware.ts",
     "./profile-avatar": "./src/profile-avatar.ts",
     "./profile": "./src/profile.ts",
     "./storage": "./src/storage.ts",

@@ -9,16 +9,13 @@ function renderAudioSettings({
     devices: ["External Microphone"],
     onChange: vi.fn(),
   },
-  rememberSpeakers = {
-    value: false,
-    onChange: vi.fn(),
-  },
+  onOpenVoiceProfile = vi.fn(),
 } = {}) {
   return render(
     <AudioSettingsView
       audioRetention={{ value: "forever", onChange: vi.fn() }}
       microphoneDevice={microphoneDevice}
-      rememberSpeakers={rememberSpeakers}
+      onOpenVoiceProfile={onOpenVoiceProfile}
     />,
   );
 }
@@ -42,19 +39,14 @@ describe("AudioSettingsView", () => {
     );
   });
 
-  it.each([
-    [false, true],
-    [true, false],
-  ])("toggles remember speakers from %s to %s", (value, nextValue) => {
-    const onChange = vi.fn();
-    renderAudioSettings({
-      rememberSpeakers: { value, onChange },
-    });
+  it("opens the voice profile instead of a remember-speakers toggle", () => {
+    const onOpenVoiceProfile = vi.fn();
+    renderAudioSettings({ onOpenVoiceProfile });
 
-    const toggle = screen.getByRole("switch", { name: "Remember speakers" });
-    expect(toggle.getAttribute("aria-checked")).toBe(String(value));
-
-    toggle.click();
-    expect(onChange).toHaveBeenCalledWith(nextValue);
+    expect(screen.queryByRole("switch", { name: "Remember speakers" })).toBe(
+      null,
+    );
+    screen.getByRole("button", { name: "Voice profile" }).click();
+    expect(onOpenVoiceProfile).toHaveBeenCalledTimes(1);
   });
 });

@@ -34,6 +34,10 @@ jobs:
           scripts/desktop-release-provenance.test.mjs
           scripts/workflow-security.test.mjs
           scripts/security-dependencies.test.mjs
+          scripts/check-secrets.test.mjs
+          scripts/generate-licenses.test.mjs
+          scripts/check-licenses.test.mjs
+          scripts/check-swift-modules.test.mjs
           scripts/publish-anarlog-skill.test.mjs
           scripts/repack-linux-appimage.test.mjs
           scripts/verify-linux-audio-qa-run.test.mjs
@@ -41,3 +45,9 @@ jobs:
           scripts/update-apt-repository.test.mjs
           scripts/verify-apt-repository.test.mjs
           scripts/update-aur-pkgbuild.test.mjs
+      # ASPC D5: no unapproved GPL-family or unlicensed package in the shipped
+      # build. Reads `cargo metadata` (rustup installs the pinned toolchain).
+      - run: pnpm licenses:check
+      # Swift libraries linked into one binary must not share a module name and
+      # type, or the linker merges their helpers (the Apple Speech crash).
+      - run: pnpm swift:check-modules

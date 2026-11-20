@@ -1,11 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 
-import { Lock, MagnifyingGlass, X } from "@anlg/ui/components/icons";
-import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
+import { ArrowLeft, Lock, MagnifyingGlass, X } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
-import { CustomSidebarHeader } from "./custom-sidebar-header";
+import {
+  CustomSidebarHeader,
+  useCustomSidebarBack,
+} from "./custom-sidebar-header";
 import { useSettingsNavGroups } from "./settings-nav-groups";
 
 import { useBillingAccess } from "~/auth/billing-context";
@@ -16,12 +18,12 @@ export function SettingsNav() {
   const { isPro } = useBillingAccess();
   const groups = useSettingsNavGroups();
   const [search, setSearch] = useState("");
-  const searchRef = useSquircleRef<HTMLDivElement>();
   const currentTab = useTabs((state) => state.currentTab);
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
   const openNew = useTabs((state) => state.openNew);
+  const goBack = useCustomSidebarBack();
 
   const requestedTab =
     currentTab?.type === "settings" ? (currentTab.state.tab ?? "app") : "app";
@@ -61,8 +63,9 @@ export function SettingsNav() {
     <div className="flex h-full w-full flex-col overflow-hidden">
       <CustomSidebarHeader />
       <div className="pb-2">
+        {/* No smooth-corner helper here: it redraws the border as an SVG
+         * layer beside the box that painted over the icon and the field. */}
         <div
-          ref={searchRef}
           className={cn([
             "border-border bg-accent/50 flex h-8 w-full shrink-0 items-center gap-2 rounded-lg border px-3",
             "focus-within:bg-accent transition-colors",
@@ -99,6 +102,22 @@ export function SettingsNav() {
       </div>
       <div className="scrollbar-hide flex-1 overflow-y-auto">
         <div className="flex flex-col gap-5 pb-6">
+          {/* The header's back arrow sits in the window's title-bar strip,
+           * which macOS can draw over on this screen. Keep a way home in
+           * the list itself. */}
+          <button
+            type="button"
+            onClick={goBack}
+            className={cn([
+              "flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-sm",
+              "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground transition-colors",
+            ])}
+          >
+            <ArrowLeft size={15} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              <Trans>Back to home</Trans>
+            </span>
+          </button>
           {visibleGroups.length === 0 ? (
             <div className="text-muted-foreground px-3 py-8 text-center">
               <MagnifyingGlass
@@ -149,7 +168,7 @@ export function SettingsNav() {
                         </span>
                         {requiresPro ? (
                           <Lock
-                            aria-label={t`Requires Anarlog Pro`}
+                            aria-label={t`Requires Notes Pro`}
                             className="size-3.5 shrink-0"
                           />
                         ) : null}

@@ -47,9 +47,12 @@ const filterFolders = (value: string, search: string) => {
 export function FolderPicker({
   sessionId,
   align = "start",
+  appearance = "default",
 }: {
   sessionId: string;
   align?: "start" | "end";
+  /** "toolbar": the session header's quiet 32px icon-button style. */
+  appearance?: "default" | "toolbar";
 }) {
   const { t } = useLingui();
   const triggerRef = useSquircleRef<HTMLButtonElement>();
@@ -69,9 +72,9 @@ export function FolderPicker({
           role="combobox"
           aria-expanded={open}
           aria-label={
-            currentPath ? t`Folder: ${currentPath}` : t`Select folder`
+            currentPath ? t`Project: ${currentPath}` : t`Select project`
           }
-          title={currentPath ? currentPath : t`Select folder`}
+          title={currentPath ? currentPath : t`Select project`}
           className={cn([
             "flex h-7 items-center rounded-full [&_svg]:size-4",
             currentPath
@@ -80,6 +83,11 @@ export function FolderPicker({
             "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             squircleFocusVisibleClassName,
             open && "bg-accent text-foreground",
+            appearance === "toolbar" && [
+              "h-8 rounded-lg text-[var(--cf-secondary)] hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)]",
+              currentPath ? "px-2" : "w-8",
+              open && "bg-[var(--cf-fill)] text-[var(--cf-label)]",
+            ],
           ])}
         >
           {currentPath ? (
@@ -91,7 +99,7 @@ export function FolderPicker({
             <Folder className="size-4 shrink-0" />
           )}
           {currentPath ? (
-            <span className="min-w-0 truncate text-xs text-neutral-600 @max-[480px]:sr-only dark:text-neutral-300">
+            <span className="min-w-0 truncate text-xs text-[var(--cf-secondary)] @max-[480px]:sr-only">
               {currentPath}
             </span>
           ) : null}
@@ -204,7 +212,7 @@ export function FolderPickerContent({
           className="rounded-[inherit] border-0 bg-transparent **:[[cmdk-input-wrapper]]:h-8 **:[[cmdk-input-wrapper]]:px-2.5"
         >
           <CommandInput
-            placeholder={t`Search or create folder`}
+            placeholder={t`Search or create project`}
             value={query}
             onValueChange={setQuery}
             className="h-8 py-0"
@@ -213,9 +221,9 @@ export function FolderPickerContent({
             <CommandEmpty className="text-muted-foreground px-2.5 py-2 text-left text-sm">
               {trimmedQuery
                 ? normalizedQuery === null
-                  ? t`Enter a valid folder name.`
-                  : t`No folders found.`
-                : t`No folders yet.`}
+                  ? t`Enter a valid project name.`
+                  : t`No projects found.`
+                : t`No projects yet.`}
             </CommandEmpty>
             {folders.length > 0 ? (
               <CommandGroup>
@@ -265,7 +273,7 @@ export function FolderPickerContent({
           "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
         ])}
       >
-        {t`See all folders`}
+        {t`See all projects`}
         <CaretRight className="h-3.5 w-3.5" />
       </button>
     </div>

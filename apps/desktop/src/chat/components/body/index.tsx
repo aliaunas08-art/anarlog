@@ -10,6 +10,8 @@ import { ChatBodyNonEmpty } from "./non-empty";
 import { useChatAutoScroll } from "./use-chat-auto-scroll";
 
 import type { ContextRef } from "~/chat/context/entities";
+import type { AskExplicitIntent } from "~/chat/guardrails/classifier";
+import type { AskRedirectAction, AskScope } from "~/chat/guardrails/scope";
 import { chatFloatingControlClassNames } from "~/chat/surface";
 import type { AnlgUIMessage } from "~/chat/types";
 import { useShell } from "~/contexts/shell";
@@ -23,6 +25,8 @@ export function ChatBody({
   hasContext = false,
   isLiveMeeting = false,
   hasSummary = false,
+  askScope,
+  onAskRedirect,
   onSendMessage,
 }: {
   messages: AnlgUIMessage[];
@@ -33,10 +37,13 @@ export function ChatBody({
   hasContext?: boolean;
   isLiveMeeting?: boolean;
   hasSummary?: boolean;
+  askScope?: AskScope;
+  onAskRedirect?: (scope: AskRedirectAction, text: string) => void;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
     contextRefs?: ContextRef[],
+    options?: { askIntent?: AskExplicitIntent },
   ) => void;
 }) {
   const { chat } = useShell();
@@ -89,6 +96,7 @@ export function ChatBody({
               hasContext={hasContext}
               isLiveMeeting={isLiveMeeting}
               hasSummary={hasSummary}
+              askScope={askScope}
               onSendMessage={onSendMessage}
             />
           ) : (
@@ -97,6 +105,7 @@ export function ChatBody({
               status={status}
               error={error}
               onReload={onReload}
+              onAskRedirect={onAskRedirect}
             />
           )}
         </div>

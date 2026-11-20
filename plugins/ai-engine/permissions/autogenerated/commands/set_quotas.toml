@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-quotas"
+description = "Enables the set_quotas command without any pre-configured scope."
+commands.allow = ["set_quotas"]
+
+[[permission]]
+identifier = "deny-set-quotas"
+description = "Denies the set_quotas command without any pre-configured scope."
+commands.deny = ["set_quotas"]

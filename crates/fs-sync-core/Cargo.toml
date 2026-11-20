@@ -8,6 +8,7 @@ default = []
 tauri-event = ["dep:tauri-specta"]
 
 [dependencies]
+anlg-audio-encode = { workspace = true }
 anlg-audio-norm = { workspace = true }
 anlg-audio-utils = { workspace = true }
 anlg-frontmatter = { workspace = true }

@@ -1,10 +1,21 @@
+// User-facing product name. Keep in sync with `productName` in tauri.conf*.json
+// and APP_NAME in src/shared/app-name.ts. A macro so it works inside concat!.
+macro_rules! app_name {
+    () => {
+        "Timbre"
+    };
+}
+
 mod agent_skills;
 mod agents;
 mod appearance;
+mod audit;
 mod commands;
+mod data_protection;
 mod db;
 mod embedded_cli;
 mod ext;
+mod retention;
 mod search_index;
 mod startup;
 mod store;
@@ -155,32 +166,46 @@ pub fn main() {
         }
     };
 
-    let (root_supervisor_ctx, root_supervisor_handle, db, crash_reporting_enabled) = runtime
-        .block_on(async {
-            let (root_supervisor_ctx, root_supervisor_handle) =
-                match supervisor::spawn_root_supervisor().await {
-                    Some((ctx, handle)) => (Some(ctx), Some(handle)),
-                    None => (None, None),
-                };
-
-            let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
-            startup::consolidate_custom_storage(&identifier);
-            let db = match open_desktop_db(&identifier).await {
-                Ok(db) => db,
-                Err(error) => {
-                    startup_indicator.dismiss();
-                    exit_after_startup_failure(&identifier, &error)
-                }
+    let (
+        root_supervisor_ctx,
+        root_supervisor_handle,
+        db,
+        crash_reporting_enabled,
+        access_state,
+        audit,
+    ) = runtime.block_on(async {
+        let (root_supervisor_ctx, root_supervisor_handle) =
+            match supervisor::spawn_root_supervisor().await {
+                Some((ctx, handle)) => (Some(ctx), Some(handle)),
+                None => (None, None),
             };
-            startup_indicator.dismiss();
-            let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
-            (
-                root_supervisor_ctx,
-                root_supervisor_handle,
-                db,
-                crash_reporting_enabled,
-            )
-        });
+
+        let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
+        startup::consolidate_custom_storage(&identifier);
+        let db = match open_desktop_db(&identifier).await {
+            Ok(db) => db,
+            Err(error) => {
+                startup_indicator.dismiss();
+                exit_after_startup_failure(&identifier, &error)
+            }
+        };
+        startup_indicator.dismiss();
+        let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
+        // ASPC A1.3/A4.2: the local Owner's access context and the
+        // Rust-held app lock, built before any window exists.
+        let access_state = tauri_plugin_local_auth::access::bootstrap(&db).await;
+        // ASPC D1: the audit log, next to app.db. A failure is logged and
+        // the app runs without it rather than refusing to start.
+        let audit = audit::open(&identifier).await;
+        (
+            root_supervisor_ctx,
+            root_supervisor_handle,
+            db,
+            crash_reporting_enabled,
+            access_state,
+            audit,
+        )
+    });
 
     let sentry_client = {
         let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
@@ -243,7 +268,11 @@ pub fn main() {
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
         .manage(db.clone())
+        .manage(access_state.clone())
         .manage(crash_reporting_state);
+    if let Some((writer, _)) = &audit {
+        builder = builder.manage(writer.clone());
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -284,23 +313,17 @@ pub fn main() {
         builder = builder.plugin(tauri_plugin_agent::init());
     }
 
-    builder = builder
-        .plugin(tauri_plugin_db::init_with_cloudsync(
-            db.clone(),
-            cloudsync_config,
-        ))
-        .plugin(tauri_plugin_bedrock::init());
+    builder = builder.plugin(tauri_plugin_db::init_with_cloudsync(
+        db.clone(),
+        cloudsync_config,
+    ));
 
     builder = builder
         .plugin(tauri_plugin_importer::init())
+        .plugin(tauri_plugin_accounts::init())
         .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init());
-
-    #[cfg(not(feature = "app-store"))]
-    {
-        builder = builder.plugin(tauri_plugin_hooks::init());
-    }
 
     builder = builder
         .plugin(tauri_plugin_icon::init())
@@ -328,6 +351,10 @@ pub fn main() {
         .plugin(tauri_plugin_messenger::init())
         .plugin(tauri_plugin_misc::init())
         .plugin(tauri_plugin_template::init())
+        .plugin(tauri_plugin_ai_engine::init())
+        .plugin(tauri_plugin_audit::init(
+            audit.as_ref().map(|(_, reader)| reader.clone()),
+        ))
         .plugin(tauri_plugin_session::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_detect::init())
@@ -361,7 +388,6 @@ pub fn main() {
         .plugin(tauri_plugin_transcription::init())
         .plugin(tauri_plugin_tantivy::init())
         .plugin(tauri_plugin_audio_priority::init())
-        .plugin(tauri_plugin_local_llm::init())
         .plugin(tauri_plugin_local_stt::init(
             tauri_plugin_local_stt::InitOptions {
                 parent_supervisor: root_supervisor_ctx
@@ -410,6 +436,13 @@ pub fn main() {
             tauri_plugin_shortcut::initialize_global_shortcuts(&app_handle);
 
             specta_builder.mount_events(&app_handle);
+
+            allow_vault_sessions_in_asset_scope(&app_handle);
+
+            wire_app_lock(&app_handle, &access_state);
+            if let Some((writer, _)) = &audit {
+                audit::wire(&app_handle, &access_state, writer);
+            }
 
             {
                 use tauri_specta::Event;
@@ -492,14 +525,11 @@ pub fn main() {
                 supervisor::monitor_supervisor(handle, ctx.is_exiting.clone(), app_handle.clone());
             }
 
-            {
-                use tauri_plugin_local_llm::LocalLlmPluginExt;
-                if false {
-                    app_handle.local_llm().start_server();
-                }
-            }
-
+            search_index::install_private_session_source(&app_handle, db.clone());
             search_index::spawn(app_handle.clone(), db.clone());
+            retention::spawn(app_handle.clone());
+            // ASPC A4.1 / C2.1: permissions and the FileVault check.
+            data_protection::spawn(app_handle.config().identifier.clone());
 
             #[cfg(not(feature = "app-store"))]
             embedded_cli::spawn_auto_install(app_handle);
@@ -596,6 +626,7 @@ pub fn main() {
             }
         }
         tauri::RunEvent::Exit => {
+            mark_clean_exit(app);
             if let Some(ref ctx) = root_supervisor_ctx_for_run {
                 ctx.mark_exiting();
                 ctx.stop();
@@ -608,8 +639,27 @@ pub fn main() {
     drop(runtime);
 }
 
+/// Clears the "running" flag the frontend sets at launch (see
+/// `apps/desktop/src/shared/unexpected-quit.ts`). Every normal quit path
+/// (Cmd+Q, Quit Completely, logout/shutdown) ends in `RunEvent::Exit`, so a
+/// flag still set on the next launch means the app quit unexpectedly.
+fn mark_clean_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri_plugin_store2::Store2PluginExt;
+
+    match app.store2().scoped_store::<String>("app-lifecycle") {
+        Ok(store) => {
+            if let Err(error) = store.set("running".to_string(), false) {
+                tracing::warn!(%error, "failed to clear running flag on exit");
+            } else if let Err(error) = store.save() {
+                tracing::warn!(%error, "failed to save running flag on exit");
+            }
+        }
+        Err(error) => tracing::warn!(%error, "failed to open lifecycle store on exit"),
+    }
+}
+
 fn startup_failure_message(error: &impl std::fmt::Display) -> String {
-    format!("Anarlog failed to start: {error}")
+    format!("{} failed to start: {error}", app_name!())
 }
 
 fn exit_after_startup_failure(identifier: &str, error: &impl std::fmt::Display) -> ! {
@@ -623,11 +673,33 @@ fn exit_after_startup_failure(identifier: &str, error: &impl std::fmt::Display) 
         // Startup can fail before the database is reachable, so the alert text
         // is fixed per failure class instead of embedding the error.
         let alert = if db::is_transient_lock_error(error) {
-            "display alert \"Anarlog is not ready yet\" message \"Another Anarlog process is still using your data, possibly finishing an update. Your existing data was left unchanged. Please wait a moment and open Anarlog again.\" as critical buttons {\"OK\"} default button \"OK\""
+            concat!(
+                "display alert \"",
+                app_name!(),
+                " is not ready yet\" message \"Another ",
+                app_name!(),
+                " process is still using your data, possibly finishing an update. Your existing data was left unchanged. Please wait a moment and open ",
+                app_name!(),
+                " again.\" as critical buttons {\"OK\"} default button \"OK\""
+            )
         } else if db::is_newer_schema_error(error) {
-            "display alert \"Anarlog needs an update\" message \"Your data was updated by a newer version of Anarlog, such as Anarlog Nightly, and this version cannot open it yet. Your existing data was left unchanged. Install the latest version of Anarlog, or keep using the newer app until this version catches up.\" as critical buttons {\"OK\"} default button \"OK\""
+            concat!(
+                "display alert \"",
+                app_name!(),
+                " needs an update\" message \"Your data was updated by a newer version of ",
+                app_name!(),
+                ", such as ",
+                app_name!(),
+                " Nightly, and this version cannot open it yet. Your existing data was left unchanged. Install the latest version of ",
+                app_name!(),
+                ", or keep using the newer app until this version catches up.\" as critical buttons {\"OK\"} default button \"OK\""
+            )
         } else {
-            "display alert \"Anarlog could not start\" message \"Your existing data was left unchanged. Please restart the app. If the problem continues, contact support.\" as critical buttons {\"OK\"} default button \"OK\""
+            concat!(
+                "display alert \"",
+                app_name!(),
+                " could not start\" message \"Your existing data was left unchanged. Please restart the app. If the problem continues, contact support.\" as critical buttons {\"OK\"} default button \"OK\""
+            )
         };
         let _ = std::process::Command::new("/usr/bin/osascript")
             .args(["-e", alert])
@@ -699,6 +771,91 @@ fn get_onboarding_flag() -> Option<bool> {
         })
 }
 
+/// The asset protocol serves only the app cache (static scope in
+/// `tauri.conf.json`) and the vault's `sessions/` folder (audio, attachments),
+/// added here because the vault location is user-configurable (ASPC A3.2).
+/// Other files in a custom vault (for example an Obsidian vault) stay out.
+fn allow_vault_sessions_in_asset_scope<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Manager;
+    use tauri_plugin_settings::SettingsPluginExt;
+
+    let Ok(base) = app.settings().vault_base() else {
+        tracing::warn!("asset_scope_vault_unavailable");
+        return;
+    };
+    let sessions = base.as_std_path().join("sessions");
+    let scope = app.asset_protocol_scope();
+    let mut targets = vec![sessions.clone()];
+    if let Ok(canonical) = sessions.canonicalize()
+        && canonical != sessions
+    {
+        targets.push(canonical);
+    }
+    for target in targets {
+        if let Err(error) = scope.allow_directory(&target, true) {
+            tracing::warn!(%error, "asset_scope_allow_vault_failed");
+        }
+    }
+}
+
+/// Connects the Rust-held app lock (ASPC A4.2–A4.4) to the webview SQL
+/// authorizer and to the relock triggers: the main window hidden and the Mac
+/// going to sleep. Relocking waits while a recording runs, so capture and its
+/// completion writes are never cut off.
+fn wire_app_lock(app: &tauri::AppHandle<tauri::Wry>, access_state: &Arc<anlg_aspc::AspcState>) {
+    use tauri_plugin_local_auth::AppLockExt;
+    use tauri_specta::Event;
+
+    if let Some(runtime) = app.try_state::<tauri_plugin_db::ManagedState>() {
+        let runtime = runtime.inner().clone();
+        runtime.set_webview_sql_context(access_state.context(None));
+        let identity_runtime = runtime.clone();
+        access_state.on_identity_change(move |context| {
+            identity_runtime.set_webview_sql_context(context.clone());
+        });
+        access_state.on_lock_change(move |snapshot| {
+            runtime.set_webview_sql_locked(!snapshot.unlocked);
+        });
+    } else {
+        tracing::error!("aspc_db_runtime_missing");
+    }
+
+    let busy_handle = app.clone();
+    app.set_relock_busy_check(move || {
+        let app = busy_handle.clone();
+        async move {
+            use tauri_plugin_transcription::{CaptureState, ListenerPluginExt};
+            !matches!(
+                app.listener().get_capture_state().await,
+                CaptureState::Inactive
+            )
+        }
+    });
+
+    let hide_handle = app.clone();
+    tauri_plugin_windows::VisibilityEvent::listen(app, move |event| {
+        if event.payload.window != AppWindow::Main || event.payload.visible {
+            return;
+        }
+        let app = hide_handle.clone();
+        let still_hidden = app.clone();
+        app.request_relock(tauri_plugin_local_auth::RELOCK_GRACE, move || {
+            still_hidden
+                .get_webview_window("main")
+                .is_none_or(|window| !window.is_visible().unwrap_or(false))
+        });
+    });
+
+    let sleep_handle = app.clone();
+    tauri_plugin_detect::on_sleep_state_changed(move |asleep| {
+        if asleep {
+            sleep_handle.request_relock(std::time::Duration::ZERO, || true);
+        }
+    });
+
+    app.start_idle_relock();
+}
+
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .commands(tauri_specta::collect_commands![
@@ -709,6 +866,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_env::<tauri::Wry>,
             commands::show_devtool::<tauri::Wry>,
             commands::is_app_store_build,
+            commands::get_account_full_name::<tauri::Wry>,
             commands::complete_app_exit::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::get_pinned_tabs::<tauri::Wry>,
@@ -716,11 +874,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
             commands::is_crash_reporting_enabled,
-            commands::set_crash_reporting_enabled,
+            commands::set_crash_reporting_enabled::<tauri::Wry>,
             commands::check_embedded_cli::<tauri::Wry>,
             commands::install_embedded_cli::<tauri::Wry>,
             commands::list_skill_agents,
-            commands::install_agent_skill,
+            commands::install_agent_skill::<tauri::Wry>,
+            data_protection::get_data_protection_status,
+            data_protection::get_data_locations::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -748,10 +908,44 @@ mod test {
         assert!(!crash_reporting_consent_from_rows(&[]));
     }
 
+    const CAPABILITIES: &[&str] = &[
+        include_str!("../capabilities/main.json"),
+        include_str!("../capabilities/composer.json"),
+        include_str!("../capabilities/floating-bar.json"),
+        include_str!("../capabilities/live-caption.json"),
+    ];
+
+    #[test]
+    fn capabilities_are_per_window_with_a_host_allowlist() {
+        for raw in CAPABILITIES {
+            let capability: serde_json::Value = serde_json::from_str(raw).unwrap();
+            let windows = capability["windows"].as_array().unwrap();
+            assert!(!windows.iter().any(|window| window == "*"));
+            for permission in capability["permissions"].as_array().unwrap() {
+                let Some(allow) = permission.get("allow").and_then(|a| a.as_array()) else {
+                    continue;
+                };
+                for entry in allow {
+                    let url = entry["url"].as_str().unwrap();
+                    assert!(
+                        !url.contains("**") && !url.contains("*.*.*.*"),
+                        "wildcard http scope: {url}"
+                    );
+                    assert!(
+                        url.starts_with("https://")
+                            || url.starts_with("http://localhost:")
+                            || url.starts_with("http://127.0.0.1:"),
+                        "non-https http scope: {url}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn main_capability_allows_cloudsync_lifecycle_commands() {
         let capability: serde_json::Value =
-            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+            serde_json::from_str(include_str!("../capabilities/main.json")).unwrap();
         let permissions = capability["permissions"].as_array().unwrap();
 
         for expected in [

@@ -22,8 +22,11 @@ export function createCaptureAudioRecovery(options: {
   // Chunks from earlier captures are repaired whole into their own transcript.
   inherited?: (chunk: RecoveryAudioChunk) => boolean;
   now?: () => number;
+  // Paused time is not in the recording; gap bounds follow the audio timeline.
+  pausedMs?: () => number;
 }) {
   const now = options.now ?? Date.now;
+  const pausedMs = options.pausedMs ?? (() => 0);
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<boolean> | undefined;
@@ -41,7 +44,7 @@ export function createCaptureAudioRecovery(options: {
   let batchFromRetainedAudio = false;
   let sawConnectionEvent = false;
 
-  const elapsed = () => Math.max(0, now() - options.startedAt);
+  const elapsed = () => Math.max(0, now() - options.startedAt - pausedMs());
   const collapseGaps = () => {
     if (gaps.length > 128)
       gaps = [{ start: gaps[0]!.start, end: gaps[gaps.length - 1]!.end }];

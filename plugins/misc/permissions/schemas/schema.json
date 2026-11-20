@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the allow_http_origin command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-allow-http-origin",
+          "markdownDescription": "Enables the allow_http_origin command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the allow_http_origin command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-allow-http-origin",
+          "markdownDescription": "Denies the allow_http_origin command without any pre-configured scope."
+        },
+        {
           "description": "Enables the audio_delete command without any pre-configured scope.",
           "type": "string",
           "const": "allow-audio-delete",
@@ -439,10 +451,10 @@
           "markdownDescription": "Denies the reveal_session_in_finder command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-get-device-info`\n- `allow-get-process-memory-bytes`\n- `allow-opinionated-md-to-html`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-get-device-info`\n- `allow-get-process-memory-bytes`\n- `allow-opinionated-md-to-html`\n- `allow-allow-http-origin`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-get-device-info`\n- `allow-get-process-memory-bytes`\n- `allow-opinionated-md-to-html`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-get-device-info`\n- `allow-get-process-memory-bytes`\n- `allow-opinionated-md-to-html`\n- `allow-allow-http-origin`"
         }
       ]
     }

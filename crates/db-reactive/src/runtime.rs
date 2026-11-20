@@ -27,11 +27,26 @@ pub struct LiveQueryRuntime<S> {
 impl<S: QueryEventSink> LiveQueryRuntime<S> {
     pub fn new(db: Arc<Db>) -> Self {
         let change_notifier = db.change_notifier().clone();
-        Self::new_with_notifier(db, change_notifier)
+        let executor = DbExecutor::new(Arc::clone(&db));
+        Self::new_with_notifier(db, change_notifier, executor)
     }
 
-    fn new_with_notifier(db: Arc<Db>, change_notifier: ChangeNotifier) -> Self {
-        let executor = DbExecutor::new(Arc::clone(&db));
+    /// Live queries whose SQL comes from the webview: initial loads, refreshes
+    /// and dependency analysis all run under the webview SQL authorizer.
+    pub fn new_for_webview(
+        db: Arc<Db>,
+        authorizer: Arc<anlg_db_core::WebviewSqlAuthorizer>,
+    ) -> Self {
+        let change_notifier = db.change_notifier().clone();
+        let executor = DbExecutor::for_webview(Arc::clone(&db), authorizer);
+        Self::new_with_notifier(db, change_notifier, executor)
+    }
+
+    fn new_with_notifier(
+        db: Arc<Db>,
+        change_notifier: ChangeNotifier,
+        executor: DbExecutor,
+    ) -> Self {
         let catalog = CatalogStore::default();
         let subscriptions = Registry::default();
         let (shutdown_tx, mut shutdown_rx) = tokio_watch::channel(false);
@@ -141,7 +156,11 @@ impl<S: QueryEventSink> LiveQueryRuntime<S> {
     }
 
     async fn analyze_subscription(&self, sql: &str) -> DependencyAnalysis {
-        match self.catalog.analyze_query(self.db.pool(), sql).await {
+        match self
+            .catalog
+            .analyze_query(self.db.pool(), sql, self.executor.authorizer())
+            .await
+        {
             Ok(targets) => DependencyAnalysis::Reactive { targets },
             Err(error) => DependencyAnalysis::NonReactive {
                 reason: error.to_string(),
@@ -552,6 +571,192 @@ mod tests {
 
         let pool = db.pool().clone();
         (dir, pool, LiveQueryRuntime::new(Arc::new(db)))
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn webview_runtime_never_runs_smuggled_statements() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        anlg_db_migrate::migrate(&db, live_query_test_schema())
+            .await
+            .unwrap();
+        let pool = db.pool().clone();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        let runtime =
+            LiveQueryRuntime::<TestSink>::new_for_webview(Arc::new(db), Arc::clone(&authorizer));
+        let attach = dir.path().join("smuggled.db");
+        let sql = format!(
+            "SELECT id FROM daily_notes; ATTACH DATABASE '{}' AS smuggled",
+            attach.display()
+        );
+        let (sink, _events) = TestSink::capture();
+        let _ = runtime.subscribe(sql, vec![], sink).await;
+
+        let databases: Vec<String> = sqlx::query_scalar("SELECT name FROM pragma_database_list")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert!(!databases.iter().any(|name| name == "smuggled"));
+        assert!(!attach.exists());
+
+        let (sink, events) = TestSink::capture();
+        runtime
+            .subscribe("SELECT id FROM daily_notes".to_string(), vec![], sink)
+            .await
+            .unwrap();
+        assert!(!events.lock().unwrap().is_empty());
+    }
+
+    /// ASPC C1 interim guard: live queries and their table-dependency
+    /// tracking work while one workspace exists, and fail closed (an error
+    /// event, no rows) once another workspace's row appears.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn workspace_guard_keeps_live_queries_working_and_fails_closed() {
+        let _guard = hook_test_lock().lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: false,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+        let mut schema = String::from(
+            "CREATE TABLE app_settings (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
+             INSERT INTO app_settings VALUES
+               ('cloudsync_workspace_binding', '{\"workspace_id\":\"local-ws\"}');",
+        );
+        for table in anlg_db_core::WORKSPACE_SCOPED_TABLES {
+            schema.push_str(&format!(
+                "CREATE TABLE {table} (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL DEFAULT '');"
+            ));
+        }
+        schema.push_str("INSERT INTO sessions VALUES ('s-1', 'local-ws');");
+        sqlx::raw_sql(sqlx::AssertSqlSafe(schema))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let pool = db.pool().clone();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        authorizer.enable_workspace_guard();
+        let runtime =
+            LiveQueryRuntime::<TestSink>::new_for_webview(Arc::new(db), Arc::clone(&authorizer));
+        let (sink, events) = TestSink::capture();
+        runtime
+            .subscribe(
+                "SELECT id FROM sessions ORDER BY id".to_string(),
+                vec![],
+                sink,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            next_event(&events, 0, Duration::from_secs(1)).await,
+            TestEvent::Result(vec![json!({ "id": "s-1" })])
+        );
+
+        // Dependency tracking still refreshes on a local write.
+        sqlx::query("INSERT INTO sessions VALUES ('s-2', 'local-ws')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            next_event(&events, 1, Duration::from_secs(2)).await,
+            TestEvent::Result(vec![json!({ "id": "s-1" }), json!({ "id": "s-2" })])
+        );
+
+        // Another workspace's row: the refresh is denied, never returned.
+        sqlx::query("INSERT INTO sessions VALUES ('s-foreign', 'team-ws')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        match next_event(&events, 2, Duration::from_secs(2)).await {
+            TestEvent::Error(message) => assert!(
+                message.contains("not authorized") || message.contains("prohibited"),
+                "{message}"
+            ),
+            TestEvent::Result(rows) => panic!("rows returned with two workspaces: {rows:?}"),
+        }
+
+        // A new subscription gets an error, never rows.
+        let (sink, events) = TestSink::capture();
+        let _ = runtime
+            .subscribe("SELECT id FROM sessions".to_string(), vec![], sink)
+            .await;
+        assert!(matches!(
+            next_event(&events, 0, Duration::from_secs(1)).await,
+            TestEvent::Error(_)
+        ));
+    }
+
+    /// A live query whose first, partial-census attempt is denied and then
+    /// succeeds after the full census must not report a denial.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn retried_live_queries_report_no_denials() {
+        let _guard = hook_test_lock().lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_enabled: false,
+            journal_mode_wal: true,
+            foreign_keys: false,
+            max_connections: Some(4),
+        })
+        .await
+        .unwrap();
+        let mut schema = String::from(
+            "CREATE TABLE app_settings (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
+             INSERT INTO app_settings VALUES
+               ('cloudsync_workspace_binding', '{\"workspace_id\":\"local-ws\"}');",
+        );
+        for table in anlg_db_core::WORKSPACE_SCOPED_TABLES {
+            schema.push_str(&format!(
+                "CREATE TABLE {table} (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL DEFAULT '');"
+            ));
+        }
+        schema.push_str("INSERT INTO sessions VALUES ('s-1', 'local-ws');");
+        sqlx::raw_sql(sqlx::AssertSqlSafe(schema))
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let authorizer = anlg_db_core::WebviewSqlAuthorizer::new();
+        authorizer.enable_workspace_guard();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let sink_seen = Arc::clone(&seen);
+        authorizer.set_denial_sink(move |denial| sink_seen.lock().unwrap().push(denial));
+        let runtime =
+            LiveQueryRuntime::<TestSink>::new_for_webview(Arc::new(db), Arc::clone(&authorizer));
+        let (sink, events) = TestSink::capture();
+        runtime
+            .subscribe(
+                "SELECT s.id FROM sessions s WHERE NOT EXISTS (SELECT 1 FROM humans h \
+                 WHERE EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(h.id) \
+                 THEN h.id ELSE '[]' END) AS extra WHERE extra.value = s.id))"
+                    .to_string(),
+                vec![],
+                sink,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            next_event(&events, 0, Duration::from_secs(2)).await,
+            TestEvent::Result(vec![json!({ "id": "s-1" })])
+        );
+        let seen = seen.lock().unwrap();
+        assert!(seen.is_empty(), "retried live query reported: {seen:?}");
     }
 
     async fn next_event(

@@ -1,0 +1,23 @@
+[package]
+name = "tauri-plugin-ai-engine"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-ai-engine"
+description = "Tauri commands for the Efficiency Engine (ASPC C7)"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+anlg-ai-engine = { workspace = true, features = ["specta"] }
+anlg-aspc = { workspace = true, features = ["tauri"] }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
+anlg-local-accounts = { workspace = true }
+specta = { workspace = true }
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }

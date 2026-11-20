@@ -2,12 +2,17 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ListSessions<'a> {
+    /// ASPC C1.2: only sessions in this workspace.
+    pub scope: &'a anlg_aspc::WorkspaceScope,
     /// Case-insensitive substring matched against the session title or id.
     pub query: Option<&'a str>,
     /// Exact recurring-series id match.
     pub series_id: Option<&'a str>,
     /// Exact folder path match, including meetings in its subfolders.
     pub folder_path: Option<&'a str>,
+    /// ASPC C6.4: Private meetings are listed only when this is true, for an
+    /// action the user explicitly widened.
+    pub include_private: bool,
     pub limit: u32,
     pub offset: u32,
 }
@@ -50,6 +55,8 @@ pub struct SessionRow {
     pub slug: String,
     pub metadata_json: String,
     pub locked: i64,
+    /// ASPC C6.4 Private flag (not the `locked` reveal lock).
+    pub private: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]

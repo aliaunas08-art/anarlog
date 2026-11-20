@@ -13,6 +13,52 @@ import type { ContextRef } from "~/chat/context/entities";
 
 const draftCache = new DraftCache();
 
+// Prompts queued from outside the chat (e.g. Home suggestion chips). The chat
+// input stays mounted while the floating chat is hidden, so they are pushed
+// into the live editor rather than the draft cache.
+const pendingPrompts = new Map<string, string>();
+const pendingPromptListeners = new Set<() => void>();
+
+/** Queue `text` for the chat input with this draft key (the chat session id). */
+export function queueChatPrompt(draftKey: string, text: string) {
+  pendingPrompts.set(draftKey, text);
+  pendingPromptListeners.forEach((listener) => listener());
+}
+
+/** Applies queued prompts to the editor; keeps any text the user already typed. */
+export function usePendingChatPrompt({
+  draftKey,
+  editorRef,
+}: {
+  draftKey: string;
+  editorRef: React.RefObject<ChatEditorHandle | null>;
+}) {
+  useEffect(() => {
+    const apply = () => {
+      const text = pendingPrompts.get(draftKey);
+      const editor = editorRef.current;
+      if (text === undefined || !editor) return;
+      pendingPrompts.delete(draftKey);
+      const paragraph = {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      };
+      const current = editor.getJSON();
+      const keep = hasTextContent(current) ? (current?.content ?? []) : [];
+      editor.replaceContent(
+        { type: "doc", content: [...keep, paragraph] },
+        "end",
+      );
+      editor.focus();
+    };
+    apply();
+    pendingPromptListeners.add(apply);
+    return () => {
+      pendingPromptListeners.delete(apply);
+    };
+  }, [draftKey, editorRef]);
+}
+
 export function useDraftState({
   draftKey,
   onDraftContentChange,

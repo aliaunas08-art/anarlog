@@ -2,24 +2,32 @@
 
 # Context
 
+<meeting_context>
 {{ macros::session_context_non_opt(s=session) }}
 {{- macros::participants_list(participants=participants) }}
+</meeting_context>
 {% if !pre_meeting_memo.is_empty() %}
 
 # Pre-Meeting Notes
 
+<pre_meeting_notes>
 {{ pre_meeting_memo }}
+</pre_meeting_notes>
 {% endif %}
 {% if !post_meeting_memo.is_empty() %}
 
 # Meeting Notes
 
+<user_notes>
 {{ post_meeting_memo }}
+</user_notes>
 {% endif %}
 
 # Transcript
 
+<transcript>
 {{ macros::transcripts(transcripts=transcripts) }}
+</transcript>
 {% if template.is_some() %}
 
 # Output Template

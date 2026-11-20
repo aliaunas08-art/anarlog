@@ -121,7 +121,7 @@ fn envelope(event: &str, data: serde_json::Value) -> String {
 }
 
 async fn meeting_payload(pool: &SqlitePool, meeting_id: &str) -> Result<serde_json::Value, String> {
-    let export = anlg_agent_access::get_meeting_export(pool, meeting_id.to_string())
+    let export = crate::commands::scoped_meeting_export(pool, meeting_id.to_string())
         .await
         .map_err(|error| error.to_string())?;
     let transcript_text = export
@@ -147,9 +147,7 @@ pub async fn create_endpoint(
         .lock()
         .await;
     let url = url.trim();
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err("url must start with http:// or https://".to_string());
-    }
+    let parsed = parse_webhook_url(url)?;
     if let Some(unknown) = events
         .iter()
         .find(|event| !KNOWN_EVENTS.contains(&event.as_str()))
@@ -169,6 +167,8 @@ pub async fn create_endpoint(
         ));
     }
 
+    resolve_public_addrs(&parsed).await?;
+
     let events_json = serde_json::to_string(events).map_err(|error| error.to_string())?;
     let secret = anlg_db_app::generate_webhook_secret();
     let row = anlg_db_app::insert_webhook_endpoint(
@@ -187,6 +187,23 @@ pub async fn create_endpoint(
     })
 }
 
+/// ASPC C6.4: whether a meeting is marked Private. Fails closed: a meeting
+/// whose flag can't be read counts as Private, so it is not sent anywhere.
+pub(crate) async fn is_private_meeting(pool: &SqlitePool, meeting_id: &str) -> bool {
+    match sqlx::query_scalar::<_, i64>("SELECT private FROM sessions WHERE id = ?")
+        .bind(meeting_id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(flag)) => flag != 0,
+        Ok(None) => false,
+        Err(error) => {
+            tracing::warn!("[local-api] could not read the private flag: {error}");
+            true
+        }
+    }
+}
+
 /// Fans an event out to every active endpoint subscribed to it. Deliveries run
 /// in background tasks; the returned count is the number of endpoints targeted.
 pub async fn dispatch_event(
@@ -194,6 +211,10 @@ pub async fn dispatch_event(
     event: &str,
     meeting_id: &str,
 ) -> Result<usize, String> {
+    // ASPC C6.4: a Private meeting is never sent to a webhook.
+    if is_private_meeting(pool, meeting_id).await {
+        return Ok(0);
+    }
     let fanout_permit = acquire_fanout_slot().await?;
     let mut endpoints = anlg_db_app::list_active_webhook_endpoints(pool)
         .await
@@ -270,7 +291,7 @@ pub async fn send_test(
     let _permit = acquire_test_delivery_slot().await?;
     let body = Bytes::from(envelope(
         EVENT_TEST,
-        serde_json::json!({ "message": "This is a test delivery from Anarlog." }),
+        serde_json::json!({ "message": "This is a test delivery." }),
     ));
     let delivery_id = format!("dlv_{}", uuid::Uuid::new_v4().simple());
     let status = deliver_once(endpoint, EVENT_TEST, &body, &delivery_id).await;
@@ -326,16 +347,123 @@ async fn deliver_with_retry(
     }
 }
 
+/// Webhook URLs must be `https://` and resolve only to public addresses
+/// (ASPC B2.2). There is no user override yet.
+pub(crate) fn parse_webhook_url(url: &str) -> Result<reqwest::Url, String> {
+    let parsed =
+        reqwest::Url::parse(url).map_err(|_| "url must start with https://".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("url must start with https://".to_string());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("url must not contain credentials".to_string());
+    }
+    match parsed.host() {
+        Some(url::Host::Domain(domain))
+            if domain.eq_ignore_ascii_case("localhost")
+                || domain.to_ascii_lowercase().ends_with(".localhost") =>
+        {
+            Err("url must not point at this computer".to_string())
+        }
+        Some(_) => Ok(parsed),
+        None => Err("url must include a host".to_string()),
+    }
+}
+
+fn is_public_ip(ip: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+
+    match ip {
+        IpAddr::V4(v4) => {
+            let [a, b, ..] = v4.octets();
+            !(v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_unspecified()
+                || v4.is_broadcast()
+                || v4.is_multicast()
+                || (a == 192 && b == 0 && v4.octets()[2] == 2)
+                || (a == 198 && b == 51 && v4.octets()[2] == 100)
+                || (a == 203 && b == 0 && v4.octets()[2] == 113)
+                || a == 0
+                || (a == 100 && (64..128).contains(&b))
+                || (a == 192 && b == 0 && v4.octets()[2] == 0)
+                || (a == 198 && (b == 18 || b == 19))
+                || a >= 240)
+        }
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_public_ip(IpAddr::V4(v4));
+            }
+            let first = v6.segments()[0];
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                || (first & 0xfe00) == 0xfc00
+                || (first & 0xffc0) == 0xfe80
+                || (first == 0x2001 && v6.segments()[1] == 0x0db8)
+                || (first == 0x0064 && v6.segments()[1] == 0xff9b))
+        }
+    }
+}
+
+/// Resolves the URL's host and fails unless every address is public, so a
+/// name can't smuggle in loopback, link-local or private ranges.
+pub(crate) async fn resolve_public_addrs(
+    url: &reqwest::Url,
+) -> Result<Vec<std::net::SocketAddr>, String> {
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addrs: Vec<std::net::SocketAddr> = match url.host() {
+        Some(url::Host::Ipv4(ip)) => vec![(ip, port).into()],
+        Some(url::Host::Ipv6(ip)) => vec![(ip, port).into()],
+        Some(url::Host::Domain(domain)) => tokio::net::lookup_host((domain, port))
+            .await
+            .map_err(|error| format!("could not resolve webhook host: {error}"))?
+            .collect(),
+        None => return Err("url must include a host".to_string()),
+    };
+    if addrs.is_empty() {
+        return Err("could not resolve webhook host".to_string());
+    }
+    if let Some(blocked) = addrs.iter().find(|addr| !is_public_ip(addr.ip())) {
+        return Err(format!(
+            "webhook host resolves to a non-public address ({})",
+            blocked.ip()
+        ));
+    }
+    Ok(addrs)
+}
+
 async fn deliver_once(
     endpoint: &anlg_db_app::WebhookEndpointRow,
     event: &str,
     body: &Bytes,
     delivery_id: &str,
 ) -> DeliveryOutcome {
-    let client = match reqwest::Client::builder()
+    // Re-check on every delivery: rows can be written without
+    // `create_endpoint`, and DNS can change after creation. The checked
+    // addresses are pinned so the connection can't be rebound, and redirects
+    // are not followed.
+    let checked = match parse_webhook_url(&endpoint.url) {
+        Ok(url) => resolve_public_addrs(&url).await.map(|addrs| (url, addrs)),
+        Err(error) => Err(error),
+    };
+    let (url, addrs) = match checked {
+        Ok(checked) => checked,
+        Err(error) => {
+            return DeliveryOutcome {
+                delivered: false,
+                status: format!("blocked: {error}"),
+            };
+        }
+    };
+    let mut builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(DELIVERY_TIMEOUT_SECS))
-        .build()
-    {
+        .redirect(reqwest::redirect::Policy::none());
+    if let Some(domain) = url.domain() {
+        builder = builder.resolve_to_addrs(domain, &addrs);
+    }
+    let client = match builder.build() {
         Ok(client) => client,
         Err(error) => {
             return DeliveryOutcome {
@@ -346,7 +474,7 @@ async fn deliver_once(
     };
 
     let response = client
-        .post(&endpoint.url)
+        .post(url)
         .header("content-type", "application/json")
         .header("x-anarlog-event", event)
         .header("x-anarlog-delivery", delivery_id)
@@ -441,6 +569,56 @@ mod tests {
         assert_eq!(targeted, 0);
     }
 
+    /// C6.4: a Private meeting is neither sent to webhooks nor written by
+    /// the Markdown export automation.
+    #[tokio::test]
+    async fn private_meetings_are_not_dispatched_or_auto_exported() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        anlg_db_app::insert_webhook_endpoint(
+            db.pool(),
+            "webhook-1",
+            "https://example.com",
+            "whsec_test",
+            "[]",
+        )
+        .await
+        .unwrap();
+        let dir = std::env::temp_dir().join(format!("anlg-private-export-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (id, value) in [
+            ("automation_markdown_export_enabled", "true".to_string()),
+            (
+                "automation_markdown_export_directory",
+                serde_json::Value::String(dir.display().to_string()).to_string(),
+            ),
+        ] {
+            sqlx::query("INSERT OR REPLACE INTO app_settings (id, value_json) VALUES (?, ?)")
+                .bind(id)
+                .bind(value)
+                .execute(db.pool())
+                .await
+                .unwrap();
+        }
+        sqlx::query(
+            "INSERT INTO sessions (id, title, private, workspace_id)
+             SELECT 'secret', 'Secret meeting', 1,
+               json_extract(value_json, '$.workspace_id')
+             FROM app_settings WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let targeted = dispatch_event(db.pool(), EVENT_MEETING_COMPLETED, "secret")
+            .await
+            .unwrap();
+        assert_eq!(targeted, 0);
+        crate::commands::run_markdown_export_automation(db.pool(), "secret").await;
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[tokio::test]
     async fn endpoint_creation_stops_at_the_fanout_limit() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
@@ -475,6 +653,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn public_addresses_are_allowed() {
+        for ip in ["8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"] {
+            assert!(is_public_ip(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in [
+            "0.0.0.0",
+            "100.100.1.1",
+            "198.18.0.1",
+            "::",
+            "64:ff9b::7f00:1",
+        ] {
+            assert!(!is_public_ip(ip.parse().unwrap()), "{ip}");
+        }
+    }
+
     #[tokio::test]
     async fn endpoint_creation_rejects_bad_urls_and_unknown_events() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
@@ -484,8 +678,28 @@ mod tests {
             create_endpoint(db.pool(), "example.com", &[])
                 .await
                 .unwrap_err(),
-            "url must start with http:// or https://"
+            "url must start with https://"
         );
+        for blocked in [
+            "http://example.com/hook",
+            "https://localhost/hook",
+            "https://127.0.0.1/hook",
+            "https://10.0.0.5/hook",
+            "https://172.16.4.1/hook",
+            "https://192.168.1.10/hook",
+            "https://169.254.169.254/latest/meta-data",
+            "https://100.64.0.1/hook",
+            "https://[::1]/hook",
+            "https://[fe80::1]/hook",
+            "https://[fd00::1]/hook",
+            "https://[::ffff:127.0.0.1]/hook",
+            "https://user:pass@8.8.8.8/hook",
+        ] {
+            assert!(
+                create_endpoint(db.pool(), blocked, &[]).await.is_err(),
+                "{blocked} should be rejected"
+            );
+        }
         assert!(
             create_endpoint(db.pool(), "https://example.com", &["nope".to_string()])
                 .await

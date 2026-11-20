@@ -1224,7 +1224,10 @@ fn validate_attachment_relative_path(source_type: &str, relative_path: &str) -> 
         matches!(
             components.as_slice(),
             [Component::Normal(name)]
-                if matches!(name.to_str(), Some("audio.mp3" | "audio.wav" | "audio.ogg"))
+                if matches!(
+                    name.to_str(),
+                    Some("audio.aac" | "audio.flac" | "audio.mp3" | "audio.wav" | "audio.ogg")
+                )
         )
     } else {
         matches!(

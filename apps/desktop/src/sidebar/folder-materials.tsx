@@ -46,7 +46,7 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           </span>
           <button
             type="button"
-            aria-label={t`Rename folder`}
+            aria-label={t`Rename project`}
             disabled={busy}
             className={cn([
               "text-muted-foreground hover:bg-accent hover:text-foreground flex size-6 items-center justify-center rounded-full",
@@ -59,7 +59,7 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
           </button>
           <button
             type="button"
-            aria-label={t`Delete folder`}
+            aria-label={t`Delete project`}
             disabled={busy}
             className={cn([
               "text-muted-foreground hover:bg-accent hover:text-destructive flex size-6 items-center justify-center rounded-full",
@@ -112,7 +112,7 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
         </div>
         {materials.length === 0 ? (
           <p className="text-muted-foreground/80 pt-1 text-[11px] leading-4">
-            <Trans>Add a syllabus or PDF for this folder</Trans>
+            <Trans>Add a syllabus or PDF for this project</Trans>
           </p>
         ) : (
           <ul className="mt-1 flex max-h-24 flex-col gap-0.5 overflow-y-auto">
@@ -157,7 +157,7 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
       </div>
       <FolderNameDialog
         open={renaming}
-        title={t`Rename folder`}
+        title={t`Rename project`}
         confirmLabel={t`Rename`}
         initialValue={folderPath}
         onOpenChange={setRenaming}
@@ -169,14 +169,14 @@ export function FolderMaterialsPanel({ folderPath }: { folderPath: string }) {
       <DestructiveConfirmationDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title={<Trans>Delete folder</Trans>}
+        title={<Trans>Delete project</Trans>}
         description={
-          <Trans id="Notes stay in All notes. Materials in this folder will be deleted.">
+          <Trans id="Notes stay in All notes. Materials in this project will be deleted.">
             Notes stay in All notes. This folder, its nested folders, and all
             their materials will be deleted.
           </Trans>
         }
-        confirmLabel={<Trans>Delete folder</Trans>}
+        confirmLabel={<Trans>Delete project</Trans>}
         isPending={busy}
         onConfirm={() => {
           void (async () => {

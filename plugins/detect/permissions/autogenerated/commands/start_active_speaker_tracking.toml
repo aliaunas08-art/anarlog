@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-start-active-speaker-tracking"
+description = "Enables the start_active_speaker_tracking command without any pre-configured scope."
+commands.allow = ["start_active_speaker_tracking"]
+
+[[permission]]
+identifier = "deny-start-active-speaker-tracking"
+description = "Denies the start_active_speaker_tracking command without any pre-configured scope."
+commands.deny = ["start_active_speaker_tracking"]

@@ -73,11 +73,15 @@ pub enum ListenerRouting {
 pub struct SourceArgs {
     pub mic_device: Option<String>,
     pub onboarding: bool,
+    pub mic_only: bool,
     pub runtime: Arc<dyn ListenerRuntime>,
     pub audio: Arc<dyn AudioProvider>,
     pub session_id: String,
     pub listener_routing: ListenerRouting,
     pub recorder: Option<ActorRef<RecMsg>>,
+    /// While set, captured frames are dropped before the pipeline: nothing is recorded, sent to
+    /// live transcription or metered. Capture itself keeps running so resume is instant.
+    pub paused: Arc<AtomicBool>,
 }
 
 pub struct SourceState {
@@ -90,8 +94,10 @@ pub struct SourceState {
     /// default input was swapped for a wired one.
     pub(super) active_mic_device: Option<String>,
     pub(super) onboarding: bool,
+    pub(super) mic_only: bool,
     pub(super) capture_mic_isolated: bool,
     pub(super) mic_muted: Arc<AtomicBool>,
+    pub(super) paused: Arc<AtomicBool>,
     pub(super) run_task: Option<tokio::task::JoinHandle<()>>,
     pub(super) stream_cancel_token: Option<CancellationToken>,
     pub(super) capture_frames: Option<tokio::sync::mpsc::Receiver<SourceFrame>>,
@@ -256,10 +262,16 @@ fn capturing_mic_device(st: &SourceState) -> Option<String> {
     }
 }
 
+/// In person (mic-only), the mic hears everyone in the room, so it is never a
+/// personal mic whatever the headphone routing says.
+fn reported_mic_isolated(st: &SourceState) -> bool {
+    !st.mic_only && st.capture_mic_isolated
+}
+
 fn emit_mic_isolation(st: &SourceState) {
     st.runtime.emit_data(crate::SessionDataEvent::MicIsolated {
         session_id: st.session_id.clone(),
-        value: st.capture_mic_isolated,
+        value: reported_mic_isolated(st),
     });
     if let Some(session) =
         ractor::registry::where_is(crate::actors::session_supervisor_name(&st.session_id))
@@ -317,8 +329,10 @@ impl Actor for SourceActor {
                 mic_device,
                 active_mic_device: None,
                 onboarding: args.onboarding,
+                mic_only: args.mic_only,
                 capture_mic_isolated: false,
                 mic_muted: Arc::new(AtomicBool::new(false)),
+                paused: args.paused,
                 run_task: None,
                 stream_cancel_token: None,
                 capture_frames: None,
@@ -372,7 +386,7 @@ impl Actor for SourceActor {
                     }
                 }
                 SourceMsg::GetMicIsolated(reply) => {
-                    let _ = reply.send(st.capture_mic_isolated);
+                    let _ = reply.send(reported_mic_isolated(st));
                 }
                 SourceMsg::GetCaptureHealth(reply) => {
                     let _ = reply.send(st.capture_health);
@@ -522,6 +536,11 @@ impl Actor for SourceActor {
                                 }
                                 st.healthy_since = Some(now);
                             }
+                        }
+                        // Health is tracked above so a long pause is not mistaken for a stalled
+                        // device, but paused audio never reaches the recorder or the listener.
+                        if st.paused.load(Ordering::Acquire) {
+                            continue;
                         }
                         st.pipeline
                             .dispatch_frame(
@@ -776,6 +795,7 @@ mod tests {
             SourceArgs {
                 mic_device: expected.clone(),
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: None,
@@ -784,6 +804,7 @@ mod tests {
                 session_id: "test-session".to_string(),
                 listener_routing: ListenerRouting::Dropped,
                 recorder: None,
+                paused: Default::default(),
             },
         )
         .await
@@ -822,6 +843,7 @@ mod tests {
             SourceArgs {
                 mic_device: None,
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: Some(error_tx),
@@ -838,6 +860,7 @@ mod tests {
                 session_id: "no-frames".into(),
                 listener_routing: ListenerRouting::Dropped,
                 recorder: None,
+                paused: Default::default(),
             },
         )
         .await
@@ -914,6 +937,7 @@ mod tests {
             SourceArgs {
                 mic_device: Some("working mic".into()),
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: None,
@@ -930,6 +954,7 @@ mod tests {
                 session_id: "output-change".into(),
                 listener_routing: ListenerRouting::Dropped,
                 recorder: None,
+                paused: Default::default(),
             },
         )
         .await
@@ -982,6 +1007,7 @@ mod tests {
             SourceArgs {
                 mic_device: None,
                 onboarding: false,
+                mic_only: false,
                 runtime: Arc::new(TestRuntime {
                     progress_tx,
                     error_tx: Some(error_tx),
@@ -990,6 +1016,7 @@ mod tests {
                 session_id: "finite-stream".to_string(),
                 listener_routing: ListenerRouting::Dropped,
                 recorder: None,
+                paused: Default::default(),
             },
         )
         .await
@@ -1035,6 +1062,7 @@ mod tests {
                         capture_started_at: 1,
                         offset_ms: 0,
                         session_id: "partial-audio".into(),
+                        first_audio: None,
                     },
                 )
                 .await
@@ -1060,6 +1088,7 @@ mod tests {
             SourceArgs {
                 mic_device: Some("unavailable mic".into()),
                 onboarding: false,
+                mic_only: false,
                 runtime,
                 audio: Arc::new(TestAudio {
                     capture_tx,
@@ -1073,6 +1102,7 @@ mod tests {
                 session_id: "partial-audio".into(),
                 listener_routing: ListenerRouting::Attached(listener.clone()),
                 recorder: Some(recorder.clone()),
+                paused: Default::default(),
             },
         )
         .await
@@ -1122,7 +1152,8 @@ mod tests {
             .unwrap()
             .unwrap();
         let wav = dir.path().join("decoded.wav");
-        anlg_mp3::decode_to_wav(&dir.path().join("partial-audio/audio.mp3"), &wav).unwrap();
+        anlg_audio_encode::decode_to_wav(&dir.path().join("partial-audio/audio.aac"), &wav)
+            .unwrap();
         let mut reader = hound::WavReader::open(wav).unwrap();
         assert_eq!(reader.spec().channels, 2);
         assert!(reader.duration() >= 16_000);
@@ -1143,6 +1174,70 @@ mod tests {
             .sum::<f64>();
         assert!(speaker_energy > 100.0);
         assert!(mic_energy < speaker_energy * 0.01);
+    }
+
+    #[tokio::test]
+    async fn paused_source_keeps_capturing_but_drops_every_frame() {
+        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+        let (live_tx, mut live_rx) = mpsc::unbounded_channel();
+        let (listener, listener_handle) = Actor::spawn(None, AudioListenerProbe(live_tx), ())
+            .await
+            .unwrap();
+        let (capture_tx, _capture_rx) = mpsc::unbounded_channel();
+        let paused = Arc::new(AtomicBool::new(true));
+        let (source, source_handle) = Actor::spawn(
+            None,
+            SourceActor,
+            SourceArgs {
+                mic_device: Some("unavailable mic".into()),
+                onboarding: false,
+                mic_only: false,
+                runtime: Arc::new(TestRuntime {
+                    progress_tx,
+                    error_tx: None,
+                }),
+                audio: Arc::new(TestAudio {
+                    capture_tx,
+                    default_device_name_calls: AtomicUsize::new(0),
+                    end_immediately: false,
+                    emit_frame: false,
+                    partial_audio: true,
+                    gap_only: false,
+                    output_tx: None,
+                }),
+                session_id: "paused-source".into(),
+                listener_routing: ListenerRouting::Attached(listener.clone()),
+                recorder: None,
+                paused: paused.clone(),
+            },
+        )
+        .await
+        .unwrap();
+
+        // The frame was captured (capture reports ready) ...
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !matches!(
+                progress_rx.recv().await,
+                Some(SessionProgressEvent::AudioReady { .. })
+            ) {}
+        })
+        .await
+        .unwrap();
+        // ... but never forwarded while paused.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(500), live_rx.recv())
+                .await
+                .is_err()
+        );
+        assert!(paused.load(Ordering::Acquire));
+
+        source.stop(None);
+        tokio::time::timeout(Duration::from_secs(3), source_handle)
+            .await
+            .unwrap()
+            .unwrap();
+        listener.stop(None);
+        listener_handle.await.unwrap();
     }
 
     struct AudioListenerProbe(mpsc::UnboundedSender<(bytes::Bytes, bytes::Bytes)>);
@@ -1252,6 +1347,7 @@ mod tests {
                         SourceArgs {
                             mic_device: None,
                             onboarding: false,
+                            mic_only: false,
                             runtime: Arc::new(TestRuntime {
                                 progress_tx,
                                 error_tx: None,
@@ -1260,6 +1356,7 @@ mod tests {
                             session_id: "span-test".to_string(),
                             listener_routing: ListenerRouting::Dropped,
                             recorder: Some(recorder.clone()),
+                            paused: Default::default(),
                         },
                     )
                     .await

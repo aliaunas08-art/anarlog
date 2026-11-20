@@ -2,6 +2,7 @@ mod activity_capture;
 mod chat;
 mod daily_summary;
 mod enhance;
+mod escape;
 mod event_contact;
 mod title;
 mod tool;
@@ -13,6 +14,7 @@ pub use activity_capture::*;
 pub use chat::*;
 pub use daily_summary::*;
 pub use enhance::*;
+pub use escape::*;
 pub use event_contact::*;
 pub use title::*;
 pub use tool::*;
@@ -76,11 +78,11 @@ pub fn render(t: Template) -> Result<String, Error> {
         Template::ActivityCaptureUser(t) => Ok(askama::Template::render(&*t)?),
         Template::DailySummarySystem(t) => Ok(askama::Template::render(&t)?),
         Template::DailySummaryUser(t) => Ok(askama::Template::render(&*t)?),
-        Template::EnhanceUser(t) => Ok(askama::Template::render(&*t)?),
+        Template::EnhanceUser(t) => Ok(askama::Template::render(&t.escaped())?),
         Template::EventContactSystem(t) => Ok(askama::Template::render(&t)?),
         Template::EventContactUser(t) => Ok(askama::Template::render(&t)?),
         Template::TitleSystem(t) => Ok(askama::Template::render(&t)?),
-        Template::TitleUser(t) => Ok(askama::Template::render(&t)?),
+        Template::TitleUser(t) => Ok(askama::Template::render(&t.escaped())?),
         Template::ChatSystem(t) => Ok(askama::Template::render(&t)?),
         Template::ContextBlock(t) => Ok(askama::Template::render(&t)?),
         Template::ToolSearchSessions(t) => Ok(askama::Template::render(&t)?),

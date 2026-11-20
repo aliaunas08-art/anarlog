@@ -232,7 +232,7 @@ impl AppWindow {
 impl WindowImpl for AppWindow {
     fn title(&self) -> String {
         match self {
-            Self::Main => "Anarlog".into(),
+            Self::Main => "Notes".into(),
             Self::Composer => "Composer".into(),
             Self::Note(_) => "Note".into(),
         }
@@ -279,6 +279,15 @@ impl WindowImpl for AppWindow {
                 builder.build()?
             }
         };
+
+        // Zoom (green button, double-click on a drag region) animates with the
+        // page laying out live instead of a stale snapshot pinned to a corner.
+        // Installed once on tao's shared delegate class, so it covers every
+        // zoomable tao window from then on.
+        #[cfg(target_os = "macos")]
+        if matches!(self, Self::Main | Self::Note(_)) {
+            crate::zoom_animation::install();
+        }
 
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         window.set_decorations(!matches!(self, Self::Main))?;

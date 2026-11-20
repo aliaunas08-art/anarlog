@@ -194,6 +194,19 @@ async fn claim_cloudsync_workspace_in_transaction(
         .await?;
     }
 
+    // ASPC C1: content tables outside the E2EE domain follow the same move,
+    // so no local row is left in the pre-claim workspace.
+    for table_name in crate::NON_E2EE_CONTENT_TABLES {
+        claim_workspace_rows_in_batches(
+            transaction,
+            table_name,
+            &binding.workspace_id,
+            account_user_id,
+            is_cancelled,
+        )
+        .await?;
+    }
+
     rekey_local_user_identity(
         transaction,
         &binding.workspace_id,

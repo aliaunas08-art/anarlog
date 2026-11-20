@@ -4,6 +4,7 @@ import Foundation
 final class FloatingBarViewModel: ObservableObject {
   @Published var dictation: FloatingDictationPayload?
   @Published var amplitude: Double = 0
+  @Published var elapsedSeconds: Double?
   @Published var status: FloatingBarStatus = .recording
   @Published var colorScheme: FloatingBarColorScheme = .dark
   @Published var isExpanded: Bool = false

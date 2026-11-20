@@ -1,7 +1,7 @@
 import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDb, events, max, templates } from "./index";
+import { createDb, events, max, sessions, templates } from "./index";
 
 describe("@anlg/db createDb", () => {
   const executeProxy = vi.fn();
@@ -159,5 +159,33 @@ describe("@anlg/db createDb", () => {
 
     await expect(db.select().from(templates)).rejects.toThrow(/Failed query:/);
     errorSpy.mockRestore();
+  });
+
+  it("fills workspace and owner ids from the local identity, never '' (ASPC C1.1)", async () => {
+    executeProxy.mockResolvedValue({ rows: [] });
+
+    await db.insert(sessions).values({ id: "session-1", title: "Planning" });
+
+    const [query, params] = executeProxy.mock.calls[0];
+    expect(query).toContain('"workspace_id"');
+    expect(query).toContain('"owner_user_id"');
+    expect(query).toContain("cloudsync_workspace_binding");
+    expect(query).toContain("local_library_connections");
+    // id and title are the only bound values ahead of the other defaults.
+    expect(params.slice(0, 2)).toEqual(["session-1", "Planning"]);
+  });
+
+  it("keeps an explicit workspace id", async () => {
+    executeProxy.mockResolvedValue({ rows: [] });
+
+    await db.insert(sessions).values({
+      id: "session-2",
+      workspaceId: "workspace-1",
+      ownerUserId: "owner-1",
+    });
+
+    const [query, params] = executeProxy.mock.calls[0];
+    expect(query).not.toContain("cloudsync_workspace_binding");
+    expect(params).toEqual(expect.arrayContaining(["workspace-1", "owner-1"]));
   });
 });

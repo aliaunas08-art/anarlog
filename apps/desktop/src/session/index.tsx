@@ -3,10 +3,12 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import React, { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { commands as auditCommands } from "@anlg/plugin-audit";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { computeCurrentNoteTab } from "@anlg/utils/session";
 
-import { FloatingActionButton } from "./components/floating";
+import { EditorialHeader } from "./components/editorial-header";
+import { SessionBottomBar } from "./components/floating";
 import { NoteConflictBanner } from "./components/note-conflict-banner";
 import {
   NoteInput,
@@ -20,10 +22,13 @@ import {
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { PendingProposalsBanner } from "./components/pending-proposals-banner";
+import { SessionActionCapsules } from "./components/session-actions";
 import { SessionSurface } from "./components/session-surface";
 import { getCanShowTranscript, useHasTranscript } from "./components/shared";
+import type { TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useEnhancedNotes } from "./hooks/useEnhancedNotes";
+import { useSessionBookmark } from "./hooks/useSessionBookmark";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 import { getSessionEvent } from "./utils";
 
@@ -72,6 +77,13 @@ function LockedNoteGate({
   const revealed = useAppLock((state) =>
     Boolean(state.revealedNoteIds[tab.id]),
   );
+  const visible = Boolean(session) && (!locked || revealed);
+  // ASPC D1.4 "meeting viewed": once the content is on screen. Rust
+  // debounces repeats per meeting.
+  useEffect(() => {
+    if (!visible) return;
+    void auditCommands.recordMeetingView(tab.id).catch(() => undefined);
+  }, [visible, tab.id]);
   const authenticating = useAppLock((state) => state.authenticating);
   const lockOverlay =
     session && locked && !revealed ? (
@@ -157,6 +169,8 @@ function TabContentNoteInner({
   lockOverlay: React.ReactNode;
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
+  const titleInputRef = React.useRef<TitleInputHandle>(null);
+  const handleBookmark = useSessionBookmark(tab.id, noteInputRef);
 
   const sessionId = tab.id;
   const [editingTranscriptSessionId, setEditingTranscriptSessionId] =
@@ -185,7 +199,7 @@ function TabContentNoteInner({
   const sessionEvent = session ? getSessionEvent(session) : null;
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
 
-  const { skipReason } = useAutoEnhance(tab);
+  useAutoEnhance(tab);
   const isTranscribing = shouldShowTranscriptTabSpinner(sessionMode);
   const isLiveSessionActive = sessionMode === "active";
   const sharedNoteIds = useSessionSharedNoteIds(sessionId);
@@ -237,6 +251,17 @@ function TabContentNoteInner({
     },
     [tab, updateSessionTabState],
   );
+  // The title is set far larger than the body, so caret x-positions don't map
+  // between them; moving across lands at the title's end or the note's start.
+  const handleNavigateToTitle = React.useCallback(() => {
+    titleInputRef.current?.focusAtEnd();
+  }, []);
+  const handleFocusEditorAtStart = React.useCallback(() => {
+    noteInputRef.current?.focusAtStart();
+  }, []);
+  const handleTransferTitleToEditor = React.useCallback((content: string) => {
+    noteInputRef.current?.insertAtStartAndFocus(content);
+  }, []);
   const handleTranscriptEditModeChange = React.useCallback(
     (editMode: boolean) => {
       if (!editMode) {
@@ -271,8 +296,15 @@ function TabContentNoteInner({
             <OuterHeader
               sessionId={sessionId}
               currentView={currentView}
-              tab={tab}
               standaloneWindow={standaloneWindow}
+            />
+          )
+        }
+        floatingButton={
+          lockOverlay ? undefined : (
+            <SessionBottomBar
+              tab={tab}
+              onBookmark={standaloneWindow ? undefined : handleBookmark}
               viewSwitcher={
                 editorTabs.length > 1 ? (
                   <SessionViewSwitcher
@@ -283,20 +315,10 @@ function TabContentNoteInner({
                     isTranscribing={isTranscribing}
                     transcriptEditMode={transcriptEditMode}
                     onTranscriptEditModeChange={handleTranscriptEditModeChange}
+                    variant="glass"
                   />
                 ) : null
               }
-            />
-          )
-        }
-        floatingButton={
-          lockOverlay ? undefined : (
-            <FloatingActionButton
-              allowListening={!standaloneWindow}
-              audioExists={audioExists}
-              currentView={currentView}
-              skipReason={skipReason}
-              tab={tab}
             />
           )
         }
@@ -333,6 +355,41 @@ function TabContentNoteInner({
                 sessionMode={sessionMode}
                 transcriptEditMode={transcriptEditMode}
                 onTranscriptEditModeChange={handleTranscriptEditModeChange}
+                onNavigateToTitle={
+                  currentView.type === "raw" ? handleNavigateToTitle : undefined
+                }
+                renderLeadingContent={(view) => (
+                  <EditorialHeader
+                    key={tab.id}
+                    ref={titleInputRef}
+                    tab={tab}
+                    // Summary and shared views carry the title as their own
+                    // first-line heading; Transcript has no leading content.
+                    showTitle={view.type === "raw"}
+                    meta={
+                      view.type === "raw"
+                        ? "inline"
+                        : view.type === "enhanced"
+                          ? "editor-title"
+                          : "none"
+                    }
+                    onFocusEditorAtStart={handleFocusEditorAtStart}
+                    onTransferContentToEditor={handleTransferTitleToEditor}
+                  />
+                )}
+                renderTrailingContent={(view) =>
+                  view.type === "enhanced" ? (
+                    <SessionActionCapsules
+                      sessionId={sessionId}
+                      enhancedNoteId={view.id}
+                      onOpenTranscript={
+                        editorTabs.some((tab) => tab.type === "transcript")
+                          ? () => handleTabChange({ type: "transcript" })
+                          : undefined
+                      }
+                    />
+                  ) : null
+                }
                 hideHeader
               />
             ) : (

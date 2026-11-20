@@ -21,6 +21,13 @@ const ISOLATED_MIC_CONFIRMATION_SOURCE: &str = "isolated_mic_capture";
 // Below a manual assignment: someone else could still lean into the laptop mic.
 const ISOLATED_MIC_LABEL_CONFIDENCE: f64 = 0.9;
 const MIC_ISOLATION_STORE_SCOPE: &str = "transcription.mic_isolation";
+/// Voiceprints of other participants, cross-meeting recognition of others,
+/// and implicit self-prints from headphone sessions are switched off: the
+/// only voiceprint is the one the user enrolls explicitly
+/// (`crate::voice_enrollment`). The code paths stay for existing data, but
+/// every entry point returns before extracting, promoting or matching.
+/// Existing candidate/exemplar rows and keychain secrets are left untouched.
+const NON_USER_VOICEPRINTS_ENABLED: bool = false;
 
 #[derive(Debug, serde::Deserialize)]
 struct StoredWord {
@@ -50,10 +57,21 @@ struct StoredHint {
 #[specta::specta]
 pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
     transcript_id: String,
     audio_path: String,
 ) -> Result<u32, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
+    if !NON_USER_VOICEPRINTS_ENABLED {
+        return Ok(0);
+    }
     let pool = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.pool().clone())
@@ -239,11 +257,22 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     transcript_id: String,
     speaker_channel: i32,
     speaker_index: Option<i32>,
     human_id: String,
 ) -> Result<u32, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
+    if !NON_USER_VOICEPRINTS_ENABLED {
+        return Ok(0);
+    }
     let pool = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.pool().clone())
@@ -419,6 +448,9 @@ async fn confirm_isolated_mic_candidates<R: tauri::Runtime>(
     workspace_id: &str,
     embeddings: &[SpanEmbedding],
 ) -> u32 {
+    if !NON_USER_VOICEPRINTS_ENABLED {
+        return 0;
+    }
     let speakers = direct_mic_speakers(embeddings);
     if speakers.is_empty() {
         return 0;
@@ -540,79 +572,20 @@ pub(crate) async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
     Ok(())
 }
 
-/// Confirmed voiceprints of the session's participants, for the on-device
-/// diarizer. Best effort: any storage problem yields an empty list rather than
-/// blocking transcription.
+/// Voiceprints the on-device diarizer may use for this session: only the
+/// user's explicitly enrolled voiceprint, named as the session owner, or
+/// nothing. Other participants' exemplars are never loaded.
 pub(crate) async fn known_speakers_for_session<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     session_id: &str,
 ) -> Vec<anlg_transcription_core::listener2::KnownSpeaker> {
-    let Some(pool) = app
-        .try_state::<tauri_plugin_db::ManagedState>()
-        .map(|state| state.pool().clone())
-    else {
-        return Vec::new();
-    };
-    let participants = match anlg_db_app::list_session_participants(&pool, session_id).await {
-        Ok(participants) => participants,
-        Err(error) => {
-            tracing::warn!(%error, "known_speakers_participants_failed");
-            return Vec::new();
-        }
-    };
-
-    let mut known = Vec::new();
-    let mut seen_humans = HashSet::new();
-    for participant in participants {
-        if participant.human_id.is_empty() || !seen_humans.insert(participant.human_id.clone()) {
-            continue;
-        }
-        let exemplars = match anlg_db_app::list_active_voiceprint_exemplars_for_human(
-            &pool,
-            &participant.workspace_id,
-            &participant.human_id,
-        )
-        .await
-        {
-            Ok(exemplars) => exemplars,
-            Err(error) => {
-                tracing::warn!(%error, "known_speakers_exemplars_failed");
-                continue;
-            }
-        };
-        for exemplar in exemplars {
-            if exemplar.model_provider != MODEL_PROVIDER || exemplar.model_version != MODEL_VERSION
-            {
-                continue;
-            }
-            let Ok(Some(secret_value)) = tauri_plugin_store2::read_secret(
-                app.clone(),
-                exemplar.keyring_scope.clone(),
-                exemplar.keyring_key.clone(),
-            )
-            .await
-            else {
-                continue;
-            };
-            let Some(embedding) = decode_embedding(&secret_value) else {
-                continue;
-            };
-            known.push(anlg_transcription_core::listener2::KnownSpeaker {
-                id: exemplar.human_id,
-                embedding,
-            });
-        }
+    match crate::voice_enrollment::self_voiceprint_for_session(app, session_id).await {
+        Some(print) => vec![anlg_transcription_core::listener2::KnownSpeaker {
+            id: print.human_id,
+            embedding: print.embedding,
+        }],
+        None => Vec::new(),
     }
-
-    if !known.is_empty() {
-        tracing::info!(
-            session_id,
-            exemplars = known.len(),
-            humans = seen_humans.len(),
-            "known_speakers_loaded"
-        );
-    }
-    known
 }
 
 async fn delete_secret<R: tauri::Runtime>(app: &tauri::AppHandle<R>, scope: String, key: String) {
@@ -834,7 +807,7 @@ fn speaker_label(span: &SelectedSpan) -> String {
     }
 }
 
-fn encode_embedding(embedding: &[f32]) -> String {
+pub(crate) fn encode_embedding(embedding: &[f32]) -> String {
     let mut bytes = Vec::with_capacity(embedding.len() * 4);
     for value in embedding {
         bytes.extend_from_slice(&value.to_le_bytes());
@@ -842,7 +815,7 @@ fn encode_embedding(embedding: &[f32]) -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
-fn decode_embedding(encoded: &str) -> Option<Vec<f32>> {
+pub(crate) fn decode_embedding(encoded: &str) -> Option<Vec<f32>> {
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .ok()?;
@@ -926,7 +899,13 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
     .await
     .map_err(|error| error.to_string())?;
 
-    let participants = anlg_db_app::list_session_participants(pool, session_id)
+    let Some(scope) = anlg_db_app::local_workspace_scope(pool)
+        .await
+        .map_err(|error| error.to_string())?
+    else {
+        return Ok(());
+    };
+    let participants = anlg_db_app::list_session_participants(pool, &scope, session_id)
         .await
         .map_err(|error| error.to_string())?;
     let remote_human_ids = remote_participant_human_ids(

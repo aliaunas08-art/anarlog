@@ -10,6 +10,7 @@ import { commands as templateCommands } from "@anlg/plugin-template";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 import type { EnhanceImageContext } from "./enhance-images";
+import { rememberGeneratedTitle, withTitleLine } from "./enhance-title";
 import { createEnhanceValidator } from "./enhance-validator";
 import { appendPreferredNamesGuidance } from "./preferred-names";
 
@@ -21,7 +22,10 @@ import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
 
-const AI_GENERATION_MAX_RETRIES = 4;
+// One call per meeting (ASPC C7.5): no SDK retries and no validation
+// retries. A failed or paused call is reported once; the user can retry.
+const AI_GENERATION_MAX_RETRIES = 0;
+const VALIDATION_ATTEMPTS = 1;
 const ANTHROPIC_SUMMARY_MAX_OUTPUT_TOKENS = 64_000;
 const IMAGE_CONTEXT_NOTE =
   "Attached note images are included as visual context. Use visible text, diagrams, screenshots, and other image content when it materially improves the summary.";
@@ -176,7 +180,10 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
         maxRetries: AI_GENERATION_MAX_RETRIES,
         maxOutputTokens: getSummaryMaxOutputTokens(model),
       });
-      return withCleanup(result.fullStream, () => {
+      const stream = withTitleLine(result.fullStream, (title) =>
+        rememberGeneratedTitle(args, title),
+      );
+      return withCleanup(stream, () => {
         signal.removeEventListener("abort", abortFromOuter);
         retrySignal.removeEventListener("abort", abortFromRetry);
       });
@@ -185,7 +192,7 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
     {
       minChar: 10,
       maxChar: 30,
-      maxRetries: 2,
+      maxRetries: VALIDATION_ATTEMPTS,
       onRetry: (attempt, feedback) => {
         onProgress({ type: "retrying", attempt, reason: feedback });
       },

@@ -13,7 +13,7 @@ const {
   listenCaptureStatusMock,
   listMicUsingApplicationsMock,
   prepareSessionPeaksMock,
-  runEventHooksMock,
+  setCapturePausedMock,
   setRecordingIndicatorMock,
   startCaptureMock,
   stopCaptureMock,
@@ -29,7 +29,7 @@ const {
   listenCaptureStatusMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   prepareSessionPeaksMock: vi.fn(),
-  runEventHooksMock: vi.fn(),
+  setCapturePausedMock: vi.fn(),
   setRecordingIndicatorMock: vi.fn(),
   startCaptureMock: vi.fn(),
   stopCaptureMock: vi.fn(),
@@ -57,12 +57,6 @@ vi.mock("@anlg/plugin-detect", () => ({
   },
 }));
 
-vi.mock("@anlg/plugin-hooks", () => ({
-  commands: {
-    runEventHooks: runEventHooksMock,
-  },
-}));
-
 vi.mock("@anlg/plugin-icon", () => ({
   commands: {
     setRecordingIndicator: setRecordingIndicatorMock,
@@ -86,6 +80,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
     acknowledgeStoppedCapture: acknowledgeStoppedCaptureMock,
     getCaptureSnapshot: getCaptureSnapshotMock,
     setMicMuted: vi.fn(),
+    setCapturePaused: setCapturePausedMock,
     startCapture: startCaptureMock,
     startTranscription: vi.fn(),
     stopCapture: stopCaptureMock,
@@ -112,6 +107,7 @@ vi.mock("~/cloud-api/client", () => ({
 import { createListenerStore } from ".";
 import {
   getLiveCaptureUiMode,
+  getLivePausedMs,
   markLiveActive,
   markLiveInactive,
   markLiveStartRequested,
@@ -145,7 +141,6 @@ describe("General Listener Slice", () => {
     listenCaptureLifecycleMock.mockResolvedValue(() => {});
     listenCaptureStatusMock.mockResolvedValue(() => {});
     listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
-    runEventHooksMock.mockResolvedValue({ status: "ok", data: null });
     setRecordingIndicatorMock.mockResolvedValue({ status: "ok", data: null });
     startCaptureMock.mockResolvedValue({ status: "ok", data: null });
     stopCaptureMock.mockResolvedValue({ status: "ok", data: null });
@@ -1287,6 +1282,196 @@ describe("General Listener Slice", () => {
         clearInterval(store.getState().live.intervalId);
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe("Pause", () => {
+    test("attachLiveSession restores the paused state and freezes the timer at the audio length", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:20:00Z"));
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+          startedAtMs: new Date("2026-01-01T00:00:00Z").getTime(),
+          paused: true,
+          pausedMs: 5 * 60 * 1000 + 400,
+        },
+      });
+
+      try {
+        await store.getState().attachLiveSession("session-a");
+
+        expect(store.getState().live.paused).toBe(true);
+        expect(store.getState().live.seconds).toBe(15 * 60);
+
+        vi.advanceTimersByTime(3_000);
+        expect(store.getState().live.seconds).toBe(15 * 60);
+      } finally {
+        clearInterval(store.getState().live.intervalId);
+        vi.useRealTimers();
+      }
+    });
+
+    test("setPaused pauses the active capture natively", async () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "active";
+          draft.live.sessionId = "session-a";
+        }),
+      );
+      setCapturePausedMock.mockResolvedValueOnce({ status: "ok", data: true });
+
+      await expect(store.getState().setPaused(true)).resolves.toBe(true);
+
+      expect(setCapturePausedMock).toHaveBeenCalledWith("session-a", true);
+      expect(store.getState().live.paused).toBe(true);
+    });
+
+    test("setPaused reverts when the native pause fails", async () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "active";
+          draft.live.sessionId = "session-a";
+        }),
+      );
+      setCapturePausedMock.mockResolvedValueOnce({
+        status: "error",
+        error: "no active session",
+      });
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      await expect(store.getState().setPaused(true)).resolves.toBe(false);
+
+      expect(store.getState().live.paused).toBe(false);
+      consoleError.mockRestore();
+    });
+
+    test("reattaching keeps the known pause when the snapshot has no pause state", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:20:00Z"));
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          liveTranscriptionActive: true,
+          requestedLiveTranscription: true,
+          state: "active",
+          startedAtMs: new Date("2026-01-01T00:00:00Z").getTime(),
+          paused: true,
+          pausedMs: 5 * 60 * 1000,
+        },
+      });
+      getCaptureSnapshotMock.mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          activeSessionId: "session-a",
+          finalizingSessionIds: [],
+          state: "active",
+        },
+      });
+
+      try {
+        await store.getState().attachLiveSession("session-a");
+        vi.advanceTimersByTime(60_000);
+        // A second consumer attaching re-reads the snapshot.
+        await store
+          .getState()
+          .attachLiveSession("session-a", { handlePersist: vi.fn() });
+        expect(getCaptureSnapshotMock).toHaveBeenCalledTimes(2);
+
+        const live = store.getState().live;
+        expect(live.paused).toBe(true);
+        expect(live.seconds).toBe(15 * 60);
+      } finally {
+        clearInterval(store.getState().live.intervalId);
+        vi.useRealTimers();
+      }
+    });
+
+    test("a late reply to an earlier toggle does not undo a later one", async () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "active";
+          draft.live.sessionId = "session-a";
+        }),
+      );
+      let resolvePause!: (value: unknown) => void;
+      setCapturePausedMock
+        .mockReturnValueOnce(new Promise((resolve) => (resolvePause = resolve)))
+        .mockResolvedValueOnce({ status: "ok", data: false });
+
+      const pause = store.getState().setPaused(true);
+      const resume = store.getState().setPaused(false);
+      await resume;
+      resolvePause({ status: "ok", data: true });
+      await pause;
+
+      expect(store.getState().live.paused).toBe(false);
+      expect(setCapturePausedMock).toHaveBeenNthCalledWith(
+        1,
+        "session-a",
+        true,
+      );
+      expect(setCapturePausedMock).toHaveBeenNthCalledWith(
+        2,
+        "session-a",
+        false,
+      );
+    });
+
+    test("a timed-out pause request keeps the requested state until the native event", async () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "active";
+          draft.live.sessionId = "session-a";
+        }),
+      );
+      setCapturePausedMock.mockResolvedValueOnce({
+        status: "error",
+        error: "capture pause request timed out",
+      });
+
+      await expect(store.getState().setPaused(true)).resolves.toBe(true);
+      expect(store.getState().live.paused).toBe(true);
+    });
+
+    test("tracks paused time across pause and resume", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "active";
+          draft.live.sessionId = "session-a";
+        }),
+      );
+      setCapturePausedMock
+        .mockResolvedValueOnce({ status: "ok", data: true })
+        .mockResolvedValueOnce({ status: "ok", data: false });
+
+      try {
+        await store.getState().setPaused(true);
+        vi.advanceTimersByTime(30_000);
+        await store.getState().setPaused(false);
+
+        expect(
+          getLivePausedMs(store.getState().live, Date.now() + 10_000),
+        ).toBe(30_000);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("setPaused does nothing without an active capture", async () => {
+      await expect(store.getState().setPaused(true)).resolves.toBe(false);
+      expect(setCapturePausedMock).not.toHaveBeenCalled();
     });
   });
 
@@ -2450,10 +2635,9 @@ describe("General Listener Slice", () => {
       const consoleError = vi
         .spyOn(console, "error")
         .mockImplementation(() => {});
-      vaultBaseMock.mockResolvedValueOnce({
-        status: "error",
-        error: "storage unavailable",
-      });
+      listMicUsingApplicationsMock.mockRejectedValueOnce(
+        new Error("detector unavailable"),
+      );
 
       await expect(
         store.getState().start({
@@ -2468,7 +2652,7 @@ describe("General Listener Slice", () => {
       ).resolves.toBe(false);
 
       expect(startCaptureMock).not.toHaveBeenCalled();
-      expect(store.getState().live.lastError).toBe("storage unavailable");
+      expect(store.getState().live.lastError).toBe("detector unavailable");
       expect(store.getState().live.lastErrorSessionId).toBe("session-a");
       expect(store.getState().live.lastErrorIsAudioRelated).toBe(false);
       consoleError.mockRestore();

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   downloadDir: vi.fn(),
   join: vi.fn(),
   writeTextFile: vi.fn(),
+  pickSavePath: vi.fn(),
   revealItemInDir: vi.fn(),
   readClipboard: vi.fn(),
   writeClipboard: vi.fn(),
@@ -33,7 +34,10 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 vi.mock("@anlg/plugin-fs2", () => ({
-  commands: { writeTextFile: mocks.writeTextFile },
+  commands: {
+    writeTextFile: mocks.writeTextFile,
+    pickSavePath: mocks.pickSavePath,
+  },
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
@@ -70,6 +74,10 @@ describe("E2eeSetupDialog", () => {
       Promise.resolve(parts.join("/")),
     );
     mocks.writeTextFile.mockResolvedValue({ status: "ok", data: null });
+    mocks.pickSavePath.mockImplementation(async (defaultPath: string) => ({
+      status: "ok",
+      data: defaultPath,
+    }));
     mocks.revealItemInDir.mockResolvedValue({ status: "ok", data: null });
     mocks.readClipboard.mockResolvedValue("");
     mocks.writeClipboard.mockResolvedValue(undefined);

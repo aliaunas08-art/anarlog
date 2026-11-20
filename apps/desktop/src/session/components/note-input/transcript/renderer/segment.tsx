@@ -119,7 +119,8 @@ export const SegmentRenderer = memo(
         data-transcript-offset-ms={offsetMs}
         data-transcript-selected={selected ? "true" : undefined}
         className={cn([
-          "rounded-lg px-2 transition-colors",
+          // -mx-2 keeps the text on the column edge, aligned with the title.
+          "-mx-2 rounded-lg px-2 transition-colors",
           selectMode ? "cursor-pointer" : null,
           "data-[transcript-selected=true]:bg-primary/10 data-[transcript-selected=true]:ring-primary/30 data-[transcript-selected=true]:ring-1 data-[transcript-selected=true]:ring-inset",
         ])}
@@ -130,6 +131,7 @@ export const SegmentRenderer = memo(
           sessionId={sessionId}
           label={speakerLabel}
           selected={selected}
+          audioOffsetMs={offsetMs}
         />
 
         {editMode ? (
@@ -142,7 +144,7 @@ export const SegmentRenderer = memo(
           <div
             data-transcript-segment-content
             className={cn([
-              "overflow-wrap-anywhere mt-1.5 text-sm leading-relaxed wrap-break-word",
+              "overflow-wrap-anywhere mt-1 text-[15px] leading-[1.5] wrap-break-word text-[var(--cf-label)]",
               selectMode ? "select-none" : "select-text-deep",
             ])}
           >
@@ -324,7 +326,7 @@ const EditableSegmentText = memo(function EditableSegmentText({
         suppressContentEditableWarning
         spellCheck
         className={cn([
-          "overflow-wrap-anywhere mt-1.5 rounded-md text-sm leading-relaxed wrap-break-word outline-hidden",
+          "overflow-wrap-anywhere mt-1 rounded-md text-[15px] leading-[1.5] wrap-break-word outline-hidden",
           "select-text-deep",
         ])}
         onBlur={handleBlur}

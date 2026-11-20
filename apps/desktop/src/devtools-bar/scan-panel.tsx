@@ -65,7 +65,7 @@ export function ScanPanel({
       data-devbar=""
       data-testid="react-scan-panel"
       aria-label="React Scan performance"
-      className="border-border bg-background text-foreground flex min-h-0 flex-col overflow-hidden rounded-[22px] border font-mono text-[11px] leading-snug shadow-xl"
+      className="border-border bg-background text-foreground font-code flex min-h-0 flex-col overflow-hidden rounded-[22px] border text-[11px] leading-snug shadow-xl"
     >
       <div className="flex min-h-0 flex-1">
         <aside

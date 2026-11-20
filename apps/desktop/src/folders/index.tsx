@@ -23,7 +23,7 @@ export function FoldersMain() {
   if (!activeFolder) {
     return (
       <p className="text-muted-foreground flex h-full items-center justify-center px-6 text-sm">
-        <Trans>No folders yet. Create one to group notes and materials.</Trans>
+        <Trans>No projects yet. Create one to group notes and materials.</Trans>
       </p>
     );
   }

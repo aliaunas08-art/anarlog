@@ -3,12 +3,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
+  countTimelineSessionsByDay,
   deriveTimelineWindowData,
+  filterTimelineSessionsByDay,
   filterTimelineTablesByFolder,
   filterTimelineTablesUpToTomorrow,
   getBucketInfo,
   hasTimelineItemsAfterTomorrow,
   isTimelineItemInFuture,
+  toTimelineDayKey,
   type TimelineEventsTable,
   type TimelineSessionsTable,
 } from ".";
@@ -744,7 +747,7 @@ describe("timeline utils", () => {
     expect(buckets.map((bucket) => bucket.label)).toEqual([
       "CS 101",
       "work",
-      "No folder",
+      "No project",
     ]);
     expect(buckets[0]?.items.map((item) => item.id)).toEqual(["session-class"]);
     expect(buckets[2]?.items.map((item) => item.id)).toEqual([
@@ -776,5 +779,48 @@ describe("timeline utils", () => {
       "session-older",
       "session-newer",
     ]);
+  });
+});
+
+describe("timeline day filter", () => {
+  test("reads the day in the configured timezone", () => {
+    const instant = new Date("2026-11-15T03:30:00.000Z");
+    expect(toTimelineDayKey(instant, "UTC")).toBe("2026-11-15");
+    expect(toTimelineDayKey(instant, "America/Los_Angeles")).toBe("2026-11-14");
+    expect(toTimelineDayKey(instant, "Asia/Tokyo")).toBe("2026-11-15");
+  });
+
+  test("counts and filters by the same timestamp as the timeline", () => {
+    const sessions: TimelineSessionsTable = {
+      a: { created_at: "2026-11-14T23:30:00.000Z" },
+      b: {
+        created_at: "2026-11-01T10:00:00.000Z",
+        event_json: JSON.stringify({
+          started_at: "2026-11-14T09:00:00.000Z",
+          tracking_id: "evt-1",
+        }),
+      },
+      // Same calendar event as b: the timeline shows it once.
+      c: {
+        created_at: "2026-11-02T10:00:00.000Z",
+        event_json: JSON.stringify({
+          started_at: "2026-11-14T09:00:00.000Z",
+          tracking_id: "evt-1",
+        }),
+      },
+      bad: { created_at: "not a date" },
+    };
+
+    const utc = countTimelineSessionsByDay(sessions, "UTC");
+    expect(utc.get("2026-11-14")).toBe(2);
+    expect(utc.size).toBe(1);
+
+    const tokyo = countTimelineSessionsByDay(sessions, "Asia/Tokyo");
+    expect(tokyo.get("2026-11-15")).toBe(1);
+    expect(tokyo.get("2026-11-14")).toBe(1);
+
+    expect(
+      Object.keys(filterTimelineSessionsByDay(sessions, "2026-11-14", "UTC")!),
+    ).toEqual(["a", "b", "c"]);
   });
 });

@@ -9,6 +9,7 @@ description = ""
 
 [dependencies]
 anlg-agent-access = { workspace = true }
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-execute = { workspace = true }

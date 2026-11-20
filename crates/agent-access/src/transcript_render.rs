@@ -276,7 +276,7 @@ mod tests {
         let export = export(vec![flat, rendered, partial], Vec::new());
         assert_eq!(
             render_transcripts_markdown(&export),
-            "Speaker 1: Hello\n\nDecision approved\n\nLater words"
+            "Me: Hello\n\nDecision approved\n\nLater words"
         );
     }
 
@@ -289,7 +289,8 @@ mod tests {
             is_self: true,
         }];
         let mut export = export(vec![transcript(words, Vec::new())], speakers);
-        assert_eq!(render_transcripts_markdown(&export), "Speaker 1: Hello Bob");
+        // Without capture context the mic channel is the user.
+        assert_eq!(render_transcripts_markdown(&export), "Me: Hello Bob");
 
         export.speaker_context = Some(json!({
             "intervals": [{
@@ -361,7 +362,7 @@ mod tests {
 
         assert_eq!(
             render_transcripts_markdown(&export),
-            "Speaker 1: Hello there\n\nAlice: Hi Alice\n\nSpeaker 2: Anyone else?"
+            "Me: Hello there\n\nAlice: Hi Alice\n\nThem: Anyone else?"
         );
     }
 }

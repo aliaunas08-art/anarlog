@@ -2,10 +2,11 @@ import type { FloatingBarState } from "@anlg/plugin-windows";
 
 export function DictationTranscript({
   dictation,
-  colorScheme,
+  color,
 }: {
   dictation: NonNullable<FloatingBarState["dictation"]>;
-  colorScheme: FloatingBarState["colorScheme"];
+  /** Text colour: the bar's label colour for its colour scheme. */
+  color: string;
 }) {
   const status =
     dictation.phase === "transcribing"
@@ -22,7 +23,7 @@ export function DictationTranscript({
   return (
     <p
       className="px-1 text-[15px] leading-6 break-words whitespace-pre-wrap"
-      style={{ color: colorScheme === "dark" ? "white" : "rgb(31, 28, 26)" }}
+      style={{ color }}
       aria-live="polite"
       aria-atomic="false"
     >

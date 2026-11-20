@@ -162,7 +162,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
         className={cn([
           "flex h-6 shrink-0 items-stretch select-none",
           "border-t border-neutral-800 bg-neutral-900 text-neutral-300",
-          "font-mono text-[11px] leading-none",
+          "font-code text-[11px] leading-none",
         ])}
       >
         <DevtoolsMenu onAction={run}>

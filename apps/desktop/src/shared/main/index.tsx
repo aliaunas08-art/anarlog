@@ -62,7 +62,7 @@ function MainPanel({
       <div
         data-chat-floating-anchor
         className={cn([
-          "bg-card @container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+          "bg-background @container relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
           isMacos && "rounded-xl",
           !noBorder && "border-border border",
         ])}

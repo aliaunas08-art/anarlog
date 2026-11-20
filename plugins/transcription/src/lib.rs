@@ -17,7 +17,9 @@ mod listener;
 mod listener2;
 mod live_journal;
 mod session_transcript;
+mod speaker_attribution;
 mod stopped_captures;
+mod voice_enrollment;
 mod voiceprint;
 
 pub use anlg_transcription_core::listener::{
@@ -36,7 +38,9 @@ pub use capture_markers::{CaptureLifecycleMarker, CapturePhase, InheritedCapture
 pub use error::{Error, Result};
 pub use listener::{Listener, ListenerPluginExt};
 pub use listener2::{Listener2, Listener2PluginExt};
+pub use speaker_attribution::AttributionSummary;
 pub use stopped_captures::StoppedCaptureRegistry;
+pub use voice_enrollment::{VoiceEnrollmentLevelEvent, VoiceEnrollmentStatus};
 
 use anlg_audio::AudioProvider;
 use anlg_transcription_core::listener::actors::{RootActor, RootArgs};
@@ -75,6 +79,47 @@ pub struct SessionStateSnapshot {
     pub mic_isolated: Option<bool>,
     pub started_at_ms: Option<i64>,
     pub degraded: Option<DegradedError>,
+    /// Kept from the listener's `Paused` events so the pause state can be read without
+    /// waiting on the session supervisor, which may be busy closing or reopening a stream.
+    pub paused_since_ms: Option<i64>,
+    pub paused_total_ms: i64,
+}
+
+impl SessionStateSnapshot {
+    pub fn set_paused(&mut self, paused: bool, now_ms: i64) {
+        match (paused, self.paused_since_ms) {
+            (true, None) => self.paused_since_ms = Some(now_ms),
+            (false, Some(since)) => {
+                self.paused_total_ms += now_ms.saturating_sub(since).max(0);
+                self.paused_since_ms = None;
+            }
+            _ => {}
+        }
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused_since_ms.is_some()
+    }
+
+    /// All paused time so far, including a pause in progress.
+    pub fn paused_ms(&self, now_ms: i64) -> i64 {
+        self.paused_total_ms
+            + self
+                .paused_since_ms
+                .map_or(0, |since| now_ms.saturating_sub(since).max(0))
+    }
+}
+
+/// "Now" on the session's audio timeline: wall-clock time minus everything paused. Capture gap
+/// bounds use it so they line up with the recorded audio rather than with wall-clock time.
+pub(crate) fn audio_now_ms(cache: &SessionStateCache, session_id: &str) -> i64 {
+    let now_ms = capture_gaps::unix_now_ms();
+    let paused_ms = cache
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(session_id).map(|state| state.paused_ms(now_ms)))
+        .unwrap_or(0);
+    now_ms - paused_ms
 }
 
 pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;
@@ -144,6 +189,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_current_microphone_device::<tauri::Wry>,
             listener::commands::get_mic_muted::<tauri::Wry>,
             listener::commands::set_mic_muted::<tauri::Wry>,
+            listener::commands::set_capture_paused::<tauri::Wry>,
             listener::commands::start_capture::<tauri::Wry>,
             listener::commands::retry_audio_capture::<tauri::Wry>,
             listener::commands::flush_live_transcript::<tauri::Wry>,
@@ -177,7 +223,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener2::commands::render_session_transcript::<tauri::Wry>,
             listener2::commands::refine_batch_transcript,
             listener2::commands::save_batch_transcript::<tauri::Wry>,
-            listener2::commands::reconcile_refined_speaker_clusters,
+            listener2::commands::reconcile_refined_speaker_clusters::<tauri::Wry>,
             listener2::commands::start_transcription::<tauri::Wry>,
             listener2::commands::stop_transcription::<tauri::Wry>,
             listener2::commands::list_transcription_sessions::<tauri::Wry>,
@@ -191,6 +237,13 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             voiceprint::extract_voiceprint_candidates::<tauri::Wry>,
             voiceprint::promote_voiceprint_candidates::<tauri::Wry>,
             audio_retention::delete_processed_session_audio::<tauri::Wry>,
+            speaker_attribution::attribute_session_speakers::<tauri::Wry>,
+            voice_enrollment::voice_enrollment_status::<tauri::Wry>,
+            voice_enrollment::start_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::finish_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::cancel_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::delete_voice_enrollment::<tauri::Wry>,
+            voice_enrollment::improve_voice_enrollment_from_segment::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             CaptureLifecycleEvent,
@@ -198,7 +251,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             CaptureDataEvent,
             LiveTranscriptPersistenceEvent,
             SessionAudioRetentionEvent,
-            TranscriptionEvent
+            TranscriptionEvent,
+            VoiceEnrollmentLevelEvent
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -217,6 +271,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             }));
             app.manage(state);
             app.manage(live_journal::LiveJournalRegistry::default());
+            app.manage(Arc::new(voice_enrollment::VoiceEnrollmentState::default()));
             let stopped_capture_registry = StoppedCaptureRegistry::default();
             app.manage(stopped_capture_registry.clone());
             let capture_gap_registry = CaptureGapRegistry::default();

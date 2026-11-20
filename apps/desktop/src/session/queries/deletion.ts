@@ -149,6 +149,24 @@ export async function finalizeSessionDeletion(
   }
 }
 
+/**
+ * ASPC D2.2: once the undo window is over, Rust deletes the meeting
+ * permanently (every row, its files, search documents and caches; a synced
+ * meeting keeps only a blank tombstone). Runs after the share is revoked,
+ * which still needs the local share record. A failure is retried by the
+ * startup sweep, so it never blocks the delete.
+ */
+export async function purgeDeletedSession(sessionId: string): Promise<void> {
+  try {
+    const result = await commands.purgeDeletedSession(sessionId);
+    if (result.status === "error") {
+      console.error("[delete-session] permanent delete failed", result.error);
+    }
+  } catch (error) {
+    console.error("[delete-session] permanent delete failed", error);
+  }
+}
+
 function hasNoteContent(body: string, format: string): boolean {
   if (!body) return false;
 

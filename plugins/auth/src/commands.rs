@@ -10,26 +10,50 @@ pub(crate) fn decode_claims(token: String) -> Result<anlg_supabase_auth::Claims,
 #[specta::specta]
 pub(crate) fn get_account_info<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<crate::AccountInfo>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_account_info().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn get_item<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     key: String,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_item(key).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn set_item<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     key: String,
     value: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     tauri::async_runtime::spawn_blocking(move || app.set_item(key, value))
         .await
         .map_err(|e| e.to_string())?
@@ -39,9 +63,17 @@ pub(crate) async fn set_item<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn remove_item<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     key: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     tauri::async_runtime::spawn_blocking(move || app.remove_item(key))
         .await
         .map_err(|e| e.to_string())?
@@ -50,7 +82,17 @@ pub(crate) async fn remove_item<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn clear<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+pub(crate) async fn clear<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    app: tauri::AppHandle<R>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     use tauri::Manager;
     app.state::<crate::refresh::RefreshGate>().clear();
     tauri::async_runtime::spawn_blocking(move || app.clear_auth())

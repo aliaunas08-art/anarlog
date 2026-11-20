@@ -94,6 +94,10 @@ pub struct DiarizedSpeaker {
 pub struct Diarization {
     pub segments: Vec<SpeakerSegment>,
     pub speakers: Vec<DiarizedSpeaker>,
+    /// `(start, end)` seconds where two or more speakers are active at once.
+    /// Words inside these stretches cannot be attributed to one voice with
+    /// confidence.
+    pub overlaps: Vec<(f64, f64)>,
 }
 
 impl Diarization {
@@ -482,12 +486,16 @@ fn reconstruct(
     }
 
     let mut segments = Vec::new();
+    let mut active_count = vec![0u16; frame_count];
     for (speaker, track) in votes.iter().enumerate() {
         let active: Vec<bool> = track
             .iter()
             .zip(&coverage)
             .map(|(votes, coverage)| *coverage > 0 && u32::from(*votes) * 2 >= u32::from(*coverage))
             .collect();
+        for (count, is_active) in active_count.iter_mut().zip(&active) {
+            *count += u16::from(*is_active);
+        }
         segments.extend(
             frames_to_segments(
                 &active,
@@ -513,7 +521,22 @@ fn reconstruct(
                 .any(|segment| segment.speaker == speaker.index)
         })
         .collect();
-    Diarization { segments, speakers }
+    let overlapped: Vec<bool> = active_count.iter().map(|count| *count >= 2).collect();
+    let overlaps = frames_to_segments(&overlapped, 0, 0.0, 0.0)
+        .into_iter()
+        .map(|segment| {
+            (
+                segment.start,
+                segment.end.min(total as f64 / SAMPLE_RATE as f64),
+            )
+        })
+        .filter(|(start, end)| end > start)
+        .collect();
+    Diarization {
+        segments,
+        speakers,
+        overlaps,
+    }
 }
 
 fn seconds_to_frames(seconds: f32) -> usize {
@@ -688,6 +711,7 @@ mod tests {
                     identity: None,
                 })
                 .collect(),
+            overlaps: vec![],
         };
         diarization
             .segments

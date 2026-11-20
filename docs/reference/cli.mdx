@@ -17,6 +17,8 @@ anarlog [--base DIR] [--db-path FILE] [--json] <command>
 
 `--db-path` takes precedence over `--base`. Without either option, the CLI uses Anarlog's platform application-data directory and recognized legacy locations.
 
+When the app lock is on (Settings → Privacy → Lock app), every command that reads or changes meeting data asks for Touch ID or your password first and exits with code `5` (`locked`) if it isn't confirmed. `doctor` and `auth` don't ask.
+
 The installed command is `anarlog` on DEB, AppImage, macOS, Windows, and Settings-installed builds.
 
 ## Account commands
@@ -52,7 +54,7 @@ Ordinary meeting reads support all three sources except `meetings folders` and `
 
 | Command | Options | Result |
 | --- | --- | --- |
-| `meetings list` | `-q, --query TEXT`, `--series-id ID`, `--folder PATH`, `--limit 1..200`, `--offset NUMBER` | Meetings ordered by the application query layer. Defaults to 20 results. `--folder` includes subfolders and is local only. Each meeting includes `folder_path`, or `null` outside a folder. |
+| `meetings list` | `-q, --query TEXT`, `--series-id ID`, `--folder PATH`, `--limit 1..200`, `--offset NUMBER`, `--include-private` | Meetings ordered by the application query layer. Defaults to 20 results. `--folder` includes subfolders and is local only. Meetings marked Private are left out unless `--include-private` is given (local only); MCP never lists them. Each meeting includes `folder_path`, or `null` outside a folder. |
 | `meetings folders` | `-q, --query TEXT`, `--limit 1..200`, `--offset NUMBER` | Local folder paths with `path`, `name`, and `parent_path`, including empty and parent folders. Defaults to 100 results. |
 | `meetings get ID` | — | Metadata, canonical memo, summaries, participants, and action items. |
 | `meetings note ID` | `--kind note\|summary\|all` | The selected note documents. Defaults to `note`. |
