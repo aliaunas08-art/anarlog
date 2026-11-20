@@ -76,6 +76,29 @@ async setAppLockEnabled(enabled: boolean) : Promise<Result<AppLockState, string>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * The idle relock setting, for the settings screen.
+ */
+async appLockSettings() : Promise<Result<AppLockSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|app_lock_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Sets the idle relock time after a device authentication run here.
+ * Returns the value now in force (unchanged if the prompt was cancelled).
+ */
+async setAppLockIdleMinutes(minutes: number) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|set_app_lock_idle_minutes", { minutes }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -96,6 +119,11 @@ appLockChanged: "plugin:local-auth:app-lock-changed"
 
 export type AccessContextInfo = { actorId: string; role: string | null; workspaceId: string; deviceId: string; window: string; unlocked: boolean }
 export type AppLockChanged = { enabled: boolean; unlocked: boolean }
+export type AppLockSettings = { 
+/**
+ * Minutes without input before the app relocks; 0 is off.
+ */
+idleMinutes: number; idleMinuteChoices: number[] }
 export type AppLockState = { enabled: boolean; unlocked: boolean }
 
 /** tauri-specta globals **/

@@ -395,6 +395,7 @@ dependencies = [
  "cli-docs",
  "db-app",
  "db-core",
+ "device-auth",
  "dirs 6.0.0",
  "insta",
  "keyring",
@@ -4895,6 +4896,17 @@ name = "deunicode"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abd57806937c9cc163efc8ea3910e00a62e2aeb0b8119f1793a978088f8f6b04"
+
+[[package]]
+name = "device-auth"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "objc2",
+ "objc2-foundation",
+ "objc2-local-authentication",
+ "tracing",
+]
 
 [[package]]
 name = "device-monitor"
@@ -17220,6 +17232,7 @@ dependencies = [
  "block2",
  "db-app",
  "db-core",
+ "device-auth",
  "host",
  "objc2",
  "objc2-foundation",

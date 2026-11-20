@@ -5,6 +5,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { BackupSettings } from "./backup";
+import { IdleRelockSetting } from "./idle-relock";
 import { LegalLinks } from "./legal";
 import { RetentionSetting } from "./retention";
 
@@ -96,6 +97,9 @@ export function SettingsPrivacy() {
             })();
           }}
         />
+        {lockAppEnabled && authAvailable ? (
+          <IdleRelockSetting disabled={authenticating} />
+        ) : null}
         <SettingSwitchRow
           title={i18n._(privacyMessages.posthogTitle)}
           description={i18n._(privacyMessages.posthogDescription)}

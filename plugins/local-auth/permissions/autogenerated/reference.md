@@ -11,6 +11,8 @@ Default permissions for the plugin
 - `allow-unlock-app`
 - `allow-lock-app`
 - `allow-set-app-lock-enabled`
+- `allow-app-lock-settings`
+- `allow-set-app-lock-idle-minutes`
 
 ## Permission Table
 
@@ -43,6 +45,32 @@ Enables the access_context command without any pre-configured scope.
 <td>
 
 Denies the access_context command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-auth:allow-app-lock-settings`
+
+</td>
+<td>
+
+Enables the app_lock_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-auth:deny-app-lock-settings`
+
+</td>
+<td>
+
+Denies the app_lock_settings command without any pre-configured scope.
 
 </td>
 </tr>
@@ -173,6 +201,32 @@ Enables the set_app_lock_enabled command without any pre-configured scope.
 <td>
 
 Denies the set_app_lock_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-auth:allow-set-app-lock-idle-minutes`
+
+</td>
+<td>
+
+Enables the set_app_lock_idle_minutes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-auth:deny-set-app-lock-idle-minutes`
+
+</td>
+<td>
+
+Denies the set_app_lock_idle_minutes command without any pre-configured scope.
 
 </td>
 </tr>

@@ -13,8 +13,9 @@ use std::sync::Arc;
 use anlg_aspc::AspcState;
 use anlg_db_core::Db;
 
-pub const LOCK_SETTING_ID: &str = "lock_app";
-const LEGACY_SETTINGS_ID: &str = "legacy_settings_document";
+pub use anlg_db_app::app_lock_settings::{
+    DEFAULT_IDLE_MINUTES, IDLE_MINUTE_CHOICES, IDLE_SETTING_ID, LOCK_SETTING_ID,
+};
 
 /// The local actor and workspace ids, or empty strings (every check denies)
 /// when the database has no binding yet. On a fresh install the schema is not
@@ -34,50 +35,20 @@ pub async fn local_identity(db: &Db) -> (String, String) {
     }
 }
 
-fn parse_bool(value_json: &str) -> Option<bool> {
-    match serde_json::from_str::<serde_json::Value>(value_json).ok()? {
-        serde_json::Value::Bool(value) => Some(value),
-        _ => None,
-    }
-}
-
-/// Reads the `lock_app` setting the way the frontend does: the direct
-/// `app_settings` row, else the legacy settings document's
-/// `general.lock_app`, else off.
 pub async fn read_lock_setting(db: &Db) -> Result<bool, sqlx::Error> {
-    let rows: Vec<(String, String)> =
-        sqlx::query_as("SELECT id, value_json FROM app_settings WHERE id IN (?, ?)")
-            .bind(LOCK_SETTING_ID)
-            .bind(LEGACY_SETTINGS_ID)
-            .fetch_all(db.pool())
-            .await?;
-    let direct = rows
-        .iter()
-        .find(|(id, _)| id == LOCK_SETTING_ID)
-        .and_then(|(_, value)| parse_bool(value));
-    if let Some(value) = direct {
-        return Ok(value);
-    }
-    let legacy = rows
-        .iter()
-        .find(|(id, _)| id == LEGACY_SETTINGS_ID)
-        .and_then(|(_, value)| serde_json::from_str::<serde_json::Value>(value).ok())
-        .and_then(|doc| doc.get("general")?.get(LOCK_SETTING_ID)?.as_bool());
-    Ok(legacy.unwrap_or(false))
+    anlg_db_app::app_lock_settings::read_lock_setting(db.pool()).await
 }
 
 pub async fn write_lock_setting(db: &Db, enabled: bool) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        "INSERT INTO app_settings (id, value_json) VALUES (?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           value_json = excluded.value_json,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
-    )
-    .bind(LOCK_SETTING_ID)
-    .bind(if enabled { "true" } else { "false" })
-    .execute(db.pool())
-    .await?;
-    Ok(())
+    anlg_db_app::app_lock_settings::write_lock_setting(db.pool(), enabled).await
+}
+
+pub async fn read_idle_setting(db: &Db) -> Result<u32, sqlx::Error> {
+    anlg_db_app::app_lock_settings::read_idle_setting(db.pool()).await
+}
+
+pub async fn write_idle_setting(db: &Db, minutes: u32) -> Result<(), sqlx::Error> {
+    anlg_db_app::app_lock_settings::write_idle_setting(db.pool(), minutes).await
 }
 
 /// Startup: the local Owner of the local workspace, with the lock state
@@ -165,6 +136,27 @@ mod tests {
         assert!(!read_lock_setting(&db).await.unwrap());
         write_lock_setting(&db, true).await.unwrap();
         assert!(read_lock_setting(&db).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn idle_setting_defaults_and_round_trips() {
+        let db = test_db().await;
+        assert_eq!(read_idle_setting(&db).await.unwrap(), DEFAULT_IDLE_MINUTES);
+        write_idle_setting(&db, 5).await.unwrap();
+        assert_eq!(read_idle_setting(&db).await.unwrap(), 5);
+        write_idle_setting(&db, 0).await.unwrap();
+        assert_eq!(read_idle_setting(&db).await.unwrap(), 0);
+        // A value the screen never offers falls back to the default.
+        sqlx::query("UPDATE app_settings SET value_json = '7' WHERE id = 'lock_idle_minutes'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(read_idle_setting(&db).await.unwrap(), DEFAULT_IDLE_MINUTES);
+        sqlx::query("UPDATE app_settings SET value_json = '\"x\"' WHERE id = 'lock_idle_minutes'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(read_idle_setting(&db).await.unwrap(), DEFAULT_IDLE_MINUTES);
     }
 
     #[tokio::test]

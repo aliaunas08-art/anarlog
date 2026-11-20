@@ -24,7 +24,6 @@ export type SessionChanges = Partial<
     | "event_json"
     | "folder_id"
     | "locked"
-    | "private"
     | "raw_md"
     | "raw_template_id"
     | "title"

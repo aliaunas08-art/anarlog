@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod app_lock_settings;
 mod attachment_ops;
 mod calendar_ops;
 mod calendar_sync_ops;

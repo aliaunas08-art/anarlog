@@ -852,6 +852,8 @@ fn wire_app_lock(app: &tauri::AppHandle<tauri::Wry>, access_state: &Arc<anlg_asp
             sleep_handle.request_relock(std::time::Duration::ZERO, || true);
         }
     });
+
+    app.start_idle_relock();
 }
 
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {

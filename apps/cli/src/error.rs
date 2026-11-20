@@ -6,6 +6,8 @@ pub enum Error {
     DatabaseNotFound(std::path::PathBuf),
     #[error("output file already exists at {0}; pass --force to overwrite it")]
     OutputExists(std::path::PathBuf),
+    #[error("Timbre is locked: {0}")]
+    Locked(&'static str),
     #[error("{message}")]
     Cloud { code: &'static str, message: String },
     #[error("{action} failed: {reason}")]
@@ -52,6 +54,7 @@ impl Error {
             Self::NotFound(_) => 2,
             Self::DatabaseNotFound(_) => 3,
             Self::OutputExists(_) => 4,
+            Self::Locked(_) => 5,
             Self::Cloud { .. } => 1,
             Self::Operation { .. } => 1,
         }
@@ -62,6 +65,7 @@ impl Error {
             Self::NotFound(_) => "not_found",
             Self::DatabaseNotFound(_) => "database_not_found",
             Self::OutputExists(_) => "output_exists",
+            Self::Locked(_) => "locked",
             Self::Cloud { code, .. } => code,
             Self::Operation { .. } => "operation_failed",
         }

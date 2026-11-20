@@ -69,6 +69,14 @@ pub struct AppLockState {
     pub unlocked: bool,
 }
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLockSettings {
+    /// Minutes without input before the app relocks; 0 is off.
+    pub idle_minutes: u32,
+    pub idle_minute_choices: Vec<u32>,
+}
+
 impl From<anlg_aspc::LockSnapshot> for AppLockState {
     fn from(value: anlg_aspc::LockSnapshot) -> Self {
         Self {
@@ -118,4 +126,42 @@ pub async fn set_app_lock_enabled<R: Runtime>(
     crate::app_lock::set_enabled(&app, enabled)
         .await
         .map(Into::into)
+}
+
+/// The idle relock setting, for the settings screen.
+#[tauri::command]
+#[specta::specta]
+pub async fn app_lock_settings<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+) -> Result<AppLockSettings, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )?;
+    use tauri::Manager;
+    Ok(AppLockSettings {
+        idle_minutes: app.state::<crate::app_lock::LockRuntime>().idle_minutes(),
+        idle_minute_choices: crate::access::IDLE_MINUTE_CHOICES.to_vec(),
+    })
+}
+
+/// Sets the idle relock time after a device authentication run here.
+/// Returns the value now in force (unchanged if the prompt was cancelled).
+#[tauri::command]
+#[specta::specta]
+pub async fn set_app_lock_idle_minutes<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    minutes: u32,
+) -> Result<u32, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )?;
+    crate::app_lock::set_idle_minutes(&app, minutes).await
 }

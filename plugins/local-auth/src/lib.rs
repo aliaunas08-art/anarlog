@@ -26,6 +26,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::unlock_app::<tauri::Wry>,
             commands::lock_app::<tauri::Wry>,
             commands::set_app_lock_enabled::<tauri::Wry>,
+            commands::app_lock_settings::<tauri::Wry>,
+            commands::set_app_lock_idle_minutes::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![app_lock::AppLockChanged])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)

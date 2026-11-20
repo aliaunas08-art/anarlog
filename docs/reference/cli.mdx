@@ -17,6 +17,8 @@ anarlog [--base DIR] [--db-path FILE] [--json] <command>
 
 `--db-path` takes precedence over `--base`. Without either option, the CLI uses Anarlog's platform application-data directory and recognized legacy locations.
 
+When the app lock is on (Settings → Privacy → Lock app), every command that reads or changes meeting data asks for Touch ID or your password first and exits with code `5` (`locked`) if it isn't confirmed. `doctor` and `auth` don't ask.
+
 The installed command is `anarlog` on DEB, AppImage, macOS, Windows, and Settings-installed builds.
 
 ## Account commands

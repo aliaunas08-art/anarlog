@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-soft-delete-session`
 - `allow-restore-deleted-session`
 - `allow-purge-deleted-session`
+- `allow-set-session-private`
 - `allow-add-session-participant`
 - `allow-remove-session-participant`
 - `allow-persist-chat-session-proposal`
@@ -582,6 +583,32 @@ Enables the set_attachment_cloud_sync_enabled command without any pre-configured
 <td>
 
 Denies the set_attachment_cloud_sync_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:allow-set-session-private`
+
+</td>
+<td>
+
+Enables the set_session_private command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`session:deny-set-session-private`
+
+</td>
+<td>
+
+Denies the set_session_private command without any pre-configured scope.
 
 </td>
 </tr>

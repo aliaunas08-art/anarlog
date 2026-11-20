@@ -51,6 +51,18 @@ async purgeDeletedSession(sessionId: string) : Promise<Result<PurgeReport, strin
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * ASPC C6.4 / D1.4: marks a meeting Private or not, and audit-logs the
+ * change (`meeting.private_changed`, the meeting id and the new value).
+ */
+async setSessionPrivate(sessionId: string, isPrivate: boolean) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|set_session_private", { sessionId, isPrivate }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async addSessionParticipant(request: AddSessionParticipantRequest) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:session|add_session_participant", { request }) };

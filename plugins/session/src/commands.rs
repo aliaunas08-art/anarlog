@@ -112,6 +112,41 @@ pub(crate) async fn purge_deleted_session<R: tauri::Runtime>(
     crate::purge::purge_sessions(&app, &[session_id], anlg_audit_log::Source::App).await
 }
 
+/// ASPC C6.4 / D1.4: marks a meeting Private or not, and audit-logs the
+/// change (`meeting.private_changed`, the meeting id and the new value).
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_session_private<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    session_id: String,
+    is_private: bool,
+) -> Result<bool, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )?;
+    let runtime = db_runtime(&app)?;
+    let changed = {
+        let _guard = runtime.synced_write_guard().await;
+        crate::private::set_session_private(runtime.pool(), &session_id, is_private).await?
+    };
+    if changed && anlg_audit_log::is_identifier(&session_id) {
+        anlg_audit_log::record(
+            &app,
+            anlg_audit_log::NewEntry::new(
+                anlg_audit_log::actions::MEETING_PRIVATE_CHANGED,
+                "meeting",
+                session_id,
+            )
+            .flag("private", is_private),
+        );
+    }
+    Ok(changed)
+}
+
 fn db_runtime<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<tauri_plugin_db::ManagedState, String> {

@@ -12,6 +12,7 @@ Without `--json`, CLI errors are written to standard error as human-readable tex
 | `2` | Meeting, note, or other requested data not found | List meetings again and use a returned ID. |
 | `3` | Database file not found | Open Anarlog once to create it, or provide the correct database path. |
 | `4` | Export output already exists | Choose another path or explicitly pass `--force` to replace the file. |
+| `5` | The app lock is on and Touch ID or the password wasn't confirmed (code `locked`) | Run the command again from a logged-in session and confirm the macOS prompt. Over SSH or without a screen the prompt can't appear, so the command stays locked. |
 
 Invalid arguments use the `invalid_arguments` error code with Clap's nonzero exit code.
 

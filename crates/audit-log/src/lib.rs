@@ -67,6 +67,8 @@ pub mod actions {
     pub const RETENTION_RUN: &str = "retention.run";
     pub const BACKUP_CREATED: &str = "backup.created";
     pub const BACKUP_RESTORED: &str = "backup.restored";
+    /// An MCP tool call or resource read (source `cli`).
+    pub const MCP_CALL: &str = "mcp.call";
 }
 
 #[derive(Debug, thiserror::Error)]

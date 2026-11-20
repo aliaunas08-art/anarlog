@@ -307,10 +307,6 @@ export function updateSession(
         "locked",
         changes.locked === undefined ? undefined : Number(changes.locked),
       ],
-      [
-        "private",
-        changes.private === undefined ? undefined : Number(changes.private),
-      ],
     ] as const) {
       if (value === undefined) continue;
       assignments.push(`${column} = ?`);

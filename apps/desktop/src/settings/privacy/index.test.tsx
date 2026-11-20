@@ -32,6 +32,10 @@ vi.mock("./backup", () => ({
   BackupSettings: () => null,
 }));
 
+vi.mock("./idle-relock", () => ({
+  IdleRelockSetting: () => <div data-testid="idle-relock" />,
+}));
+
 vi.mock("~/data-protection/disk-encryption-row", () => ({
   DiskEncryptionRow: () => null,
 }));
@@ -154,5 +158,12 @@ describe("SettingsPrivacy", () => {
         .getByRole("switch", { name: "Lock app" })
         .getAttribute("data-state"),
     ).toBe("checked");
+    expect(screen.getByTestId("idle-relock")).toBeTruthy();
+  });
+
+  it("hides the idle lock choice while the lock is off", () => {
+    mocks.lockEnabled = false;
+    render(<SettingsPrivacy />);
+    expect(screen.queryByTestId("idle-relock")).toBeNull();
   });
 });

@@ -6,6 +6,8 @@ const COMMANDS: &[&str] = &[
     "unlock_app",
     "lock_app",
     "set_app_lock_enabled",
+    "app_lock_settings",
+    "set_app_lock_idle_minutes",
 ];
 
 fn main() {

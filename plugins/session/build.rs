@@ -4,6 +4,7 @@ const COMMANDS: &[&str] = &[
     "soft_delete_session",
     "restore_deleted_session",
     "purge_deleted_session",
+    "set_session_private",
     "add_session_participant",
     "remove_session_participant",
     "persist_chat_session_proposal",

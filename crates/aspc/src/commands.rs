@@ -759,11 +759,18 @@ pub static COMMANDS: &[CommandEntry] = &[
         "access_context",
         "non-secret ids of the local access context"
     ),
+    guarded!("local-auth", "app_lock_settings", Settings, Read),
     public!("local-auth", "app_lock_state", LOCK_SCREEN),
     public!("local-auth", "authenticate", LOCK_SCREEN),
     public!("local-auth", "available", LOCK_SCREEN),
     public!("local-auth", "lock_app", "locking only tightens access"),
     guarded!("local-auth", "set_app_lock_enabled", Settings, Administer),
+    guarded!(
+        "local-auth",
+        "set_app_lock_idle_minutes",
+        Settings,
+        Administer
+    ),
     public!("local-auth", "unlock_app", LOCK_SCREEN),
     // local-llm
     public!("local-llm", "cancel_download", MODELS),
@@ -912,6 +919,7 @@ pub static COMMANDS: &[CommandEntry] = &[
         Settings,
         Edit
     ),
+    guarded!("session", "set_session_private", Notes, Edit),
     guarded!("session", "set_session_proposal_status", Notes, Edit),
     guarded!("session", "soft_delete_session", Notes, Delete),
     guarded!("session", "tombstone_folder_material", Notes, Delete),

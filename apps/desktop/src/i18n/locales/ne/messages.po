@@ -267,10 +267,6 @@ msgstr ""
 msgid "{notice}. Open {APP_NAME} to retry or change devices."
 msgstr ""
 
-#: src/sidebar/tasks-link.tsx
-msgid "{open} open"
-msgstr ""
-
 #: src/main/sidebar-timeline-chrome.tsx
 msgid "{openTasks} open"
 msgstr ""
@@ -689,6 +685,18 @@ msgstr ""
 #: src/settings/ai/shared/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Advanced"
+msgstr ""
+
+#: src/settings/privacy/idle-relock.tsx
+msgid "After {value} minutes"
+msgstr ""
+
+#: src/settings/privacy/idle-relock.tsx
+msgid "After 1 hour"
+msgstr ""
+
+#: src/settings/privacy/idle-relock.tsx
+msgid "After 1 minute"
 msgstr ""
 
 #: src/settings/ai/stt/local-file-model.tsx
@@ -2194,6 +2202,10 @@ msgstr ""
 msgid "Couldn't add the bookmark. Open Notes and try again."
 msgstr ""
 
+#: src/session/components/outer-header/overflow/private-note.tsx
+msgid "Couldn't change Private"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Couldn’t check availability. You can still try Save."
 msgstr ""
@@ -2521,7 +2533,6 @@ msgstr ""
 msgid "Deny"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Deprecated"
 msgstr ""
@@ -3356,6 +3367,10 @@ msgstr ""
 msgid "Icons"
 msgstr ""
 
+#: src/settings/privacy/idle-relock.tsx
+msgid "Idle lock wasn't changed"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "If {APP_NAME} stays closed, paste the link in the sign-in window."
 msgstr ""
@@ -3840,10 +3855,6 @@ msgstr ""
 msgid "Loading edit…"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx
-msgid "Loading models..."
-msgstr ""
-
 #: src/settings/team/index.tsx
 msgid "Loading scheduled captures…"
 msgstr ""
@@ -3895,6 +3906,14 @@ msgstr ""
 #: src/session/components/outer-header/overflow/lock-note.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Lock Note"
+msgstr ""
+
+#: src/settings/privacy/idle-relock.tsx
+msgid "Lock the app after this long with no keyboard or mouse activity. A recording in progress is never interrupted."
+msgstr ""
+
+#: src/settings/privacy/idle-relock.tsx
+msgid "Lock when idle"
 msgstr ""
 
 #: src/sidebar/timeline/item.tsx
@@ -4261,6 +4280,7 @@ msgid "Needs setup"
 msgstr ""
 
 #: src/settings/data-locations/index.tsx
+#: src/settings/privacy/idle-relock.tsx
 msgid "Never"
 msgstr ""
 
@@ -4441,14 +4461,6 @@ msgstr "कुनै मिल्दो भाषा भेटिएन"
 msgid "No matching people"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx
-msgid "No models available."
-msgstr ""
-
-#: src/settings/ai/shared/model-combobox.tsx
-msgid "No models ready to use."
-msgstr ""
-
 #: src/sidebar/date-filter.tsx
 msgid "No notes"
 msgstr ""
@@ -4517,7 +4529,6 @@ msgid "No related notes found"
 msgstr ""
 
 #: src/contacts/related-notes.tsx
-#: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/general/searchable-select.tsx
 #: src/shared/open-note-dialog.tsx
 #: src/sidebar/settings.tsx
@@ -5986,10 +5997,6 @@ msgstr ""
 msgid "Search or add company"
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx
-msgid "Search or create new"
-msgstr ""
-
 #: src/session/components/folder-picker.tsx
 msgid "Search or create project"
 msgstr ""
@@ -6061,7 +6068,6 @@ msgstr ""
 msgid "See where your meetings are stored and what leaves this Mac."
 msgstr ""
 
-#: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Select a model"
 msgstr ""
@@ -6984,7 +6990,6 @@ msgid "Task views"
 msgstr ""
 
 #: src/main/sidebar-timeline-chrome.tsx
-#: src/sidebar/tasks-link.tsx
 #: src/task/tasks-view.tsx
 msgid "Tasks"
 msgstr ""
@@ -7250,6 +7255,7 @@ msgstr ""
 msgid "Tomorrow"
 msgstr ""
 
+#: src/settings/privacy/idle-relock.tsx
 #: src/settings/privacy/index.tsx
 msgid "Touch ID or your password wasn't confirmed. Try again and confirm the macOS prompt."
 msgstr ""

@@ -5,6 +5,10 @@ description: "Tools, resources, limits, and transport details exposed by Anarlog
 
 Run the server with `anarlog mcp`. It supports the current MCP `2026-07-28` protocol over stdio while remaining compatible with earlier MCP clients. Meeting reads are local and idempotent. Proposal tools can insert or decline staged edits; they never apply those edits. The desktop app only needs to have created the database once. Open it to review and apply pending proposals.
 
+## App lock
+
+When the app lock is on (Settings → Privacy → Lock app), the MCP server asks for Touch ID or your password on the first request that reads or changes data, and again after the idle lock time passes with no keyboard or mouse input. Until it's confirmed, tools and resources return an error containing `locked`. Listing the available tools does not ask. Each tool call and resource read is recorded in the audit log with its name and meeting ID, never its arguments or results.
+
 ## Tools
 
 ### `list_meetings`

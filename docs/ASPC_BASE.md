@@ -92,7 +92,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
   - they check Origin and a per-launch token;
   - OAuth callbacks check `state` in Rust, in constant time;
   - deep links that change state require a pending flow started in the app.
-- **A2.7** The CLI and MCP open the database with the same authorizer and the same lock state, and are audit-logged as source `cli`.
+- **A2.7** The CLI and MCP honour the app lock and are audit-logged as source `cli`. The desktop app's lock state lives in its own process, so when `lock_app` is on the CLI runs the same device authentication itself (`anlg_device_auth`) before it opens data (`apps/cli/src/db.rs`, `lock.rs`) and fails closed with exit code 5 (`locked`); the MCP server asks on its first data request and again after the idle relock time (A4.4). Every MCP tool call and resource read is recorded as `mcp.call` with the tool name and meeting id only. Tests: `apps/cli/src/lock.rs`, `locked_app_refuses_tools_and_calls_are_audit_logged`. Still open: the CLI does not run under the SQL authorizer.
 - **A2.8** IPC has a per-command rate limit, a token bucket per window. Bulk read, export and delete commands have lower limits.
 
 ### A3. Least privilege
@@ -110,7 +110,7 @@ The matrix, per workspace (✓ allowed, ✗ denied):
 - **A4.1** Data lives under the macOS user's own `~/Library`, with directory mode `0700` and file mode `0600`. Test: permissions are checked on startup and corrected. At every launch `anlg_aspc::protection::harden_app_data` makes the app data directory `0700` and its databases (`app.db`, `audit.db` and their `-wal`/`-shm`/`-journal` files) and JSON stores `0600`, only tightening and never following symlinks, and logs only the path and the old and new mode (`apps/desktop/src-tauri/src/data_protection.rs`; test `startup_tightens_the_data_dir_and_its_files`). Subfolders (the vault's `sessions/`, `search_index/`) are covered by the `0700` parent, not changed one by one.
 - **A4.2** The app lock is optional and off by default. When it's on, Rust holds the lock state (`aspc::LockMachine` in `AspcState`): the app starts locked, `AccessContext.unlocked` is false until a `LocalAuthentication` evaluation that Rust runs itself succeeds (`local-auth:unlock_app`; no command unlocks from a value the webview sends), and every guarded data command and the SQL authorizer deny while locked. Turning the lock on or off also needs a device authentication run by Rust (`local-auth:set_app_lock_enabled`), which writes the setting. The webview may always lock. Exceptions, each in the registry with its reason: the lock-screen settings reads (A2.4) and the `LockExempt` commands (A2.3). The lock is not enforced only in the UI.
 - **A4.3** If device authentication is unavailable while the lock is on, the app stays locked and says why. It never opens silently.
-- **A4.4** It relocks after an idle time the user sets, and when the main window is hidden or the Mac sleeps. Relocking waits while a recording is active (capture state not `Inactive`), so capture and its completion writes are never cut off, and gives the webview 5 seconds after a hide to flush pending writes. The idle timeout is not built: there is no idle setting yet.
+- **A4.4** It relocks after an idle time the user sets, and when the main window is hidden or the Mac sleeps. Relocking waits while a recording is active (capture state not `Inactive`), so capture and its completion writes are never cut off, and gives the webview 5 seconds after a hide to flush pending writes. Idle relock: Rust checks the macOS idle time (no keyboard or mouse input anywhere in the session) every 30 seconds and locks once it passes the user's setting, `lock_idle_minutes` (1, 5, 15, 30 or 60 minutes, or never; default 15). Only `local-auth:set_app_lock_idle_minutes` changes it, after a device authentication Rust runs, and the change is audit-logged. A recording postpones it to the next check. Tests: `idle_threshold`, `idle_setting_defaults_and_round_trips` (`plugins/local-auth`), `settings/privacy/idle-relock.test.tsx`.
 
 ## B. Security
 
@@ -258,7 +258,7 @@ The rules:
     The chain's latest `seq:hash` is also kept in the Keychain (`<bundle id>.audit-log` / `audit-chain-head`), so truncating the log is detected too. A head behind the log is accepted (the last write was lost, or the CLI appended); a head ahead of it, or one whose hash differs from the entry at its seq, is reported. Such a head is never overwritten (it stays as evidence). The Keychain is read and written on its own thread with a timeout: a missing head (first run) is stored, and a Keychain that doesn't answer leaves the head unverified without blocking startup or appends.
 - **D1.4** The log records:
   - app unlock (`local-auth`);
-  - meeting viewed (on open, debounced per meeting for 5 minutes), exported (PDF, VTT, Markdown, CLI), shared or deleted;
+  - meeting viewed (on open, debounced per meeting for 5 minutes), exported (PDF, VTT, Markdown, CLI), shared or deleted, and marked Private or not (`meeting.private_changed` from `session:set_session_private`);
   - transcript accessed (Rust transcript reads, debounced);
   - Ask query run (its scope and meeting ids, never the query text);
   - settings changes (key names only: `settings:save`, app settings writes, the lock, Engine quotas) and key changes (`ai-engine` key set/clear, `store2` secrets; the name only);
@@ -266,7 +266,7 @@ The rules:
   - data deletion;
   - retention runs;
   - backups and restores (`backup.created`, `backup.restored` from `session:backup_library` / `restore_library`; counts and flags only);
-  - CLI actions with source `cli` (meeting delete, local export).
+  - CLI actions with source `cli` (meeting delete, local export, unlock, and every MCP tool call or resource read as `mcp.call`).
 - **D1.5** It never contains meeting content. Enforced in code: action names are lower-case dotted names, and every id or detail value must be an identifier (no whitespace, at most 160 characters), so a title, query or transcript line is refused (`content_shaped_values_are_refused`, `content_is_refused_and_nothing_is_written`).
 - **D1.6** Settings → Audit shows the entries (paged, newest first) and runs "Verify". Reading the log is `(Settings, Administer)`. Test: editing, deleting or reordering a row directly in `audit.db`, or truncating it, makes Verify fail and points to the first bad entry (`crates/audit-log/src/tests.rs`).
 

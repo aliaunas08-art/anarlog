@@ -6,6 +6,7 @@ mod cloud;
 mod commands;
 mod db;
 mod error;
+mod lock;
 mod mcp;
 mod output;
 
@@ -114,8 +115,8 @@ pub async fn run(mut args: Args) -> Result<u8> {
             commands::proposals::run(&db, command, json).await?
         }
         cli::Command::Mcp => {
-            let db = std::sync::Arc::new(db::open_write(&args).await?);
-            mcp::serve(db).await?
+            let db = std::sync::Arc::new(db::connect_write(&args).await?);
+            mcp::serve(db, audit::audit_path(&args)).await?
         }
     }
 

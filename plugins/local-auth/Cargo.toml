@@ -19,6 +19,7 @@ anlg-aspc = { workspace = true, features = ["specta", "tauri"] }
 anlg-audit-log = { workspace = true, features = ["tauri"] }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
+anlg-device-auth = { workspace = true }
 anlg-host = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
