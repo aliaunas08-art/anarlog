@@ -45,7 +45,12 @@ export function leaveOverlayTab() {
             uniqueIdfromTab(tab) === currentTab.returnToTabId),
       )
     : null;
-  if (returnToTab) {
+  // Two overlays that each return to the other (Projects opened from
+  // Settings, Settings opened from Projects) would bounce forever: go Home.
+  const returnsHere =
+    returnToTab?.returnToSlotId !== undefined &&
+    returnToTab.returnToSlotId === currentTab?.slotId;
+  if (returnToTab && !returnsHere) {
     select(returnToTab);
     return;
   }

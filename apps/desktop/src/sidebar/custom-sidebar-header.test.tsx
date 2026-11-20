@@ -103,6 +103,30 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
 
+  it("goes home instead of bouncing between two overlays", () => {
+    const homeTab = { type: "empty" };
+    const settingsTab = {
+      returnToSlotId: "slot-folders",
+      returnToTabId: "folders",
+      slotId: "slot-settings",
+      type: "settings",
+    };
+    mocks.currentTab = {
+      returnToSlotId: "slot-settings",
+      returnToTabId: "settings",
+      slotId: "slot-folders",
+      type: "folders",
+    };
+    mocks.tabs = [settingsTab, mocks.currentTab, homeTab];
+
+    render(<CustomSidebarHeader />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
+
+    expect(mocks.select).toHaveBeenCalledWith(homeTab);
+    expect(mocks.select).not.toHaveBeenCalledWith(settingsTab);
+  });
+
   it("returns a workspace opened from settings back to settings", () => {
     const settingsTab = { slotId: "slot-settings", type: "settings" };
     mocks.currentTab = {
