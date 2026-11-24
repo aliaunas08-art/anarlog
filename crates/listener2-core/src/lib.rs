@@ -4,6 +4,7 @@ mod events;
 mod runtime;
 mod subtitle;
 
+pub use batch::speaker_pass;
 pub use batch::{
     BatchParams, BatchProvider, BatchRunMode, BatchRunOutput, KnownSpeaker,
     expects_progressive_batch, run_batch, uses_local_diarization,
@@ -288,26 +289,54 @@ mod tests {
     #[test]
     fn apple_speech_language_support_reflects_installed_framework() {
         // Drives the settings warning that names unsupported spoken languages.
+        // "Supported" means the framework can transcribe the language *and* the
+        // user added it in System Settings, so the expectations come from what
+        // this Mac's framework reports rather than a fixed language list.
         let available = anlg_transcribe_speechanalyzer::availability()
             .is_ok_and(|value| value.status == "available");
         if !available {
             return;
         }
 
-        let korean = vec!["ko".parse().unwrap()];
-        let hindi = vec!["hi".parse().unwrap()];
+        let supported = anlg_transcribe_speechanalyzer::supported_locales().unwrap();
+        let preferred = anlg_transcribe_speechanalyzer::preferred_locales().unwrap();
+        let primary = |tag: &str| tag.split('-').next().unwrap_or_default().to_lowercase();
+        let check = |code: &str, expected: bool| {
+            let languages: Vec<anlg_language::Language> = vec![code.parse().unwrap()];
+            for (provider, live) in [
+                ("apple-speech", true),
+                ("anarlog", true),
+                ("anarlog", false),
+            ] {
+                let result = if live {
+                    is_supported_languages_live(provider, Some("apple-speech"), &languages)
+                } else {
+                    is_supported_languages_batch(provider, Some("apple-speech"), &languages)
+                };
+                assert_eq!(result.unwrap(), expected, "{provider} live={live} {code}");
+            }
+        };
 
-        assert!(
-            is_supported_languages_live("apple-speech", Some("apple-speech"), &korean).unwrap()
-        );
-        assert!(
-            !is_supported_languages_live("apple-speech", Some("apple-speech"), &hindi).unwrap()
-        );
+        // A language added in System Settings is supported.
+        let added = preferred
+            .first()
+            .expect("a System Settings language")
+            .clone();
+        check(&added, true);
 
-        // Local models are surfaced under the Anarlog provider in settings.
-        assert!(is_supported_languages_live("anarlog", Some("apple-speech"), &korean).unwrap());
-        assert!(!is_supported_languages_live("anarlog", Some("apple-speech"), &hindi).unwrap());
-        assert!(is_supported_languages_batch("anarlog", Some("apple-speech"), &korean).unwrap());
-        assert!(!is_supported_languages_batch("anarlog", Some("apple-speech"), &hindi).unwrap());
+        // A language the framework has but the user did not add is not.
+        if let Some(not_added) = supported
+            .iter()
+            .find(|tag| !preferred.iter().any(|p| primary(p) == primary(tag)))
+        {
+            check(&primary(not_added), false);
+        }
+
+        // A language the framework cannot transcribe at all is not.
+        let unknown = ["sw", "yo", "zu", "is", "mt"]
+            .into_iter()
+            .find(|code| !supported.iter().any(|tag| primary(tag) == *code))
+            .expect("a language Apple Speech lacks");
+        check(unknown, false);
     }
 }

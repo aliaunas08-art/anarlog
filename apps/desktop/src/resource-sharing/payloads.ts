@@ -102,6 +102,8 @@ export async function sharedFolderPayload(
             LIMIT 1
           )
         WHERE session.deleted_at IS NULL
+          -- ASPC C6.4: sharing a folder never includes its Private meetings.
+          AND session.private = 0
           AND (
             session.folder_path = ?
             OR session.folder_path LIKE ?

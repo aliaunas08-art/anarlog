@@ -2,7 +2,9 @@ use crate::Store2PluginExt;
 use crate::chunked::{self, ChunkedError};
 
 const SECURE_STORE_SUFFIX: &str = "secure-store";
-const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:"];
+// `voice_enrollment:` holds the user's voiceprint; only native code reads it,
+// so the webview can never exfiltrate the embedding.
+const NATIVE_SECRET_ACCOUNT_PREFIXES: &[&str] = &["e2ee:", "voice_enrollment:"];
 #[cfg(target_os = "macos")]
 const MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX: &str = "macOS couldn't access your login Keychain.";
 #[cfg(target_os = "linux")]
@@ -21,6 +23,13 @@ enum SecretCaller {
     Renderer,
 }
 
+// C3.2: language-model provider keys. Every LLM call goes through the
+// Efficiency Engine (`plugins/ai-engine`), which keeps its own key in the
+// Keychain, so the webview never reads an LLM key. STT keys (`stt:…`) and
+// connected-import tokens (`meeting-imports:…`) are still read by the
+// webview: it hands them to the Rust transcription and import commands.
+const RENDERER_DENIED_SECRET_PREFIXES: &[&str] = &["ai-provider-api-keys:llm:"];
+
 fn validate_secret_coordinate(caller: SecretCaller, scope: &str, key: &str) -> Result<(), String> {
     let account = format!("{scope}:{key}");
     if caller == SecretCaller::Renderer
@@ -31,6 +40,19 @@ fn validate_secret_coordinate(caller: SecretCaller, scope: &str, key: &str) -> R
         return Err("secure-store account is reserved for native use".to_string());
     }
 
+    Ok(())
+}
+
+/// Reads from the webview: also refuses LLM provider keys (C3.2).
+fn validate_renderer_read(scope: &str, key: &str) -> Result<(), String> {
+    validate_secret_coordinate(SecretCaller::Renderer, scope, key)?;
+    let account = format!("{scope}:{key}");
+    if RENDERER_DENIED_SECRET_PREFIXES
+        .iter()
+        .any(|prefix| account.starts_with(prefix))
+    {
+        return Err("AI keys are held by the AI engine and can't be read here".to_string());
+    }
     Ok(())
 }
 
@@ -202,13 +224,32 @@ fn secret_location<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn save<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+pub(crate) async fn save<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
+) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.store2().save().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn repair_keychain_access() -> Result<(), String> {
+pub(crate) async fn repair_keychain_access<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Administer,
+    )
+    .map_err(|denied| denied.to_string())?;
     #[cfg(target_os = "macos")]
     {
         return tauri::async_runtime::spawn_blocking(repair_macos_keychain_access)
@@ -224,9 +265,17 @@ pub(crate) async fn repair_keychain_access() -> Result<(), String> {
 #[specta::specta]
 pub(crate) async fn get_str<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -239,10 +288,18 @@ pub(crate) async fn get_str<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_str<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
     value: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -255,9 +312,17 @@ pub(crate) async fn set_str<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_bool<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
 ) -> Result<Option<bool>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -270,10 +335,18 @@ pub(crate) async fn get_bool<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_bool<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
     value: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -286,9 +359,17 @@ pub(crate) async fn set_bool<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_number<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
 ) -> Result<Option<f64>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -301,10 +382,18 @@ pub(crate) async fn get_number<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_number<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     scope: String,
     key: String,
     value: f64,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let store = app
         .store2()
         .scoped_store::<String>(scope)
@@ -316,10 +405,20 @@ pub(crate) async fn set_number<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_secret<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Read,
+    )
+    .and_then(anlg_aspc::Grant::require_full)
+    .map_err(|denied| denied.to_string())?;
+    validate_renderer_read(&scope, &key)?;
     read_secret_for(SecretCaller::Renderer, app, scope, key).await
 }
 
@@ -385,12 +484,37 @@ fn read_secret_blocking_for<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn set_secret<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,
     value: String,
 ) -> Result<(), String> {
-    write_secret_for(SecretCaller::Renderer, app, scope, key, value).await
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let name = format!("{scope}:{key}");
+    write_secret_for(SecretCaller::Renderer, app.clone(), scope, key, value).await?;
+    record_key_change(&app, &name, "set");
+    Ok(())
+}
+
+/// D1.4 key change: the secret's scope and name only, never its value.
+fn record_key_change<R: tauri::Runtime>(app: &tauri::AppHandle<R>, name: &str, change: &str) {
+    let name = if anlg_audit_log::is_identifier(name) {
+        name
+    } else {
+        ""
+    };
+    anlg_audit_log::record(
+        app,
+        anlg_audit_log::NewEntry::new(anlg_audit_log::actions::KEY_CHANGED, "secret", name)
+            .id("change", change),
+    );
 }
 
 pub async fn write_secret<R: tauri::Runtime>(
@@ -444,11 +568,22 @@ fn write_secret_blocking_for<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn delete_secret<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     scope: String,
     key: String,
 ) -> Result<(), String> {
-    delete_secret_for(SecretCaller::Renderer, app, scope, key).await
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let name = format!("{scope}:{key}");
+    delete_secret_for(SecretCaller::Renderer, app.clone(), scope, key).await?;
+    record_key_change(&app, &name, "deleted");
+    Ok(())
 }
 
 pub fn delete_secret_blocking<R: tauri::Runtime>(
@@ -492,6 +627,24 @@ fn delete_secret_blocking_for<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn webview_cannot_read_llm_keys_but_keeps_stt_and_import_secrets() {
+        for key in ["llm:anthropic", "llm:openai", "llm:anarlog"] {
+            assert!(
+                validate_renderer_read("ai-provider-api-keys", key).is_err(),
+                "{key}"
+            );
+        }
+        assert!(validate_renderer_read("ai-provider-api-keys", "stt:deepgram").is_ok());
+        assert!(validate_renderer_read("meeting-imports", "granola").is_ok());
+        assert!(validate_renderer_read("e2ee", "recovery").is_err());
+        // Native callers (Rust) are unaffected.
+        assert!(
+            validate_secret_coordinate(SecretCaller::Native, "ai-provider-api-keys", "llm:x")
+                .is_ok()
+        );
+    }
 
     #[test]
     fn maps_bundle_identifiers_to_secure_store_services() {
@@ -581,6 +734,8 @@ mod tests {
 
     #[tokio::test]
     async fn renderer_secret_commands_reject_native_accounts_before_keychain_access() {
+        // The commands now run the ASPC guard first; this checks the
+        // renderer path behind it (Phase 2a left the old call shape here).
         let app = tauri::test::mock_builder()
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
             .unwrap();
@@ -590,13 +745,19 @@ mod tests {
         let expected = "secure-store account is reserved for native use";
 
         assert_eq!(
-            get_secret(app.clone(), scope.clone(), key.clone())
-                .await
-                .unwrap_err(),
+            read_secret_for(
+                SecretCaller::Renderer,
+                app.clone(),
+                scope.clone(),
+                key.clone()
+            )
+            .await
+            .unwrap_err(),
             expected
         );
         assert_eq!(
-            set_secret(
+            write_secret_for(
+                SecretCaller::Renderer,
                 app.clone(),
                 scope.clone(),
                 key.clone(),
@@ -606,6 +767,11 @@ mod tests {
             .unwrap_err(),
             expected
         );
-        assert_eq!(delete_secret(app, scope, key).await.unwrap_err(), expected);
+        assert_eq!(
+            delete_secret_for(SecretCaller::Renderer, app, scope, key)
+                .await
+                .unwrap_err(),
+            expected
+        );
     }
 }

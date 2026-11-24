@@ -62,9 +62,17 @@ pub(crate) async fn update_amplitude<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn start_recording<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     microphone_device: Option<String>,
     owner: String,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let audio = app
         .state::<Arc<dyn anlg_audio::AudioProvider>>()
         .inner()
@@ -78,8 +86,16 @@ pub(crate) async fn start_recording<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn stop_recording<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     owner: String,
 ) -> Result<RecordedAudio, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.state::<Recorder>()
         .stop(&owner)
         .await
@@ -113,11 +129,19 @@ pub(crate) async fn discard_recording<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn start_system_recording<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     microphone_device: Option<String>,
     owner: String,
     preview: Option<crate::preview::PreviewConfig>,
     updates: tauri::ipc::Channel<crate::preview::RecordingUpdate>,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Recording,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let audio = app
         .state::<Arc<dyn anlg_audio::AudioProvider>>()
         .inner()

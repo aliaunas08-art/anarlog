@@ -17,6 +17,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { useEngineKeyStatus } from "~/ai/engine";
 import { setDownloadedSttSelection } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
@@ -55,22 +56,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const queuedDownloads = usePendingSttSelection(
     (state) => state.queuedDownloads,
   );
-  const {
-    current_stt_provider,
-    current_stt_model,
-    current_llm_provider,
-    current_llm_model,
-  } = useConfigValues([
+  const { current_stt_provider, current_stt_model } = useConfigValues([
     "current_stt_provider",
     "current_stt_model",
-    "current_llm_provider",
-    "current_llm_model",
   ] as const);
+  const engineKey = useEngineKeyStatus();
 
   const hasConfigBanner =
     !isConfiguredSttModel(current_stt_provider, current_stt_model) ||
-    !current_llm_provider ||
-    !current_llm_model;
+    engineKey.data?.present === false;
 
   const sttModel = isOnDeviceSttModel(current_stt_provider, current_stt_model)
     ? current_stt_model

@@ -69,6 +69,18 @@ pub struct MeetingAccessibilityInspection {
     pub warnings: Vec<String>,
 }
 
+/// Who one meeting app marks as speaking at the moment it was sampled.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MeetingActiveSpeakerSample {
+    pub app: MeetingApp,
+    pub platform: MeetingPlatform,
+    pub active_call: bool,
+    /// Remote participants marked as speaking (never the local user).
+    pub speakers: Vec<String>,
+    pub self_speaking: bool,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MeetingChatSendResult {

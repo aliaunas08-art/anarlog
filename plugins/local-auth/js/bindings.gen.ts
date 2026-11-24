@@ -14,9 +14,87 @@ async available() : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * A one-off device authentication (note locks, settings changes in the
+ * UI). It never changes the app lock: only `unlock_app` does.
+ */
 async authenticate(reason: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|authenticate", { reason }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * The non-secret fields of the caller's access context (A1.3).
+ */
+async accessContext() : Promise<Result<AccessContextInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|access_context") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async appLockState() : Promise<Result<AppLockState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|app_lock_state") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Runs device authentication in Rust and unlocks only on success (A4.2).
+ * Errors with `aspc.auth_unavailable` if authentication is unavailable;
+ * the app then stays locked (A4.3).
+ */
+async unlockApp() : Promise<Result<AppLockState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|unlock_app") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async lockApp() : Promise<Result<AppLockState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|lock_app") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Turns the app lock on or off after a device authentication run here.
+ */
+async setAppLockEnabled(enabled: boolean) : Promise<Result<AppLockState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|set_app_lock_enabled", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * The idle relock setting, for the settings screen.
+ */
+async appLockSettings() : Promise<Result<AppLockSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|app_lock_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Sets the idle relock time after a device authentication run here.
+ * Returns the value now in force (unchanged if the prompt was cancelled).
+ */
+async setAppLockIdleMinutes(minutes: number) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-auth|set_app_lock_idle_minutes", { minutes }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -27,6 +105,11 @@ async authenticate(reason: string) : Promise<Result<boolean, string>> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+appLockChanged: AppLockChanged
+}>({
+appLockChanged: "plugin:local-auth:app-lock-changed"
+})
 
 /** user-defined constants **/
 
@@ -34,7 +117,14 @@ async authenticate(reason: string) : Promise<Result<boolean, string>> {
 
 /** user-defined types **/
 
-
+export type AccessContextInfo = { actorId: string; role: string | null; workspaceId: string; deviceId: string; window: string; unlocked: boolean }
+export type AppLockChanged = { enabled: boolean; unlocked: boolean }
+export type AppLockSettings = { 
+/**
+ * Minutes without input before the app relocks; 0 is off.
+ */
+idleMinutes: number; idleMinuteChoices: number[] }
+export type AppLockState = { enabled: boolean; unlocked: boolean }
 
 /** tauri-specta globals **/
 

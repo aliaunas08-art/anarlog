@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -65,60 +65,25 @@ describe("AppIconSelector", () => {
   });
 
   it.each([["system"], ["dark"]])(
-    "applies and stores the selected icon for the %s theme",
+    "shows no picker with only the Timbre icon (%s theme)",
     (theme) => {
       mocks.theme = theme;
-      render(<AppIconSelector />);
+      const { container } = render(<AppIconSelector />);
 
-      expect(
-        screen
-          .getByRole("radio", { name: "Default" })
-          .getAttribute("aria-checked"),
-      ).toBe("true");
-
-      fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
-
-      expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", theme);
-      expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
+      expect(container.textContent).toBe("");
+      expect(screen.queryByRole("radio")).toBeNull();
+      expect(mocks.applyAppIconPreference).not.toHaveBeenCalled();
+      expect(mocks.setAppIcon).not.toHaveBeenCalled();
     },
   );
 
-  it("toasts instead of changing icons on the free plan", () => {
-    mocks.billing.isPro = false;
+  it("offers none of the old Anarlog icons, even if one was saved", () => {
+    mocks.appIcon = "walnut";
 
     render(<AppIconSelector />);
 
-    const defaultOption = screen.getByRole("radio", { name: "Default" });
-    const blueprintOption = screen.getByRole("radio", { name: "Blueprint" });
-    expect(defaultOption.getAttribute("aria-disabled")).toBe("false");
-    expect(blueprintOption.getAttribute("aria-disabled")).toBe("true");
-
-    fireEvent.click(blueprintOption);
-
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
-    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(mocks.applyAppIconPreference).not.toHaveBeenCalled();
-    expect(mocks.setAppIcon).not.toHaveBeenCalled();
-  });
-
-  it("selects default for an equivalent channel-specific preference", () => {
-    mocks.appIcon = "stable";
-
-    render(<AppIconSelector />);
-
-    expect(
-      screen
-        .getByRole("radio", { name: "Default" })
-        .getAttribute("aria-checked"),
-    ).toBe("true");
-    expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
+    for (const name of ["Blueprint", "Anagram", "Walnut", "Production"]) {
+      expect(screen.queryByRole("radio", { name })).toBeNull();
+    }
   });
 });

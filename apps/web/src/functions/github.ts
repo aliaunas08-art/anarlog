@@ -15,7 +15,7 @@ type GitHubStats = {
 function getGitHubHeaders(accept = "application/vnd.github+json") {
   const headers: Record<string, string> = {
     Accept: accept,
-    "User-Agent": "Anarlog-Web",
+    "User-Agent": "Timbre-Web",
     "X-GitHub-Api-Version": "2022-11-28",
   };
   if (env.GITHUB_TOKEN) {

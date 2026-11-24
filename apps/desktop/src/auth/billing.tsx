@@ -456,6 +456,11 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const value = useMemo<BillingAccess>(
     () => ({
       ...billing,
+      // This fork has no paid tier: every on-device Pro feature is unlocked.
+      // isPaid still follows the account, because it switches on hosted
+      // services (cloud transcription and the hosted model) that the
+      // server only serves to paying accounts.
+      isPro: true,
       isReady,
       canStartTrial,
       upgradeToPro,

@@ -17,6 +17,7 @@ tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
 anlg-analytics = { workspace = true }
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-host = { workspace = true }
 
 tauri-plugin-misc = { workspace = true }

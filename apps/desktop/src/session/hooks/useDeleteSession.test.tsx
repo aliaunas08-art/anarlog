@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => {
     deleteSessionShareBySession: vi.fn(),
     emitTo: vi.fn(() => Promise.resolve()),
     finalizeSessionDeletion: vi.fn(),
+    purgeDeletedSession: vi.fn(() => Promise.resolve()),
     getAllWebviewWindows: vi.fn<
       () => Promise<Array<{ label: string; close: () => Promise<void> }>>
     >(() => Promise.resolve([])),
@@ -85,6 +86,7 @@ vi.mock("~/cloud-api/client", () => ({
 
 vi.mock("~/session/queries", () => ({
   finalizeSessionDeletion: mocks.finalizeSessionDeletion,
+  purgeDeletedSession: mocks.purgeDeletedSession,
   softDeleteSession: mocks.softDeleteSession,
 }));
 
@@ -229,6 +231,14 @@ describe("useDeleteSession", () => {
     expect(mocks.softDeleteSession.mock.invocationCallOrder[0]!).toBeLessThan(
       mocks.deleteSessionShareBySession.mock.invocationCallOrder[0],
     );
+    // D2.2: the permanent delete runs only when the undo window closes,
+    // after the share is revoked (which still reads the local share record).
+    await waitFor(() => {
+      expect(mocks.purgeDeletedSession).toHaveBeenCalledWith("session-1");
+    });
+    expect(
+      mocks.deleteSessionShareBySession.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(mocks.purgeDeletedSession.mock.invocationCallOrder[0]!);
   });
 
   it("still deletes the local note when remote revocation fails", async () => {
@@ -316,6 +326,18 @@ describe("useDeleteSession", () => {
       );
     });
     expect(mocks.deleteSessionShareBySession).not.toHaveBeenCalled();
+  });
+
+  it("never purges before the undo window closes", async () => {
+    const { result } = renderHook(() => useDeleteSession());
+    act(() => {
+      result.current("session-1");
+    });
+    await waitFor(() => {
+      expect(mocks.addDeletion).toHaveBeenCalledOnce();
+    });
+    await Promise.resolve();
+    expect(mocks.purgeDeletedSession).not.toHaveBeenCalled();
   });
 
   it("adds the undo deletion optimistically in the main window", async () => {

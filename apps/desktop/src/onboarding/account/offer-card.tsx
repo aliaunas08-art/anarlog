@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { cn } from "@anlg/utils";
 
 const NUMBER_CLASS =
-  "font-hand text-[44px] leading-none font-semibold text-amber-800";
+  "font-sans text-[44px] leading-none font-bold tracking-[-0.03em] text-amber-800";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 function DayCount({ days, from }: { days: number; from?: number }) {

@@ -1,6 +1,6 @@
-# Anarlog Brand
+# Timbre Brand
 
-This document is the single source of truth for Anarlog's visual identity on the web. All tokens referenced here are defined in `src/styles.css` and available as Tailwind utilities.
+This document is the single source of truth for Timbre's visual identity on the web. All tokens referenced here are defined in `src/styles.css` and available as Tailwind utilities.
 
 ---
 

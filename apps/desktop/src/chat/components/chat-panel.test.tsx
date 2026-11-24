@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   },
   noteFilter: "mine",
   folderFilter: null as string | null,
+  currentSessionId: "session-1" as string | undefined,
+  statusBySession: {} as Record<string, string>,
 }));
 
 vi.mock("./toolbar-controls", () => ({
@@ -43,9 +45,11 @@ vi.mock("./content", () => ({
 vi.mock("./session-provider", () => ({
   ChatSession: (props: { children: (props: object) => React.ReactNode }) => {
     mocks.chatSession(props);
+    const sessionId = (props as { sessionId?: string }).sessionId ?? "";
     return props.children({
+      sessionId,
       messages: [],
-      status: "ready",
+      status: mocks.statusBySession[sessionId] ?? "ready",
       error: undefined,
       regenerate: vi.fn(),
       contextEntities: [],
@@ -66,7 +70,7 @@ vi.mock("~/chat/store/use-chat-actions", () => ({
 }));
 
 vi.mock("./use-session-tab", () => ({
-  useSessionTab: () => ({ currentSessionId: "session-1" }),
+  useSessionTab: () => ({ currentSessionId: mocks.currentSessionId }),
 }));
 
 vi.mock("./use-summary-quick-actions", () => ({
@@ -115,6 +119,8 @@ vi.mock("~/stt/contexts", () => ({
 
 import { ChatPanelFrame, ChatSessionHost } from "./chat-panel";
 
+import { useChatContext } from "~/chat/state/chat-context";
+
 function TestChatPanel({
   layout = "floating",
 }: {
@@ -141,6 +147,13 @@ describe("Chat panel", () => {
     mocks.requestedLiveTranscription = null;
     mocks.liveTranscriptionActive = null;
     mocks.toolbarControls.mockClear();
+    mocks.currentSessionId = "session-1";
+    mocks.statusBySession = {};
+    useChatContext.setState({
+      askThreads: {},
+      askScopePreference: null,
+      askScopePreferenceMeetingId: null,
+    });
   });
 
   it("passes batch-only recording state to the chat session", () => {
@@ -204,5 +217,49 @@ describe("Chat panel", () => {
     );
     expect(screen.queryByTestId("chat-toolbar")).toBeNull();
     expect(mocks.toolbarControls).not.toHaveBeenCalled();
+  });
+
+  it("#9 keeps a still-answering thread mounted across a meeting switch until it is idle", () => {
+    const first = "ask:meeting:session-1";
+    const second = "ask:meeting:session-2";
+    mocks.statusBySession[first] = "streaming";
+    const view = render(<TestChatPanel />);
+    expect(mocks.chatSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sessionId: first,
+        currentSessionId: "session-1",
+      }),
+    );
+
+    mocks.chatSession.mockClear();
+    mocks.currentSessionId = "session-2";
+    view.rerender(<TestChatPanel />);
+    const mounted = () =>
+      new Set(
+        mocks.chatSession.mock.calls.map(
+          ([props]) => (props as { sessionId: string }).sessionId,
+        ),
+      );
+    // The streaming thread stays mounted (so onFinish persists its reply);
+    // the new meeting gets its own thread.
+    expect(mounted()).toEqual(new Set([first, second]));
+    expect(mocks.chatSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: second,
+        currentSessionId: "session-2",
+        askThreadKey: "meeting:session-2",
+      }),
+    );
+
+    // Once the old stream is done, its session unmounts.
+    mocks.statusBySession[first] = "ready";
+    mocks.chatSession.mockClear();
+    act(() => {
+      useChatContext.setState({});
+    });
+    view.rerender(<TestChatPanel />);
+    mocks.chatSession.mockClear();
+    view.rerender(<TestChatPanel />);
+    expect(mounted()).toEqual(new Set([second]));
   });
 });

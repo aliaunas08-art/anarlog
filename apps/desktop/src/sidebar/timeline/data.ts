@@ -4,6 +4,7 @@ import { useSmartCurrentTime } from "./realtime";
 import {
   buildTimelineBuckets,
   deriveTimelineWindowData,
+  filterTimelineSessionsByDay,
   filterTimelineTablesByFolder,
   getItemTimestamp,
   type TimelineBucket,
@@ -74,6 +75,7 @@ function isFutureBucketLabel(label: string) {
 }
 
 export function useTimelineData({
+  dateFilter = null,
   folderFilter = null,
   groupBy = "date",
   isEventIgnored,
@@ -83,6 +85,7 @@ export function useTimelineData({
   timelineSessionsTable,
   timezone,
 }: {
+  dateFilter?: string | null;
   folderFilter?: string | null;
   groupBy?: TimelineGroupBy;
   isEventIgnored: (
@@ -108,6 +111,20 @@ export function useTimelineData({
     [folderFilter, timelineEventsTable, timelineSessionsTable],
   );
   const windowData = useMemo(() => {
+    // A picked day shows only that day's notes: no calendar events and no
+    // "up to tomorrow" window, so past and future days both work.
+    if (dateFilter !== null) {
+      return {
+        timelineEventsTable: {},
+        timelineSessionsTable: filterTimelineSessionsByDay(
+          folderScopedTables.timelineSessionsTable,
+          dateFilter,
+          timezone,
+        ),
+        hasMoreFutureItems: false,
+      };
+    }
+
     if (groupBy === "folder") {
       return {
         timelineEventsTable: {},
@@ -123,7 +140,14 @@ export function useTimelineData({
       timelineSessionsTable: folderScopedTables.timelineSessionsTable,
       timezone,
     });
-  }, [folderScopedTables, groupBy, isEventIgnored, showIgnored, timezone]);
+  }, [
+    dateFilter,
+    folderScopedTables,
+    groupBy,
+    isEventIgnored,
+    showIgnored,
+    timezone,
+  ]);
   const currentTimeMs = useSmartCurrentTime(
     windowData.timelineEventsTable,
     windowData.timelineSessionsTable,

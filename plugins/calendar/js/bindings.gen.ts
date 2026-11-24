@@ -251,11 +251,11 @@ ended_at: string; timezone: string | null; is_all_day: boolean;
  * Apple: None | Confirmed | Tentative | Canceled -> map None to Confirmed.
  * Google: confirmed | tentative | cancelled.
  */
-status: EventStatus; organizer: EventPerson | null; attendees: EventAttendee[];
+status: EventStatus; organizer: EventPerson | null; attendees: EventAttendee[]; 
 /**
  * Provider-normalized attendance evidence for automatic meeting actions.
  */
-attendance?: EventAttendance | null; has_recurrence_rules: boolean;
+attendance?: EventAttendance | null; has_recurrence_rules: boolean; 
 /**
  * Google's approach: for an instance of a recurring event, this is the id of the recurring
  * event to which this instance belongs. For Apple, this is the recurrence's series_identifier

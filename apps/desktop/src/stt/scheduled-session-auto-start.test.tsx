@@ -37,6 +37,11 @@ const mocks = vi.hoisted(() => ({
   } | null,
   startListening: vi.fn(),
   updateSessionTabState: vi.fn(),
+  notifyScheduledRecordingStarted: vi.fn(),
+}));
+
+vi.mock("~/stt/scheduled-auto-start-notice", () => ({
+  notifyScheduledRecordingStarted: mocks.notifyScheduledRecordingStarted,
 }));
 
 const tab = {
@@ -109,6 +114,9 @@ beforeEach(() => {
   mocks.connectionReady = true;
   mocks.startListening.mockReset().mockResolvedValue(undefined);
   mocks.updateSessionTabState.mockReset();
+  mocks.notifyScheduledRecordingStarted
+    .mockReset()
+    .mockResolvedValue(undefined);
   useAppLock.setState({ revealedNoteIds: {} });
 });
 
@@ -123,6 +131,10 @@ test("starts scheduled recording when its connection state is ready", async () =
   expect(mocks.beginScheduledAutoStart).toHaveBeenCalledWith("session-1");
   await vi.waitFor(() =>
     expect(mocks.finishScheduledAutoStart).toHaveBeenCalledWith("session-1"),
+  );
+  // ASPC C6.5: a calendar auto-start always shows a notification.
+  expect(mocks.notifyScheduledRecordingStarted).toHaveBeenCalledWith(
+    "session-1",
   );
 });
 
@@ -139,6 +151,7 @@ test("starts manual recording without calendar eligibility", async () => {
   await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
   expect(mocks.readDueScheduledSessionMeeting).not.toHaveBeenCalled();
   expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
+  expect(mocks.notifyScheduledRecordingStarted).not.toHaveBeenCalled();
 });
 
 test("manual recording supersedes a pending scheduled attendance read", async () => {

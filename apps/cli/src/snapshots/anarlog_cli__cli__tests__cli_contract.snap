@@ -378,13 +378,19 @@ expression: canonicalize_json(contract)
               "value_name": "OFFSET"
             },
             {
+              "flags": "--include-private",
+              "help": "Also list meetings marked Private (local source only; left out by default)",
+              "is_flag": true,
+              "required": false
+            },
+            {
               "flags": "-h, --help",
               "help": "Print help",
               "is_flag": false,
               "required": false
             }
           ],
-          "synopsis": "anarlog meetings list [-q] [--series-id] [--folder] [--limit] [--offset] [-h]"
+          "synopsis": "anarlog meetings list [-q] [--series-id] [--folder] [--limit] [--offset] [--include-private] [-h]"
         },
         {
           "about": "List meeting folders, including empty and parent folders (local source only)",

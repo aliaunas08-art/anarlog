@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   mic: vi.fn(),
   currentDevice: vi.fn(),
   participants: vi.fn(),
+  startTracking: vi.fn(),
+  stopTracking: vi.fn(),
+  platform: null as string | null,
   eventJson: "{}",
 }));
 
@@ -13,6 +16,8 @@ vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     inspectMeetingAccessibility: mocks.inspect,
     listMicUsingApplications: mocks.mic,
+    startActiveSpeakerTracking: mocks.startTracking,
+    stopActiveSpeakerTracking: mocks.stopTracking,
   },
 }));
 vi.mock("@anlg/plugin-transcription", () => ({
@@ -27,19 +32,27 @@ vi.mock("~/db/write-queue", () => ({
 vi.mock("~/db", () => ({
   liveQueryClient: {
     execute: async (sql: string) =>
-      sql.includes("AS context")
-        ? [{ context: JSON.stringify(mocks.context) }]
-        : [
-            {
-              title: "John x Alex",
-              name: "John",
-              event_json: mocks.eventJson,
-              owner_user_id: "self",
-              aliases: null,
-            },
-          ],
+      sql.includes("AS platform")
+        ? [{ platform: mocks.platform }]
+        : sql.includes("AS context")
+          ? [{ context: JSON.stringify(mocks.context) }]
+          : [
+              {
+                title: "John x Alex",
+                name: "John",
+                event_json: mocks.eventJson,
+                owner_user_id: "self",
+                aliases: null,
+              },
+            ],
   },
-  executeTransaction: async (writes: Array<{ params: unknown[] }>) => {
+  executeTransaction: async (
+    writes: Array<{ sql: string; params: unknown[] }>,
+  ) => {
+    if (writes[0]!.sql.includes("platform_speakers")) {
+      mocks.platform = writes[0]!.params[0] as string;
+      return;
+    }
     mocks.context = JSON.parse(writes[0]!.params[0] as string);
   },
 }));
@@ -48,6 +61,7 @@ import {
   observeSpeakerMicrophone,
   startSpeakerContextCapture,
   stopSpeakerContextCapture,
+  waitForSpeakerContextStop,
 } from "./speaker-context-capture";
 
 const inspection = {
@@ -75,11 +89,81 @@ describe("capturing speaker context", () => {
       data: "AirPods Pro",
     });
     mocks.participants.mockResolvedValue([]);
+    mocks.startTracking.mockResolvedValue({ status: "ok", data: null });
+    mocks.stopTracking.mockResolvedValue({ status: "ok", data: null });
+    mocks.platform = null;
     mocks.eventJson = "{}";
   });
   afterEach(async () => {
     await stopSpeakerContextCapture("session");
     vi.useRealTimers();
+  });
+
+  it("tracks platform active speakers and saves the timeline when capture stops", async () => {
+    const timeline = {
+      version: 1,
+      platform: "zoom",
+      app_id: "us.zoom.xos",
+      samples: 3,
+      tagged_samples: 2,
+      intervals: [
+        {
+          start_ms: 1000,
+          end_ms: 3000,
+          speakers: ["Sam Lee"],
+          self_speaking: false,
+        },
+      ],
+    };
+    mocks.stopTracking.mockResolvedValue({ status: "ok", data: timeline });
+    startSpeakerContextCapture("session");
+    expect(mocks.startTracking).toHaveBeenCalledTimes(1);
+    const stopped = stopSpeakerContextCapture("session");
+    await waitForSpeakerContextStop("session");
+    await stopped;
+    expect(JSON.parse(mocks.platform!)).toEqual(timeline);
+
+    // A resumed recording appends rather than replacing the first capture.
+    mocks.stopTracking.mockResolvedValue({
+      status: "ok",
+      data: {
+        ...timeline,
+        samples: 1,
+        tagged_samples: 1,
+        intervals: [
+          {
+            start_ms: 9000,
+            end_ms: 9500,
+            speakers: ["Priya"],
+            self_speaking: false,
+          },
+        ],
+      },
+    });
+    startSpeakerContextCapture("session");
+    await stopSpeakerContextCapture("session");
+    const merged = JSON.parse(mocks.platform!);
+    expect(merged.samples).toBe(4);
+    expect(
+      merged.intervals.map((i: { speakers: string[] }) => i.speakers[0]),
+    ).toEqual(["Sam Lee", "Priya"]);
+  });
+
+  it("saves nothing when the platform tagged no one", async () => {
+    mocks.stopTracking.mockResolvedValue({
+      status: "ok",
+      data: {
+        version: 1,
+        platform: null,
+        app_id: null,
+        samples: 0,
+        tagged_samples: 0,
+        intervals: [],
+      },
+    });
+    startSpeakerContextCapture("session");
+    await stopSpeakerContextCapture("session");
+    expect(mocks.platform).toBeNull();
   });
 
   it("records a joined Meet call without any calendar event or attendees", async () => {

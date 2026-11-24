@@ -1,0 +1,18 @@
+[package]
+name = "aspc"
+version = "0.1.0"
+edition = "2024"
+description = "Central access check (ASPC A1/A2): roles, data types, actions, the permission matrix, the app lock state and the Tauri command registry."
+
+[features]
+default = []
+serde = ["dep:serde"]
+specta = ["dep:specta", "serde"]
+# The `require` guard for Tauri commands. Off by default so a server can use
+# the crate without Tauri.
+tauri = ["dep:tauri"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"], optional = true }
+specta = { workspace = true, features = ["derive"], optional = true }
+tauri = { workspace = true, optional = true }

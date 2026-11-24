@@ -57,3 +57,39 @@ describe("extractContextRefsFromTiptapJson", () => {
     expect(extractContextRefsFromTiptapJson(doc)).toHaveLength(1);
   });
 });
+
+describe("usePendingChatPrompt", () => {
+  it("puts a queued prompt in the editor and keeps existing text", async () => {
+    const { renderHook } = await import("@testing-library/react");
+    const { queueChatPrompt, usePendingChatPrompt } = await import("./hooks");
+    let doc: { type: string; content?: unknown[] } | undefined = {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "draft" }] },
+      ],
+    };
+    const editor = {
+      getJSON: () => doc,
+      replaceContent: (next: typeof doc) => {
+        doc = next;
+      },
+      focus: () => true,
+      clearContent: () => {},
+      insertText: () => {},
+    };
+    renderHook(() =>
+      usePendingChatPrompt({
+        draftKey: "chat-x",
+        editorRef: { current: editor as never },
+      }),
+    );
+    queueChatPrompt("chat-x", "Recap yesterday");
+    expect(doc?.content).toEqual([
+      { type: "paragraph", content: [{ type: "text", text: "draft" }] },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Recap yesterday" }],
+      },
+    ]);
+  });
+});

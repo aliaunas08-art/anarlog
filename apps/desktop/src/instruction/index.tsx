@@ -17,6 +17,8 @@ import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { WindowsWindowControls } from "~/main/windows-window-controls";
+import { APP_MARK_ICON_SRC } from "~/shared/app-mark";
+import { APP_NAME } from "~/shared/app-name";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 
@@ -86,7 +88,7 @@ function InstructionShell({
         <div className="flex w-full max-w-sm flex-col items-center gap-6 px-10 pb-10 text-center">
           {icon ?? (
             <img
-              src="/assets/anarlog-icon.png"
+              src={APP_MARK_ICON_SRC}
               alt=""
               className="h-14 w-14 object-contain object-center"
             />
@@ -181,7 +183,7 @@ export function InstructionScreen({
     return (
       <ExternalInstruction
         title={t`Upgrade to Pro`}
-        description={t`Finish checkout in your browser to unlock more, then return to Anarlog.`}
+        description={t`Finish checkout in your browser to unlock more, then return to ${APP_NAME}.`}
         actionLabel={t`Reopen checkout page`}
         onBack={onBack}
         onClose={onClose}
@@ -199,7 +201,7 @@ export function InstructionScreen({
           ? t`Connect ${integration.displayName}`
           : t`Connect your integration`
       }
-      description={t`Authorize access in your browser, then return to Anarlog.`}
+      description={t`Authorize access in your browser, then return to ${APP_NAME}.`}
       icon={integration?.icon}
       actionLabel={t`Reopen in browser`}
       onBack={onBack}
@@ -264,7 +266,7 @@ function SignInInstruction({
   return (
     <InstructionShell
       title={t`Sign in to your account`}
-      description={t`Complete sign-in in your browser, then return to Anarlog.`}
+      description={t`Complete sign-in in your browser, then return to ${APP_NAME}.`}
       onBack={onBack}
       onClose={onClose}
     >
@@ -289,7 +291,7 @@ function SignInInstruction({
           <p className="text-muted-foreground text-xs leading-5">
             <Trans>
               Paste the browser URL here if the browser button did not reopen
-              Anarlog.
+              {APP_NAME}.
             </Trans>
           </p>
         </>

@@ -325,21 +325,21 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
-            commands::cleanup_recording_imports,
-            commands::list_meetings,
-            commands::get_meeting,
-            commands::get_meeting_transcript,
-            commands::get_recurring_meeting_history,
-            commands::execute,
-            commands::execute_transaction,
-            commands::execute_proxy,
-            commands::get_legacy_import_report,
-            commands::get_legacy_cleanup_status,
-            commands::cleanup_legacy_files,
-            commands::run_legacy_import,
-            commands::apply_session_ingest,
+            commands::cleanup_recording_imports::<tauri::Wry>,
+            commands::list_meetings::<tauri::Wry>,
+            commands::get_meeting::<tauri::Wry>,
+            commands::get_meeting_transcript::<tauri::Wry>,
+            commands::get_recurring_meeting_history::<tauri::Wry>,
+            commands::execute::<tauri::Wry>,
+            commands::execute_transaction::<tauri::Wry>,
+            commands::execute_proxy::<tauri::Wry>,
+            commands::get_legacy_import_report::<tauri::Wry>,
+            commands::get_legacy_cleanup_status::<tauri::Wry>,
+            commands::cleanup_legacy_files::<tauri::Wry>,
+            commands::run_legacy_import::<tauri::Wry>,
+            commands::apply_session_ingest::<tauri::Wry>,
             commands::get_e2ee_identity_status<tauri::Wry>,
-            commands::inspect_e2ee_recovery_key,
+            commands::inspect_e2ee_recovery_key<tauri::Wry>,
             commands::create_e2ee_identity<tauri::Wry>,
             commands::import_e2ee_identity<tauri::Wry>,
             commands::get_or_create_e2ee_device_identity<tauri::Wry>,
@@ -348,20 +348,20 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::import_e2ee_device_enrollment<tauri::Wry>,
             commands::subscribe::<tauri::Wry>,
             commands::unsubscribe,
-            commands::configure_cloudsync,
-            commands::bind_cloudsync_account,
-            commands::connect_local_library,
+            commands::configure_cloudsync::<tauri::Wry>,
+            commands::bind_cloudsync_account::<tauri::Wry>,
+            commands::connect_local_library::<tauri::Wry>,
             commands::configure_cloudsync_token<tauri::Wry>,
             commands::configure_e2ee_replica<tauri::Wry>,
-            commands::start_cloudsync,
-            commands::stop_cloudsync,
-            commands::suspend_cloudsync,
-            commands::suspend_cloudsync_for_sign_out,
-            commands::suspend_cloudsync_after_auth_loss,
-            commands::get_cloudsync_status,
-            commands::sync_cloudsync_now,
-            commands::begin_cloudsync_activity,
-            commands::end_cloudsync_activity,
+            commands::start_cloudsync::<tauri::Wry>,
+            commands::stop_cloudsync::<tauri::Wry>,
+            commands::suspend_cloudsync::<tauri::Wry>,
+            commands::suspend_cloudsync_for_sign_out::<tauri::Wry>,
+            commands::suspend_cloudsync_after_auth_loss::<tauri::Wry>,
+            commands::get_cloudsync_status::<tauri::Wry>,
+            commands::sync_cloudsync_now::<tauri::Wry>,
+            commands::begin_cloudsync_activity::<tauri::Wry>,
+            commands::end_cloudsync_activity::<tauri::Wry>,
             commands::get_startup_status,
             commands::wait_until_ready,
         ])
@@ -389,6 +389,10 @@ async fn bootstrap_app_database<R: tauri::Runtime>(
     import::import_legacy_data(&app, db.pool())
         .await
         .map_err(|error| error.to_string())?;
+    if let Some(state) = app.try_state::<std::sync::Arc<anlg_aspc::AspcState>>() {
+        runtime.set_access_state(std::sync::Arc::clone(state.inner()));
+    }
+    runtime.apply_content_identity().await;
     if let Some(config) = startup_config {
         runtime.set_startup_status_if_running(StartupStatus::for_phase(
             StartupPhase::ConfiguringCloudsync,

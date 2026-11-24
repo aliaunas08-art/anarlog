@@ -15,7 +15,10 @@ specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
 tauri = { workspace = true, features = ["test"] }
+tauri-plugin-fs2 = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 anlg-export-core = { workspace = true }

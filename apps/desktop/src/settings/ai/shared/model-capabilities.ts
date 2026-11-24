@@ -1,5 +1,4 @@
 import { ANARLOG_PRO_LLM_MODELS } from "./anarlog-pro-models";
-import { getCloudflareWorkersAIModelMetadata } from "./list-cloudflare-workers-ai";
 
 const TEXT_ONLY_MODEL_RE =
   /(?:^|[/:\-.])(?:gpt-3\.5|claude-2|claude-instant|davinci|babbage|curie|ada|dall-e|sora|gpt-image|image-generation|embed|embedding|whisper|tts|transcribe|moderation|realtime|computer)(?:$|[/:\-.])/i;
@@ -13,13 +12,6 @@ export function modelSupportsImageInput(
 ): boolean {
   if (!providerId || !modelId) {
     return false;
-  }
-
-  if (providerId === "cloudflare_workers_ai") {
-    const metadata = getCloudflareWorkersAIModelMetadata(modelId);
-    if (metadata?.input_modalities) {
-      return metadata.input_modalities.includes("image");
-    }
   }
 
   if (TEXT_ONLY_MODEL_RE.test(modelId)) {

@@ -16,6 +16,8 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
+anlg-aspc = { workspace = true, features = ["tauri"] }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
 anlg-storage = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }

@@ -47,7 +47,7 @@ export const SETTING_DEFINITIONS = {
   export_include_transcript: {
     type: "boolean",
     path: ["general", "export_include_transcript"],
-    default: false as boolean,
+    default: true as boolean,
   },
   autostart: {
     type: "boolean",
@@ -170,6 +170,16 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "remember_speakers"],
     default: true as boolean,
   },
+  speaker_setup_prompt_shown: {
+    type: "boolean",
+    path: ["general", "speaker_setup_prompt_shown"],
+    default: false as boolean,
+  },
+  voice_profile_improve_declined: {
+    type: "boolean",
+    path: ["general", "voice_profile_improve_declined"],
+    default: false as boolean,
+  },
   microphone_device: {
     type: "string",
     path: ["general", "microphone_device"],
@@ -236,15 +246,39 @@ export const SETTING_DEFINITIONS = {
     path: ["notification", "bounce_transcript"],
     default: true as boolean,
   },
+  // Legacy. It defaulted to on, so a stored value can't show the user opted
+  // in; it no longer turns analytics on (ASPC D6). Kept only for the crash
+  // reporting migration in `initializeApplicationSettings`.
   telemetry_consent: {
     type: "boolean",
     path: ["general", "telemetry_consent"],
-    default: true as boolean,
+    default: false as boolean,
   },
+  // ASPC D6 / C4.3: usage analytics and session replay are opt-in. Both are
+  // off for new and existing installs until the user turns them on.
+  analytics_opt_in: {
+    type: "boolean",
+    path: ["general", "analytics_opt_in"],
+    default: false as boolean,
+  },
+  session_replay_opt_in: {
+    type: "boolean",
+    path: ["general", "session_replay_opt_in"],
+    default: false as boolean,
+  },
+  // Rust treats a missing row as off (`crash_reporting_consent_from_rows`);
+  // the UI default matches it.
   crash_reporting_consent: {
     type: "boolean",
     path: ["general", "crash_reporting_consent"],
-    default: true as boolean,
+    default: false as boolean,
+  },
+  // ASPC D3: 0 keeps meetings forever; N > 0 deletes meetings older than
+  // N days (applied in Rust at startup and every 6 hours).
+  meeting_retention_days: {
+    type: "number",
+    path: ["general", "meeting_retention_days"],
+    default: 0 as number,
   },
   lock_app: {
     type: "boolean",
@@ -320,6 +354,12 @@ export const SETTING_DEFINITIONS = {
     type: "number",
     path: ["notification", "mic_active_threshold"],
     default: 15 as number,
+  },
+  // Daily Ask call limit on the hosted developer key. No default (unset)
+  // means unlimited; BYOK providers are never limited.
+  ai_usage_daily_limit: {
+    type: "number",
+    path: ["ai", "usage_daily_limit"],
   },
   current_llm_provider: {
     type: "string",

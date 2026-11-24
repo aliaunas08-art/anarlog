@@ -265,6 +265,156 @@ describe("task content", () => {
   });
 });
 
+describe("task owners from mentions", () => {
+  const mention = (id: string, type = "human") => ({
+    type: "mention-@",
+    attrs: { id, type, label: id },
+  });
+  const taskItem = (taskId: string, content: unknown[]) => ({
+    type: "taskItem",
+    attrs: { status: "todo", taskId, taskItemId: `item-${taskId}` },
+    content,
+  });
+  const source = { type: "session_raw_note", id: "session-1" };
+
+  it("uses the first person mentioned in the task, not nested tasks", () => {
+    const content = {
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            taskItem("task-1", [
+              {
+                type: "paragraph",
+                content: [
+                  mention("org-1", "organization"),
+                  { type: "text", text: " ask " },
+                  mention("human-1"),
+                  mention("human-2"),
+                ],
+              },
+              {
+                type: "taskList",
+                content: [
+                  taskItem("task-2", [
+                    { type: "paragraph", content: [mention("human-3")] },
+                  ]),
+                ],
+              },
+            ]),
+            taskItem("task-3", [
+              { type: "paragraph", content: [{ type: "text", text: "x" }] },
+            ]),
+          ],
+        },
+      ],
+    };
+
+    const tasks = extractTasksFromContent(
+      content as never,
+      source,
+      new Map([
+        [
+          "task-1",
+          {
+            taskId: "task-1",
+            sourceId: "session-1",
+            sourceType: "session_raw_note",
+            sourceOrder: 0,
+            status: "todo" as const,
+            textPreview: "",
+            body: [],
+            assigneeHumanId: "human-9",
+          },
+        ],
+        [
+          "task-3",
+          {
+            taskId: "task-3",
+            sourceId: "session-1",
+            sourceType: "session_raw_note",
+            sourceOrder: 2,
+            status: "todo" as const,
+            textPreview: "x",
+            body: [],
+            assigneeHumanId: "human-9",
+            dueDate: "2026-05-01",
+          },
+        ],
+      ]),
+    );
+
+    expect(
+      tasks.map(({ taskId, assigneeHumanId, dueDate }) => ({
+        taskId,
+        assigneeHumanId,
+        dueDate,
+      })),
+    ).toEqual([
+      // The mention wins over the stored owner.
+      { taskId: "task-1", assigneeHumanId: "human-1", dueDate: undefined },
+      { taskId: "task-2", assigneeHumanId: "human-3", dueDate: undefined },
+      // No mention: the stored owner and due date are kept.
+      { taskId: "task-3", assigneeHumanId: "human-9", dueDate: "2026-05-01" },
+    ]);
+  });
+});
+
+describe("task owners from unchanged mentions", () => {
+  it("keeps the stored owner while the mention is the same as before", () => {
+    const body = (humanId: string) => [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Ship " },
+          { type: "mention-@", attrs: { id: humanId, type: "human" } },
+        ],
+      },
+    ];
+    const content = (humanId: string) => ({
+      type: "doc",
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { status: "todo", taskId: "task-1", taskItemId: "i1" },
+              content: body(humanId),
+            },
+          ],
+        },
+      ],
+    });
+    const previous = new Map([
+      [
+        "task-1",
+        {
+          taskId: "task-1",
+          sourceId: "s",
+          sourceType: "session_raw_note",
+          sourceOrder: 0,
+          status: "todo" as const,
+          textPreview: "Ship",
+          body: body("alice"),
+          assigneeHumanId: "bob",
+        },
+      ],
+    ]);
+    const source = { type: "session_raw_note", id: "s" };
+
+    expect(
+      extractTasksFromContent(content("alice") as never, source, previous)[0]
+        ?.assigneeHumanId,
+    ).toBe("bob");
+    expect(
+      extractTasksFromContent(content("cara") as never, source, previous)[0]
+        ?.assigneeHumanId,
+    ).toBe("cara");
+  });
+});
+
 describe("in-memory task storage", () => {
   it("reconciles tasks per source without duplicating other sources", () => {
     const storage = createInMemoryTaskStorage();

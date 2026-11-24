@@ -4,6 +4,7 @@
 
 @import "tailwindcss";
 @import "./dark-theme.css";
+@import "./c-final.css";
 @import "../../../../packages/ui/src/styles/corners.css";
 @import "../../../../packages/ui/src/styles/scroll-fade.css";
 
@@ -44,6 +45,13 @@ html[data-rounded-window] #root {
   --font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-hand: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  /* C · Final: no monospace in the UI. `font-mono` renders the system font;
+   * code, pre and [data-cf-code] switch back to --font-code (c-final.css). */
+  --font-mono:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-code:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 
   /* Capsule radii still read as pills/circles; remap to a control squircle. */
   --radius-full: 0.5rem;

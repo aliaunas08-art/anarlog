@@ -78,6 +78,21 @@ impl SegmentKey {
     }
 }
 
+/// A person id with no known name. A name read from a meeting platform is
+/// carried in its synthetic id, so show that name rather than the id.
+fn display_human_id(human_id: &str) -> String {
+    platform_display_name(human_id).unwrap_or_else(|| human_id.to_string())
+}
+
+/// The name inside a synthetic platform person id (`platform:Sam Lee`).
+pub(crate) fn platform_display_name(human_id: &str) -> Option<String> {
+    human_id
+        .strip_prefix(crate::PLATFORM_HUMAN_ID_PREFIX)
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+}
+
 pub fn render_speaker_label(
     key: &SegmentKey,
     ctx: Option<&SpeakerLabelContext>,
@@ -88,7 +103,7 @@ pub fn render_speaker_label(
             if let Some(name) = ctx.human_name_by_id.get(human_id) {
                 return name.clone();
             }
-            return human_id.clone();
+            return display_human_id(human_id);
         }
 
         if key.channel == ChannelProfile::DirectMic
@@ -97,10 +112,10 @@ pub fn render_speaker_label(
             if let Some(name) = ctx.human_name_by_id.get(self_human_id) {
                 return name.clone();
             }
-            return "You".to_string();
+            return "Me".to_string();
         }
     } else if let Some(human_id) = key.speaker_human_id.as_ref() {
-        return human_id.clone();
+        return display_human_id(human_id);
     }
 
     if let Some(labeler) = labeler.as_mut() {
@@ -133,7 +148,7 @@ mod tests {
     }
 
     #[test]
-    fn renders_direct_mic_as_you_when_self_exists_without_name() {
+    fn renders_direct_mic_as_me_when_self_exists_without_name() {
         let ctx = SpeakerLabelContext {
             self_human_id: Some("self".to_string()),
             human_name_by_id: HashMap::new(),
@@ -141,7 +156,7 @@ mod tests {
 
         assert_eq!(
             render_speaker_label(&direct_mic_key(), Some(&ctx), None),
-            "You"
+            "Me"
         );
     }
 
@@ -201,6 +216,6 @@ mod tests {
         };
 
         assert!(key.is_known_speaker(Some(&ctx)));
-        assert_eq!(render_speaker_label(&key, Some(&ctx), None), "You");
+        assert_eq!(render_speaker_label(&key, Some(&ctx), None), "Me");
     }
 }

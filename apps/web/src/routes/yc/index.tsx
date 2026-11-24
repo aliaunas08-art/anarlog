@@ -5,16 +5,16 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, CircleNotch } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SiteFooter } from "@/components/site-footer";
+import { TimbreLogo } from "@/components/timbre-logo";
 import { fetchUser } from "@/functions/auth";
 import { applyYcPerk, submitYcPerkRequest } from "@/functions/yc-perk";
 import { getCanonicalUrl } from "@/lib/seo";
 import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
 
-const title = "YC founder perk · Anarlog";
+const title = "YC founder perk · Timbre";
 const description =
-  "YC founders get one year of the personal Anarlog Pro plan free for private, bot-free meeting notes.";
+  "YC founders get one year of the personal Timbre Pro plan free for private, bot-free meeting notes.";
 
 const invalidVerificationMessages = {
   not_verified: "This YC link is no longer active.",
@@ -101,12 +101,8 @@ function YcPerkPage() {
     <div className="flex min-h-screen flex-col bg-white text-[#181613]">
       <main className="mx-auto w-full max-w-[700px] flex-1 px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <section className="pt-10 pb-20 text-center md:pt-12 md:pb-24">
-          <Link
-            to="/"
-            aria-label="Anarlog home"
-            className="flex justify-center"
-          >
-            <AnarlogLogo className="h-8 w-auto md:h-9" />
+          <Link to="/" aria-label="Timbre home" className="flex justify-center">
+            <TimbreLogo className="h-8 w-auto md:h-9" />
           </Link>
 
           <div className="mt-12 inline-flex items-center gap-2 text-sm font-medium text-[#756b5d] md:mt-16">
@@ -124,7 +120,7 @@ function YcPerkPage() {
             Build the company. Keep every decision.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-            Get 1 year of the personal Anarlog Pro plan free for private,
+            Get 1 year of the personal Timbre Pro plan free for private,
             bot-free meeting notes. Workspace billing and Enterprise plans are
             separate.
           </p>

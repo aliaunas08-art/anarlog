@@ -9,10 +9,13 @@ import {
 } from "./general";
 import { SettingsTodo } from "./todo";
 
-import { LLM } from "~/settings/ai/llm";
+import { SettingsAbout } from "~/settings/about";
+import { AiEngineSettings } from "~/settings/ai/engine";
 import { STT } from "~/settings/ai/stt";
 import { SettingsAppearance } from "~/settings/appearance";
+import { SettingsAudit } from "~/settings/audit";
 import { SettingsCrm } from "~/settings/crm";
+import { SettingsDataLocations } from "~/settings/data-locations";
 import { SettingsDevelopers } from "~/settings/developers";
 import { SettingsDictation } from "~/settings/dictation";
 import { SettingsDictionary } from "~/settings/dictionary";
@@ -83,6 +86,12 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsPermissions />;
       case "privacy":
         return <SettingsPrivacy />;
+      case "audit":
+        return <SettingsAudit />;
+      case "data-locations":
+        return <SettingsDataLocations />;
+      case "about":
+        return <SettingsAbout />;
       case "developers":
         return <SettingsDevelopers />;
       case "dictionary":
@@ -92,7 +101,7 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
       case "transcription":
         return <STT />;
       case "intelligence":
-        return <LLM />;
+        return <AiEngineSettings />;
       case "todo":
         return <SettingsTodo />;
       default:

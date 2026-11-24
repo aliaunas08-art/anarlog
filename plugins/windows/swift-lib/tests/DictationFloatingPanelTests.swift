@@ -72,9 +72,27 @@ final class DictationFloatingPanelTests: XCTestCase {
   func testDictationFitsTheSharedPanelLayout() {
     XCTAssertEqual(
       FloatingBarLayout.containerSize(isExpanded: false, showsExpand: true),
-      NSSize(width: 108, height: 67))
+      NSSize(width: 222, height: 67))
     XCTAssertEqual(
       FloatingBarLayout.containerSize(isExpanded: true, showsExpand: true),
       NSSize(width: 368, height: 459))
+  }
+
+  func testTimerMatchesTheAppFormat() {
+    XCTAssertEqual(FloatingBarTimer.format(4), "0:04")
+    XCTAssertEqual(FloatingBarTimer.format(754.9), "12:34")
+    XCTAssertEqual(FloatingBarTimer.format(3723), "1:02:03")
+  }
+
+  func testElapsedSecondsDecodesWhenPresent() throws {
+    let json = """
+      {"amplitude":0.2,"title":"Sync","status":"recording","colorScheme":"dark",
+      "opacity":0.78,"liveCaptionOpacity":0.3,"liveCaptionWidth":440,
+      "liveCaptionLineCount":1,"liveCaptionPosition":"topCenter",
+      "liveCaptionMinimized":true,"liveCaptionToggleVisible":true,"elapsedSeconds":754}
+      """
+    let state = try JSONDecoder().decode(
+      FloatingBarStatePayload.self, from: Data(json.utf8))
+    XCTAssertEqual(state.elapsedSeconds, 754)
   }
 }

@@ -1,4 +1,4 @@
-// Anarlog's public images live under anarlog/ in the shared fastrepl R2 bucket.
+// Timbre's public images live under anarlog/ in the shared fastrepl R2 bucket.
 import { PUBLIC_ASSET_ORIGIN as ASSET_ORIGIN } from "./asset-url.ts";
 
 export const PUBLIC_ASSET_ORIGIN = `${ASSET_ORIGIN}/anarlog`;

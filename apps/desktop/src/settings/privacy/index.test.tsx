@@ -9,17 +9,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   setSettingValues: vi.fn(),
-  authenticate: vi.fn(),
+  setLockEnabled: vi.fn(),
   refreshAvailability: vi.fn(),
-  lockApp: vi.fn(),
+  lockEnabled: false,
   available: true as boolean | null,
   authenticating: false,
   platform: "macos" as string,
   values: {
-    telemetry_consent: true,
+    analytics_opt_in: true,
+    session_replay_opt_in: false,
     crash_reporting_consent: false,
     lock_app: false,
+    meeting_retention_days: 0,
   },
+}));
+
+vi.mock("./legal", () => ({
+  LegalLinks: () => null,
+}));
+
+vi.mock("./backup", () => ({
+  BackupSettings: () => null,
+}));
+
+vi.mock("./idle-relock", () => ({
+  IdleRelockSetting: () => <div data-testid="idle-relock" />,
+}));
+
+vi.mock("~/data-protection/disk-encryption-row", () => ({
+  DiskEncryptionRow: () => null,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -32,9 +50,11 @@ vi.mock("~/settings/queries", () => ({
     data: {
       values: mocks.values,
       hasValues: new Set([
-        "telemetry_consent",
+        "analytics_opt_in",
+        "session_replay_opt_in",
         "crash_reporting_consent",
         "lock_app",
+        "meeting_retention_days",
       ]),
     },
     isLoading: false,
@@ -43,13 +63,14 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 vi.mock("~/lock/store", () => ({
+  startRustLockSync: vi.fn(() => Promise.resolve()),
   useAppLock: (selector: (state: typeof mocks) => unknown) =>
     selector({
       available: mocks.available,
       authenticating: mocks.authenticating,
-      authenticate: mocks.authenticate,
+      lockEnabled: mocks.lockEnabled,
+      setLockEnabled: mocks.setLockEnabled,
       refreshAvailability: mocks.refreshAvailability,
-      lockApp: mocks.lockApp,
     } as never),
 }));
 
@@ -58,13 +79,16 @@ import { SettingsPrivacy } from ".";
 describe("SettingsPrivacy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.values.telemetry_consent = true;
+    mocks.values.analytics_opt_in = true;
+    mocks.values.session_replay_opt_in = false;
     mocks.values.crash_reporting_consent = false;
     mocks.values.lock_app = false;
+    mocks.values.meeting_retention_days = 0;
     mocks.available = true;
     mocks.authenticating = false;
     mocks.platform = "macos";
-    mocks.authenticate.mockResolvedValue(true);
+    mocks.lockEnabled = false;
+    mocks.setLockEnabled.mockResolvedValue(true);
     mocks.refreshAvailability.mockResolvedValue(true);
   });
 
@@ -85,22 +109,61 @@ describe("SettingsPrivacy", () => {
     fireEvent.click(errorReporting);
 
     expect(mocks.setSettingValues).toHaveBeenNthCalledWith(1, {
-      telemetry_consent: false,
+      analytics_opt_in: false,
     });
     expect(mocks.setSettingValues).toHaveBeenNthCalledWith(2, {
       crash_reporting_consent: true,
     });
   });
 
-  it("requires device authentication before locking the app", async () => {
+  it("asks Rust to turn the lock on and never writes the setting itself", async () => {
     render(<SettingsPrivacy />);
 
     fireEvent.click(screen.getByRole("switch", { name: "Lock app" }));
 
     await waitFor(() => {
-      expect(mocks.authenticate).toHaveBeenCalled();
-      expect(mocks.setSettingValues).toHaveBeenCalledWith({ lock_app: true });
-      expect(mocks.lockApp).toHaveBeenCalled();
+      expect(mocks.setLockEnabled).toHaveBeenCalledWith(true);
     });
+    expect(mocks.setSettingValues).not.toHaveBeenCalled();
+  });
+
+  it("keeps meetings forever by default and stores a retention period in days (D3)", () => {
+    const { rerender } = render(<SettingsPrivacy />);
+    expect(
+      screen.queryByRole("spinbutton", { name: "Days to keep meetings" }),
+    ).toBeNull();
+
+    mocks.values.meeting_retention_days = 30;
+    rerender(<SettingsPrivacy />);
+    const days = screen.getByRole("spinbutton", {
+      name: "Days to keep meetings",
+    });
+    expect((days as HTMLInputElement).value).toBe("30");
+    fireEvent.change(days, { target: { value: "45" } });
+    fireEvent.blur(days);
+    expect(mocks.setSettingValues).toHaveBeenCalledWith({
+      meeting_retention_days: 45,
+    });
+    fireEvent.change(days, { target: { value: "0" } });
+    fireEvent.blur(days);
+    expect(mocks.setSettingValues).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the lock state reported by Rust", () => {
+    mocks.lockEnabled = true;
+    render(<SettingsPrivacy />);
+
+    expect(
+      screen
+        .getByRole("switch", { name: "Lock app" })
+        .getAttribute("data-state"),
+    ).toBe("checked");
+    expect(screen.getByTestId("idle-relock")).toBeTruthy();
+  });
+
+  it("hides the idle lock choice while the lock is off", () => {
+    mocks.lockEnabled = false;
+    render(<SettingsPrivacy />);
+    expect(screen.queryByTestId("idle-relock")).toBeNull();
   });
 });

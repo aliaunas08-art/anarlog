@@ -26,6 +26,8 @@ import {
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
 
+import { APP_NAME } from "~/shared/app-name";
+
 const QUERY_KEY = ["legacy-migration"] as const;
 
 export function useLegacyMigrationCleanup() {
@@ -131,7 +133,7 @@ export function LegacyMigrationCleanupRow() {
     return {
       state: "unavailable" as const,
       label: t`Migration status unavailable`,
-      description: t`Anarlog will retry automatically. This does not affect your notes.`,
+      description: t`${APP_NAME} will retry automatically. This does not affect your notes.`,
     };
   })();
 

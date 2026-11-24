@@ -8,16 +8,24 @@ import {
 } from "./icon";
 
 describe("app icon preference", () => {
-  it("falls back to the default icon for unknown values", () => {
-    expect(normalizeAppIconPreference(undefined)).toBe("default");
-    expect(normalizeAppIconPreference("unknown")).toBe("default");
-    expect(normalizeAppIconPreference("dev")).toBe("dev");
-    expect(normalizeAppIconPreference("staging")).toBe("staging");
-    expect(normalizeAppIconPreference("journal")).toBe("journal");
-    expect(normalizeAppIconPreference("notepad")).toBe("notepad");
-    expect(normalizeAppIconPreference("stone")).toBe("stone");
-    expect(normalizeAppIconPreference("typewriter-key")).toBe("typewriter-key");
-    expect(normalizeAppIconPreference("walnut")).toBe("walnut");
+  it("maps every stored value, old artwork included, to the Timbre icon", () => {
+    for (const value of [
+      undefined,
+      null,
+      "unknown",
+      "default",
+      "stable",
+      "dev",
+      "staging",
+      "anagram",
+      "journal",
+      "notepad",
+      "stone",
+      "typewriter-key",
+      "walnut",
+    ]) {
+      expect(normalizeAppIconPreference(value)).toBe("default");
+    }
   });
 
   it("resolves the default icon from the app channel", () => {

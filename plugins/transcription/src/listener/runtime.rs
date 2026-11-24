@@ -82,7 +82,9 @@ impl ListenerRuntime for TauriRuntime {
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
                 let live_transcription_active = current_transcription_mode
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
-                let now_ms = crate::capture_gaps::unix_now_ms();
+                // A new capture's audio timeline starts now; a re-emitted Active (listener
+                // reconnect) happens after any pauses so far.
+                let now_ms = crate::audio_now_ms(&self.session_state_cache, &session_id);
                 let new_capture = if let Ok(mut cache) = self.session_state_cache.lock() {
                     let state = cache.entry(session_id.clone()).or_default();
                     let new_capture = state.started_at_ms.is_none();
@@ -116,6 +118,8 @@ impl ListenerRuntime for TauriRuntime {
                 audio_path,
                 error,
             } => {
+                let audio_stopped_at_ms =
+                    crate::audio_now_ms(&self.session_state_cache, &session_id);
                 let (snapshot, started_at_ms) = self
                     .session_state_cache
                     .lock()
@@ -127,7 +131,7 @@ impl ListenerRuntime for TauriRuntime {
                     .unwrap_or((None, None));
                 let stopped_at_ms = crate::capture_gaps::unix_now_ms();
                 self.capture_gap_registry
-                    .stopped(&session_id, stopped_at_ms);
+                    .stopped(&session_id, audio_stopped_at_ms);
                 let duration_seconds = started_at_ms
                     .map(|started_at_ms| {
                         stopped_at_ms.saturating_sub(started_at_ms).max(0) as f64 / 1_000.0
@@ -188,8 +192,10 @@ impl ListenerRuntime for TauriRuntime {
             ..
         } = &event
         {
-            self.capture_gap_registry
-                .connected(session_id, crate::capture_gaps::unix_now_ms());
+            self.capture_gap_registry.connected(
+                session_id,
+                crate::audio_now_ms(&self.session_state_cache, session_id),
+            );
         }
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_progress_event");
@@ -201,16 +207,18 @@ impl ListenerRuntime for TauriRuntime {
             anlg_transcription_core::listener::SessionErrorEvent::ConnectionError {
                 session_id,
                 ..
-            } => self
-                .capture_gap_registry
-                .interrupted(session_id, crate::capture_gaps::unix_now_ms()),
+            } => self.capture_gap_registry.interrupted(
+                session_id,
+                crate::audio_now_ms(&self.session_state_cache, session_id),
+            ),
             anlg_transcription_core::listener::SessionErrorEvent::AudioError {
                 session_id,
                 error,
                 ..
-            } if error.starts_with("audio_storage_") => self
-                .capture_gap_registry
-                .storage_failed(session_id, crate::capture_gaps::unix_now_ms()),
+            } if error.starts_with("audio_storage_") => self.capture_gap_registry.storage_failed(
+                session_id,
+                crate::audio_now_ms(&self.session_state_cache, session_id),
+            ),
             _ => {}
         }
         update_audio_cleanup_status(&self.audio_cleanup_status, &event);
@@ -254,6 +262,16 @@ impl ListenerRuntime for TauriRuntime {
                         .or_insert_with(SessionStateSnapshot::default);
                     state.mic_isolated = Some(merge_mic_isolation(state.mic_isolated, *value));
                 }
+            }
+            anlg_transcription_core::listener::SessionDataEvent::Paused { session_id, value } => {
+                if let Ok(mut cache) = self.session_state_cache.lock() {
+                    cache
+                        .entry(session_id.clone())
+                        .or_insert_with(SessionStateSnapshot::default)
+                        .set_paused(*value, crate::capture_gaps::unix_now_ms());
+                }
+                use tauri_plugin_tray::TrayPluginExt;
+                let _ = self.app.tray().set_paused(*value);
             }
             _ => {}
         }

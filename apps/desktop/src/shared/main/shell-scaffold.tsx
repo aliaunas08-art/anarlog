@@ -40,18 +40,17 @@ export function MainShellScaffold({
               : "[&_[data-chat-floating-anchor]]:!border-t-0",
             "[&_[data-chat-floating-anchor]]:border-b-0",
           ],
+          // C · Final: next to the floating sidebar panel the note sits
+          // flat on the window, with no card edge.
           resolvedMainSurfaceChrome === "left" && [
-            isMacos && "[&_[data-chat-floating-anchor]]:rounded-l-xl",
-            !isMacos && "[&_[data-chat-floating-anchor]]:rounded-tl-xl",
-            "[&_[data-chat-floating-anchor]]:rounded-r-none",
+            "[&_[data-chat-floating-anchor]]:rounded-none",
             hasCustomTitleBar
               ? [
+                  "[&_[data-chat-floating-anchor]]:border-x-0",
                   "[&_[data-chat-floating-anchor]]:border-t",
                   "[&_[data-chat-floating-anchor]]:border-b-0",
                 ]
-              : "[&_[data-chat-floating-anchor]]:border-y-0",
-            "[&_[data-chat-floating-anchor]]:border-r-0",
-            "[&_[data-chat-floating-anchor]]:border-l",
+              : "[&_[data-chat-floating-anchor]]:border-0",
           ],
           hasTopMainSurfaceChrome &&
             !isMacos &&

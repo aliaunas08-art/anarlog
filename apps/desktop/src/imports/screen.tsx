@@ -5,10 +5,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { open as selectFiles } from "@tauri-apps/plugin-dialog";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
+import { commands as fs2Commands } from "@anlg/plugin-fs2";
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import {
   ArrowsClockwise,
@@ -65,6 +65,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { useConnections } from "~/auth/useConnections";
+import { APP_NAME } from "~/shared/app-name";
 import { ConnectButtonGroup } from "~/shared/connect-button-group";
 
 const IMPORT_EXTENSIONS = [
@@ -196,22 +197,14 @@ export function MeetingImportScreen({
 
   const fileImportMutation = useMutation({
     mutationFn: async (provider: MeetingImportProvider) => {
-      const selection = await selectFiles({
-        title: t`Choose ${provider.name} export files`,
-        multiple: true,
-        directory: false,
-        filters: [
-          {
-            name: t`Meeting exports`,
-            extensions: IMPORT_EXTENSIONS,
-          },
-        ],
-      });
-      const paths = Array.isArray(selection)
-        ? selection
-        : selection
-          ? [selection]
-          : [];
+      // Picked in Rust so `importer:read_text_files` accepts the paths (ASPC A3.6).
+      const selection = await fs2Commands.pickOpenPaths(
+        t`Choose ${provider.name} export files`,
+        true,
+        [{ name: t`Meeting exports`, extensions: [...IMPORT_EXTENSIONS] }],
+      );
+      if (selection.status === "error") throw new Error(selection.error);
+      const paths = selection.data;
       if (paths.length === 0) return null;
 
       const filesResult = await importerCommands.readTextFiles(paths);
@@ -683,7 +676,7 @@ export function MeetingImportScreen({
                         <p className="text-muted-foreground text-xs">
                           <Trans>
                             New meetings are imported automatically while
-                            Anarlog is running.
+                            {APP_NAME} is running.
                           </Trans>
                         </p>
                       ) : null}

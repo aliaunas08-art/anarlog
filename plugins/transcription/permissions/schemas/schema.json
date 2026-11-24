@@ -343,6 +343,30 @@
           "markdownDescription": "Denies the acknowledge_stopped_capture command without any pre-configured scope."
         },
         {
+          "description": "Enables the attribute_session_speakers command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-attribute-session-speakers",
+          "markdownDescription": "Enables the attribute_session_speakers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the attribute_session_speakers command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-attribute-session-speakers",
+          "markdownDescription": "Denies the attribute_session_speakers command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cancel_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-voice-enrollment",
+          "markdownDescription": "Enables the cancel_voice_enrollment command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-voice-enrollment",
+          "markdownDescription": "Denies the cancel_voice_enrollment command without any pre-configured scope."
+        },
+        {
           "description": "Enables the clear_capture_audio_saved command without any pre-configured scope.",
           "type": "string",
           "const": "allow-clear-capture-audio-saved",
@@ -391,6 +415,18 @@
           "markdownDescription": "Denies the delete_transcribed_capture_audio command without any pre-configured scope."
         },
         {
+          "description": "Enables the delete_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-voice-enrollment",
+          "markdownDescription": "Enables the delete_voice_enrollment command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-voice-enrollment",
+          "markdownDescription": "Denies the delete_voice_enrollment command without any pre-configured scope."
+        },
+        {
           "description": "Enables the export_to_vtt command without any pre-configured scope.",
           "type": "string",
           "const": "allow-export-to-vtt",
@@ -413,6 +449,18 @@
           "type": "string",
           "const": "deny-extract-voiceprint-candidates",
           "markdownDescription": "Denies the extract_voiceprint_candidates command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finish_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finish-voice-enrollment",
+          "markdownDescription": "Enables the finish_voice_enrollment command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finish_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finish-voice-enrollment",
+          "markdownDescription": "Denies the finish_voice_enrollment command without any pre-configured scope."
         },
         {
           "description": "Enables the flush_live_transcript command without any pre-configured scope.",
@@ -533,6 +581,18 @@
           "type": "string",
           "const": "deny-get-stopped-capture",
           "markdownDescription": "Denies the get_stopped_capture command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the improve_voice_enrollment_from_segment command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-improve-voice-enrollment-from-segment",
+          "markdownDescription": "Enables the improve_voice_enrollment_from_segment command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the improve_voice_enrollment_from_segment command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-improve-voice-enrollment-from-segment",
+          "markdownDescription": "Denies the improve_voice_enrollment_from_segment command without any pre-configured scope."
         },
         {
           "description": "Enables the is_supported_languages_batch command without any pre-configured scope.",
@@ -787,6 +847,18 @@
           "markdownDescription": "Denies the save_capture_lifecycle_marker command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_capture_paused command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-capture-paused",
+          "markdownDescription": "Enables the set_capture_paused command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_capture_paused command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-capture-paused",
+          "markdownDescription": "Denies the set_capture_paused command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_mic_muted command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-mic-muted",
@@ -821,6 +893,18 @@
           "type": "string",
           "const": "deny-start-transcription",
           "markdownDescription": "Denies the start_transcription command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-voice-enrollment",
+          "markdownDescription": "Enables the start_voice_enrollment command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_voice_enrollment command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-voice-enrollment",
+          "markdownDescription": "Denies the start_voice_enrollment command without any pre-configured scope."
         },
         {
           "description": "Enables the stop_capture command without any pre-configured scope.",
@@ -895,10 +979,22 @@
           "markdownDescription": "Denies the update_capture_credentials command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-retry-audio-capture`\n- `allow-flush-live-transcript`\n- `allow-release-live-transcript`\n- `allow-list-stopped-captures`\n- `allow-get-stopped-capture`\n- `allow-acknowledge-stopped-capture`\n- `allow-save-capture-lifecycle-marker`\n- `allow-clear-capture-lifecycle-marker`\n- `allow-get-capture-lifecycle-marker`\n- `allow-list-capture-lifecycle-markers`\n- `allow-list-capture-recoveries`\n- `allow-get-capture-audio-gaps`\n- `allow-mark-capture-audio-saved`\n- `allow-clear-capture-audio-saved`\n- `allow-stop-capture`\n- `allow-stop-capture-for-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-delete-transcribed-capture-audio`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-render-session-transcript`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-list-transcription-sessions`\n- `allow-get-completed-transcription`\n- `allow-acknowledge-completed-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-delete-processed-session-audio`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-refine-batch-transcript`\n- `allow-save-batch-transcript`\n- `allow-reconcile-refined-speaker-clusters`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`",
+          "description": "Enables the voice_enrollment_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-voice-enrollment-status",
+          "markdownDescription": "Enables the voice_enrollment_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the voice_enrollment_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-voice-enrollment-status",
+          "markdownDescription": "Denies the voice_enrollment_status command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-retry-audio-capture`\n- `allow-flush-live-transcript`\n- `allow-release-live-transcript`\n- `allow-list-stopped-captures`\n- `allow-get-stopped-capture`\n- `allow-acknowledge-stopped-capture`\n- `allow-save-capture-lifecycle-marker`\n- `allow-clear-capture-lifecycle-marker`\n- `allow-get-capture-lifecycle-marker`\n- `allow-list-capture-lifecycle-markers`\n- `allow-list-capture-recoveries`\n- `allow-get-capture-audio-gaps`\n- `allow-mark-capture-audio-saved`\n- `allow-clear-capture-audio-saved`\n- `allow-stop-capture`\n- `allow-stop-capture-for-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-set-capture-paused`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-delete-transcribed-capture-audio`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-render-session-transcript`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-list-transcription-sessions`\n- `allow-get-completed-transcription`\n- `allow-acknowledge-completed-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-delete-processed-session-audio`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-refine-batch-transcript`\n- `allow-save-batch-transcript`\n- `allow-reconcile-refined-speaker-clusters`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-attribute-session-speakers`\n- `allow-voice-enrollment-status`\n- `allow-start-voice-enrollment`\n- `allow-finish-voice-enrollment`\n- `allow-cancel-voice-enrollment`\n- `allow-delete-voice-enrollment`\n- `allow-improve-voice-enrollment-from-segment`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-retry-audio-capture`\n- `allow-flush-live-transcript`\n- `allow-release-live-transcript`\n- `allow-list-stopped-captures`\n- `allow-get-stopped-capture`\n- `allow-acknowledge-stopped-capture`\n- `allow-save-capture-lifecycle-marker`\n- `allow-clear-capture-lifecycle-marker`\n- `allow-get-capture-lifecycle-marker`\n- `allow-list-capture-lifecycle-markers`\n- `allow-list-capture-recoveries`\n- `allow-get-capture-audio-gaps`\n- `allow-mark-capture-audio-saved`\n- `allow-clear-capture-audio-saved`\n- `allow-stop-capture`\n- `allow-stop-capture-for-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-delete-transcribed-capture-audio`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-render-session-transcript`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-list-transcription-sessions`\n- `allow-get-completed-transcription`\n- `allow-acknowledge-completed-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-delete-processed-session-audio`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-refine-batch-transcript`\n- `allow-save-batch-transcript`\n- `allow-reconcile-refined-speaker-clusters`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-retry-audio-capture`\n- `allow-flush-live-transcript`\n- `allow-release-live-transcript`\n- `allow-list-stopped-captures`\n- `allow-get-stopped-capture`\n- `allow-acknowledge-stopped-capture`\n- `allow-save-capture-lifecycle-marker`\n- `allow-clear-capture-lifecycle-marker`\n- `allow-get-capture-lifecycle-marker`\n- `allow-list-capture-lifecycle-markers`\n- `allow-list-capture-recoveries`\n- `allow-get-capture-audio-gaps`\n- `allow-mark-capture-audio-saved`\n- `allow-clear-capture-audio-saved`\n- `allow-stop-capture`\n- `allow-stop-capture-for-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-set-capture-paused`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-delete-transcribed-capture-audio`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-render-session-transcript`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-list-transcription-sessions`\n- `allow-get-completed-transcription`\n- `allow-acknowledge-completed-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-delete-processed-session-audio`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-refine-batch-transcript`\n- `allow-save-batch-transcript`\n- `allow-reconcile-refined-speaker-clusters`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-attribute-session-speakers`\n- `allow-voice-enrollment-status`\n- `allow-start-voice-enrollment`\n- `allow-finish-voice-enrollment`\n- `allow-cancel-voice-enrollment`\n- `allow-delete-voice-enrollment`\n- `allow-improve-voice-enrollment-from-segment`"
         }
       ]
     }

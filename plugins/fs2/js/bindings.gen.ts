@@ -29,6 +29,30 @@ async writeTextFile(path: string, content: string) : Promise<Result<null, string
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Opens a native save dialog and returns the picked path, which
+ * `write_text_file` and `export:export` then accept once (ASPC A3.6).
+ */
+async pickSavePath(defaultPath: string | null, filters: DialogFilter[]) : Promise<Result<string | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs2|pick_save_path", { defaultPath, filters }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Opens a native file picker and returns the picked files, which
+ * `importer:read_text_files` and `fs-sync:audio_import` then accept once.
+ */
+async pickOpenPaths(title: string | null, multiple: boolean, filters: DialogFilter[]) : Promise<Result<string[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs2|pick_open_paths", { title, multiple, filters }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -42,7 +66,7 @@ async writeTextFile(path: string, content: string) : Promise<Result<null, string
 
 /** user-defined types **/
 
-
+export type DialogFilter = { name: string; extensions: string[] }
 
 /** tauri-specta globals **/
 

@@ -47,7 +47,15 @@ pub(crate) async fn set_default_output_device<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_input_priorities<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.audio_priority()
         .get_input_priorities()
         .await
@@ -58,7 +66,15 @@ pub(crate) async fn get_input_priorities<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn get_output_priorities<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.audio_priority()
         .get_output_priorities()
         .await
@@ -69,8 +85,16 @@ pub(crate) async fn get_output_priorities<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn save_input_priorities<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     priorities: Vec<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.audio_priority()
         .save_input_priorities(priorities)
         .await
@@ -81,8 +105,16 @@ pub(crate) async fn save_input_priorities<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn save_output_priorities<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     priorities: Vec<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.audio_priority()
         .save_output_priorities(priorities)
         .await

@@ -223,3 +223,71 @@ async fn open_memory_app_db_subscribe_sees_app_schema() {
     let event = next_event(&events, 0).await.unwrap();
     assert!(matches!(event, QueryEvent::Result(rows) if !rows.is_empty()));
 }
+
+#[tokio::test]
+async fn webview_sql_runs_under_the_authorizer_and_lock() {
+    let (_dir, runtime) = setup_runtime().await;
+
+    runtime
+        .execute_transaction(vec![TransactionStatement {
+            sql: "INSERT INTO templates (id, title) VALUES (?, ?)".to_string(),
+            params: vec![json!("webview"), json!("Webview")],
+            expected_rows_affected: Some(1),
+        }])
+        .await
+        .unwrap();
+    runtime
+        .execute_proxy(
+            "UPDATE templates SET title = ? WHERE id = ?".to_string(),
+            vec![json!("Edited"), json!("webview")],
+            anlg_db_execute::ProxyQueryMethod::Run,
+        )
+        .await
+        .unwrap();
+
+    for sql in [
+        "ATTACH DATABASE ':memory:' AS other",
+        "SELECT load_extension('x')",
+        "PRAGMA writable_schema=1",
+        "DROP TABLE templates",
+    ] {
+        assert!(
+            runtime.execute(sql.to_string(), vec![]).await.is_err(),
+            "{sql}"
+        );
+        assert!(
+            runtime
+                .execute_transaction(vec![TransactionStatement {
+                    sql: sql.to_string(),
+                    params: vec![],
+                    expected_rows_affected: None,
+                }])
+                .await
+                .is_err(),
+            "{sql}"
+        );
+    }
+
+    runtime.set_webview_sql_locked(true);
+    assert!(
+        runtime
+            .execute("SELECT id FROM templates".to_string(), vec![])
+            .await
+            .is_err()
+    );
+    // Internal Rust paths keep working while the webview is locked.
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM templates WHERE id = 'webview'")
+        .fetch_one(runtime.pool())
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+    runtime.set_webview_sql_locked(false);
+    let rows = runtime
+        .execute(
+            "SELECT title FROM templates WHERE id = ?".to_string(),
+            vec![json!("webview")],
+        )
+        .await
+        .unwrap();
+    assert_eq!(rows, vec![json!({ "title": "Edited" })]);
+}

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useEffect, useRef, useState } from "react";
 
 import type {
@@ -8,10 +9,8 @@ import {
   ArrowsInSimple,
   ArrowsOutSimple,
   CaretDown,
-  Square,
   WarningCircle,
 } from "@anlg/ui/components/icons";
-import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
 
 import { DictationTranscript } from "./dictation";
@@ -32,6 +31,20 @@ import {
   compactControlsWidth,
 } from "./layout";
 
+import { formatElapsed } from "~/session/bookmark";
+import { APP_NAME } from "~/shared/app-name";
+import { LevelMeter } from "~/shared/level-meter";
+
+/** Bars in the floating meter; fewer than the in-app pill to fit the bar. */
+const FLOATING_METER_BARS = 10;
+
+/**
+ * Floating recording bar (non-macOS webview; macOS draws the same design
+ * natively in FloatingBarView.swift). A neutral pill:
+ * pulsing live dot · timer · level meter · Stop, plus the live-transcript
+ * expand toggle. The window gets its theme through `state.colorScheme`, not
+ * the app's `.dark` class, so colours mirror the `--cf-*` tokens here.
+ */
 export function FloatingBarOverlay({
   state,
   onStop,
@@ -51,7 +64,8 @@ export function FloatingBarOverlay({
 
   return (
     <div
-      className="relative h-full w-full"
+      className="relative h-full w-full font-sans"
+      data-floating-bar-scheme={state.colorScheme}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -66,6 +80,7 @@ export function FloatingBarOverlay({
         />
       )}
       <div
+        data-floating-bar-surface
         className="absolute overflow-hidden"
         style={{
           left: FLOATING_BAR_INSET,
@@ -79,7 +94,8 @@ export function FloatingBarOverlay({
             : FLOATING_BAR_COMPACT_RADIUS,
           background:
             hovered && !isExpanded ? colors.envelopeSurface : colors.surface,
-          boxShadow: `inset 0 0 0 0.5px ${colors.outerStroke}`,
+          // Hairline + a soft shadow that fits inside the window inset.
+          boxShadow: `inset 0 0 0 0.5px ${colors.hairline}, 0 1px 3px ${colors.shadow}`,
         }}
       >
         {showsHoverHandle && <HoverHandle color={colors.handle} />}
@@ -103,7 +119,7 @@ export function FloatingBarOverlay({
                 key={state.dictation?.sessionId ?? "meeting"}
                 dictation={state.dictation}
                 bubbles={state.transcriptBubbles ?? []}
-                colorScheme={state.colorScheme}
+                colors={colors}
                 notice={state.transcriptNotice ?? null}
               />
             </div>
@@ -147,32 +163,33 @@ function FloatingControls({
   onStop: () => void;
   onToggleExpanded: (expanded: boolean) => void;
 }) {
+  const { t } = useLingui();
+
   return (
     <div
       className="flex items-center"
       style={{ gap: FLOATING_BAR_COMPACT_GAP }}
     >
-      <StopControl state={state} colors={colors} onStop={onStop} />
+      <RecordingStatus state={state} colors={colors} onStop={onStop} />
       {state.liveCaptionToggleVisible ? (
         <button
           type="button"
           data-tauri-drag-region="false"
           aria-label={
-            isExpanded ? "Collapse live transcript" : "Expand live transcript"
+            isExpanded ? t`Collapse live transcript` : t`Expand live transcript`
           }
           onClick={() => onToggleExpanded(!isExpanded)}
-          className="flex items-center justify-center"
-          style={{
+          className={cn([CONTROL_CLASS, "flex items-center justify-center"])}
+          style={controlStyle(colors, {
             width: FLOATING_BAR_COMPACT_ICON_SIZE,
             height: FLOATING_BAR_COMPACT_ICON_SIZE,
-            borderRadius: FLOATING_BAR_CONTROL_RADIUS,
-            color: colors.content,
-          }}
+            color: colors.secondary,
+          })}
         >
           {isExpanded ? (
-            <ArrowsInSimple size={14} weight="bold" />
+            <ArrowsInSimple size={14} weight="bold" aria-hidden="true" />
           ) : (
-            <ArrowsOutSimple size={14} weight="bold" />
+            <ArrowsOutSimple size={14} weight="bold" aria-hidden="true" />
           )}
         </button>
       ) : null}
@@ -180,7 +197,21 @@ function FloatingControls({
   );
 }
 
-function StopControl({
+/** Hover fill and keyboard-only focus ring, drawn from CSS variables. */
+const CONTROL_CLASS =
+  "transition-colors hover:bg-[var(--fb-hover)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--fb-accent)] disabled:cursor-default";
+
+function controlStyle(colors: BarColors, style: React.CSSProperties) {
+  return {
+    borderRadius: FLOATING_BAR_CONTROL_RADIUS,
+    "--fb-hover": colors.hover,
+    "--fb-accent": colors.accent,
+    ...style,
+  } as React.CSSProperties;
+}
+
+/** Live dot · timer · level meter · Stop. */
+function RecordingStatus({
   state,
   colors,
   onStop,
@@ -189,76 +220,119 @@ function StopControl({
   colors: BarColors;
   onStop: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const { t } = useLingui();
   const width = state.liveCaptionToggleVisible
     ? FLOATING_BAR_COMPACT_STOP_WIDTH
     : FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH;
+  const finishing = state.dictation?.phase === "transcribing";
+  const notice = state.transcriptNotice ?? t`Recording needs attention`;
+  const elapsed =
+    !state.dictation && typeof state.elapsedSeconds === "number"
+      ? formatElapsed(state.elapsedSeconds)
+      : null;
 
   return (
-    <button
-      type="button"
-      data-tauri-drag-region="false"
-      aria-label={
-        state.dictation
-          ? "Finish dictation"
-          : state.status === "error"
-            ? `${state.transcriptNotice ?? "Recording needs attention"}; stop listening`
-            : "Stop listening"
-      }
-      title={
-        state.status === "error"
-          ? `${state.transcriptNotice ?? "Recording needs attention"}. Open Anarlog to retry or change devices.`
-          : undefined
-      }
-      disabled={state.dictation?.phase === "transcribing"}
-      onClick={onStop}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex items-center justify-center"
-      style={{
-        width,
-        height: FLOATING_BAR_COMPACT_ICON_SIZE,
-        borderRadius: FLOATING_BAR_CONTROL_RADIUS,
-        background: hovered ? "rgba(255, 51, 77, 0.18)" : colors.controlFill,
-        color: colors.accent,
-      }}
+    <div
+      data-floating-bar-status
+      className="flex items-center gap-2 pr-[3px] pl-2.5 whitespace-nowrap"
+      style={{ width, height: FLOATING_BAR_COMPACT_ICON_SIZE }}
     >
-      {state.dictation?.phase === "transcribing" ? (
-        <span role="status" className="text-xs">
-          Finishing…
+      {state.status === "error" ? (
+        <span
+          role="img"
+          aria-label={notice}
+          title={t`${notice}. Open ${APP_NAME} to retry or change devices.`}
+          className="flex shrink-0 items-center"
+          style={{ color: colors.label }}
+        >
+          <WarningCircle size={14} weight="bold" aria-hidden="true" />
         </span>
-      ) : hovered ? (
-        <span className="flex items-center gap-1.5 text-xs font-semibold">
-          <Square size={9} />
-          {state.dictation ? "Done" : "Stop"}
-        </span>
-      ) : state.status === "error" ? (
-        <WarningCircle size={20} aria-hidden="true" />
       ) : (
-        <DancingSticks
-          color={colors.accent}
-          amplitude={state.amplitude}
-          width={26}
-          height={20}
-          stickWidth={3}
-          gap={2}
+        <span
+          aria-hidden="true"
+          data-floating-bar-live-dot
+          className="cf-record-dot size-2 shrink-0 rounded-full"
+          style={{ background: RECORD_RED }}
         />
       )}
-    </button>
+      {elapsed ? (
+        <span
+          role="timer"
+          aria-label={t`Recording time ${elapsed}`}
+          className="shrink-0 text-[13px] font-semibold tabular-nums"
+          style={{ color: colors.label }}
+        >
+          {elapsed}
+        </span>
+      ) : null}
+      <span className="flex min-w-0 flex-1 items-center overflow-hidden">
+        {finishing ? (
+          <span
+            role="status"
+            className="truncate text-xs"
+            style={{ color: colors.secondary }}
+          >
+            {t`Finishing…`}
+          </span>
+        ) : (
+          <>
+            <LevelMeter
+              level={state.amplitude}
+              bars={FLOATING_METER_BARS}
+              height={16}
+              color={colors.label}
+              muted={state.status === "reconnecting"}
+              data-floating-bar-meter
+            />
+            {state.status === "reconnecting" ? (
+              <span role="status" className="sr-only">
+                {t`Reconnecting…`}
+              </span>
+            ) : null}
+          </>
+        )}
+      </span>
+      <button
+        type="button"
+        data-tauri-drag-region="false"
+        data-floating-bar-stop
+        aria-label={
+          state.dictation
+            ? t`Finish dictation`
+            : state.status === "error"
+              ? t`${notice}; stop listening`
+              : t`Stop listening`
+        }
+        title={state.dictation ? undefined : t`Stop listening`}
+        disabled={finishing}
+        onClick={onStop}
+        className="inline-flex h-[24px] shrink-0 items-center rounded-full px-2.5 text-xs font-medium transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fb-accent)] disabled:cursor-default disabled:opacity-60"
+        style={
+          {
+            background: colors.label,
+            color: colors.window,
+            "--fb-accent": colors.accent,
+          } as React.CSSProperties
+        }
+      >
+        {state.dictation ? t`Done` : t`Stop`}
+      </button>
+    </div>
   );
 }
 
 function TranscriptList({
   bubbles,
-  colorScheme,
+  colors,
   dictation,
   notice,
 }: {
   dictation: FloatingBarState["dictation"];
   bubbles: FloatingTranscriptBubble[];
-  colorScheme: FloatingBarState["colorScheme"];
+  colors: BarColors;
   notice: string | null;
 }) {
+  const { t } = useLingui();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [pinned, setPinned] = useState(true);
 
@@ -286,16 +360,13 @@ function TranscriptList({
           ])}
         >
           {dictation ? (
-            <DictationTranscript
-              dictation={dictation}
-              colorScheme={colorScheme}
-            />
+            <DictationTranscript dictation={dictation} color={colors.label} />
           ) : (
             bubbles.map((bubble, index) => (
               <TranscriptBubble
                 key={bubble.id}
                 bubble={bubble}
-                colorScheme={colorScheme}
+                colors={colors}
                 showsSpeakerLabel={
                   index === 0 ||
                   bubbles[index - 1]?.speakerLabel !== bubble.speakerLabel ||
@@ -308,12 +379,7 @@ function TranscriptList({
             <p
               role="status"
               className="px-3 py-1.5 text-center text-[12px] leading-4"
-              style={{
-                color:
-                  colorScheme === "dark"
-                    ? "rgba(255, 255, 255, 0.5)"
-                    : "rgba(0, 0, 0, 0.45)",
-              }}
+              style={{ color: colors.secondary }}
             >
               {notice}
             </p>
@@ -335,15 +401,18 @@ function TranscriptList({
               behavior: "smooth",
             });
           }}
-          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[11px] font-medium"
-          style={{
-            background:
-              colorScheme === "dark" ? "rgb(46, 46, 43)" : "rgb(242, 242, 237)",
-            color: colorScheme === "dark" ? "white" : "rgb(31, 28, 26)",
-          }}
+          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--fb-accent)]"
+          style={
+            {
+              background: colors.surfaceSolid,
+              color: colors.label,
+              boxShadow: `inset 0 0 0 0.5px ${colors.hairline}, 0 1px 3px ${colors.shadow}`,
+              "--fb-accent": colors.accent,
+            } as React.CSSProperties
+          }
         >
-          <CaretDown size={10} weight="bold" />
-          Go to bottom
+          <CaretDown size={10} weight="bold" aria-hidden="true" />
+          {t`Go to bottom`}
         </button>
       ) : null}
     </div>
@@ -353,11 +422,11 @@ function TranscriptList({
 function TranscriptBubble({
   bubble,
   showsSpeakerLabel,
-  colorScheme,
+  colors,
 }: {
   bubble: FloatingTranscriptBubble;
   showsSpeakerLabel: boolean;
-  colorScheme: FloatingBarState["colorScheme"];
+  colors: BarColors;
 }) {
   const overlapping = bubble.overlapsPrevious || bubble.overlapsNext;
 
@@ -367,20 +436,21 @@ function TranscriptBubble({
     >
       <div className="max-w-[calc(100%-40px)] text-left">
         {(showsSpeakerLabel || overlapping) && (
-          <p className="mb-1 text-[10px] font-semibold text-white">
+          <p
+            className="mb-1 text-[10px] font-semibold"
+            style={{ color: colors.secondary }}
+          >
             {showsSpeakerLabel ? bubble.speakerLabel : ""}
           </p>
         )}
         <p
-          className="rounded-[11px] px-2.5 py-2 text-[13px] leading-5 text-white"
+          data-floating-transcript-bubble
+          className="rounded-[11px] px-2.5 py-2 text-[13px] leading-5"
           style={{
-            background: bubble.isSelf
-              ? `rgba(0, 0, 0, ${colorScheme === "dark" ? 0.34 : 0.24})`
-              : `rgba(0, 0, 0, ${colorScheme === "dark" ? 0.28 : 0.2})`,
+            color: colors.label,
+            background: bubble.isSelf ? colors.bubbleSelf : colors.bubble,
             boxShadow: overlapping
-              ? `inset 0 0 0 1px rgba(255, 255, 255, ${
-                  colorScheme === "dark" ? 0.26 : 0.34
-                })`
+              ? `inset 0 0 0 1px ${colors.hairlineStrong}`
               : undefined,
           }}
         >
@@ -416,29 +486,50 @@ function HoverHandle({ color }: { color: string }) {
   );
 }
 
-type BarColors = {
+/** `--cf-record`: the bar's only red. */
+const RECORD_RED = "#ff3b30";
+
+export type BarColors = {
   surface: string;
+  surfaceSolid: string;
   envelopeSurface: string;
-  content: string;
+  hairline: string;
+  hairlineStrong: string;
+  shadow: string;
+  label: string;
+  secondary: string;
+  window: string;
+  hover: string;
   handle: string;
-  outerStroke: string;
-  controlFill: string;
+  bubble: string;
+  bubbleSelf: string;
   accent: string;
 };
 
-function barColors(state: FloatingBarState): BarColors {
+/**
+ * Neutral palette mirroring the `--cf-*` tokens (c-final.css). The surface
+ * honours the floating bar opacity setting but never drops below legible.
+ */
+export function barColors(state: FloatingBarState): BarColors {
   const opacity = Math.min(Math.max(state.opacity, 0.35), 0.95);
+  const alpha = 0.55 + ((opacity - 0.35) / 0.6) * 0.45;
   const dark = state.colorScheme === "dark";
-  const content = dark ? "rgb(255, 255, 255)" : "rgb(31, 28, 26)";
-  const surfaceRgb = dark ? "110, 112, 102" : "219, 217, 209";
+  const surfaceRgb = dark ? "28, 28, 30" : "255, 255, 255";
 
   return {
-    surface: `rgba(${surfaceRgb}, ${opacity * 0.82})`,
-    envelopeSurface: `rgba(${surfaceRgb}, ${Math.min(opacity * 1.08, 0.95)})`,
-    content,
-    handle: dark ? "rgba(255, 255, 255, 0.48)" : "rgba(31, 28, 26, 0.36)",
-    outerStroke: dark ? "rgba(255, 255, 255, 0.14)" : "rgba(31, 28, 26, 0.12)",
-    controlFill: dark ? "rgba(255, 255, 255, 0.08)" : "rgba(31, 28, 26, 0.07)",
-    accent: "rgb(255, 51, 77)",
+    surface: `rgba(${surfaceRgb}, ${alpha.toFixed(3)})`,
+    surfaceSolid: `rgb(${surfaceRgb})`,
+    envelopeSurface: `rgb(${surfaceRgb})`,
+    hairline: dark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)",
+    hairlineStrong: dark ? "rgba(255, 255, 255, 0.24)" : "rgba(0, 0, 0, 0.2)",
+    shadow: dark ? "rgba(0, 0, 0, 0.45)" : "rgba(0, 0, 0, 0.16)",
+    label: dark ? "#f5f5f7" : "#1d1d1f",
+    secondary: dark ? "#a1a1a6" : "#6e6e73",
+    window: dark ? "#000000" : "#fbfbfd",
+    hover: dark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
+    handle: dark ? "rgba(255, 255, 255, 0.35)" : "rgba(0, 0, 0, 0.25)",
+    bubble: dark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
+    bubbleSelf: dark ? "rgba(255, 255, 255, 0.14)" : "rgba(0, 0, 0, 0.09)",
+    accent: dark ? "#0a84ff" : "#0071e3",
   };
 }

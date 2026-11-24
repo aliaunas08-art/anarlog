@@ -152,7 +152,8 @@ async fn shadow_import_is_non_destructive_idempotent_and_audited() {
         ("app_settings", "SELECT COUNT(*) FROM app_settings", 2),
         ("calendars", "SELECT COUNT(*) FROM calendars", 1),
         ("events", "SELECT COUNT(*) FROM events", 1),
-        ("templates", "SELECT COUNT(*) FROM templates", 18),
+        // 18 built-in templates (Meeting Minutes added 2026-11-14) + 1 imported.
+        ("templates", "SELECT COUNT(*) FROM templates", 19),
     ] {
         assert_eq!(row_count(&db, query).await, expected, "{table}");
     }

@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-get-device-info`
 - `allow-get-process-memory-bytes`
 - `allow-opinionated-md-to-html`
+- `allow-allow-http-origin`
 
 ## Permission Table
 
@@ -18,6 +19,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`misc:allow-allow-http-origin`
+
+</td>
+<td>
+
+Enables the allow_http_origin command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`misc:deny-allow-http-origin`
+
+</td>
+<td>
+
+Denies the allow_http_origin command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

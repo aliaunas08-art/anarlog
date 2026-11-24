@@ -22,13 +22,15 @@ tauri-build = { workspace = true, features = [] }
 [dependencies]
 tauri = { workspace = true, features = ["specta", "protocol-asset"] }
 
+tauri-plugin-accounts = { workspace = true }
 tauri-plugin-agent = { workspace = true }
+tauri-plugin-ai-engine = { workspace = true }
 tauri-plugin-analytics = { workspace = true }
 tauri-plugin-attachment-sync = { workspace = true }
 tauri-plugin-audio-priority = { workspace = true }
+tauri-plugin-audit = { workspace = true }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-autostart = { workspace = true }
-tauri-plugin-bedrock = { workspace = true }
 tauri-plugin-calendar = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-db = { workspace = true }
@@ -41,14 +43,12 @@ tauri-plugin-dock = { workspace = true }
 tauri-plugin-export = { workspace = true }
 tauri-plugin-fs-sync = { workspace = true }
 tauri-plugin-fs2 = { workspace = true }
-tauri-plugin-hooks = { workspace = true }
 tauri-plugin-http = { workspace = true }
 tauri-plugin-icon = { workspace = true }
 tauri-plugin-importer = { workspace = true }
 tauri-plugin-js = { workspace = true }
 tauri-plugin-local-api = { workspace = true }
 tauri-plugin-local-auth = { workspace = true }
-tauri-plugin-local-llm = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
 tauri-plugin-mcp = { workspace = true }
 tauri-plugin-messenger = { workspace = true }
@@ -85,13 +85,16 @@ tauri-plugin-updater2 = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 tauri-plugin-windows = { workspace = true }
 
+anlg-aspc = { workspace = true }
 anlg-audio-actual = { workspace = true }
 anlg-audio-mock = { workspace = true, optional = true }
+anlg-audit-log = { workspace = true, features = ["tauri"] }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-sync = { workspace = true }
 anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
+anlg-local-accounts = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supervisor = { workspace = true }
 

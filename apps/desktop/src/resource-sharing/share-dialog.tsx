@@ -220,7 +220,7 @@ function AuthenticatedResourceShareButton({
 
           {!signedIn ? (
             <ShareGate
-              description={t`Sign in to share folders, templates, and automations.`}
+              description={t`Sign in to share projects, templates, and automations.`}
               action={
                 <Button
                   type="button"
@@ -233,7 +233,7 @@ function AuthenticatedResourceShareButton({
             />
           ) : billing.isReady && !billing.isPaid && !owned ? (
             <ShareGate
-              description={t`Folder access controls and reusable sharing are included with Pro.`}
+              description={t`Project access controls and reusable sharing are included with Pro.`}
               action={
                 <Button type="button" size="sm" onClick={billing.upgradeToPro}>
                   <Trans>Upgrade to Pro</Trans>
@@ -362,11 +362,11 @@ function AuthenticatedResourceShareButton({
                     {teamUpsell === "guest" ? (
                       <Trans>
                         They already have another shared item. Invite them to
-                        your Team for folders, templates, and automations.
+                        your Team for projects, templates, and automations.
                       </Trans>
                     ) : (
                       <Trans>
-                        Upgrade this workspace to share folders, templates, and
+                        Upgrade this workspace to share projects, templates, and
                         automations with everyone on the Team.
                       </Trans>
                     )}

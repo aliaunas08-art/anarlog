@@ -3,6 +3,7 @@ mod consolidate;
 mod diarize;
 mod progressive;
 mod simple;
+pub mod speaker_pass;
 #[cfg(test)]
 mod test_fixtures;
 mod upload;

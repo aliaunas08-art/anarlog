@@ -28,6 +28,7 @@ import { useChatGroup } from "~/chat/store/queries";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { useShell } from "~/contexts/shell";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
+import { APP_NAME } from "~/shared/app-name";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function ComposerScreen() {
@@ -37,6 +38,8 @@ export function ComposerScreen() {
   const currentChatGroup = useChatGroup(chat.groupId, chat.scope);
   const { handleSendMessage } = useChatActions({
     chatScope: chat.scope,
+    askScope: chat.askScope,
+    askMeetingId: chat.askMeetingId,
     groupId: chat.groupId,
     onGroupCreated: chat.setGroupId,
     onGroupCreateFailed: chat.rollbackFailedGroup,
@@ -73,6 +76,7 @@ export function ComposerScreen() {
         key={chat.sessionId}
         sessionId={chat.sessionId}
         chatGroupId={chat.groupId}
+        askThreadKey={chat.scope === "general" ? chat.askThreadKey : undefined}
       >
         {(sessionProps) => {
           const sendMessage = (
@@ -100,7 +104,7 @@ export function ComposerScreen() {
               }
               onStop={sessionProps.stop}
               onSendMessage={sendMessage}
-              title={currentChatGroup?.title || t`Ask Anarlog AI anything`}
+              title={currentChatGroup?.title || t`Ask ${APP_NAME} AI anything`}
             />
           ) : (
             <ComposerSettingsCard />
@@ -226,7 +230,7 @@ function ComposerInput({
             ])}
           >
             <ArrowUpRight className="size-3.5" />
-            {t`Open Anarlog`}
+            {t`Open ${APP_NAME}`}
           </button>
           <button
             type="button"
@@ -307,7 +311,7 @@ function ComposerInput({
 
 const composerPlaceholder: PlaceholderFunction = ({ node, pos }) => {
   if (node.type.name === "paragraph" && pos === 0) {
-    return t`Message Anarlog AI`;
+    return t`Message ${APP_NAME} AI`;
   }
 
   return "";

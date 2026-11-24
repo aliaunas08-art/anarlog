@@ -18,6 +18,7 @@ pub async fn run(db: &anlg_db_core::Db, command: ProposalCommand, json: bool) ->
         } => {
             let proposal = create_proposal(
                 db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
                 CreateProposalInput {
                     meeting_id,
                     kind: kind.as_str().to_string(),
@@ -37,6 +38,7 @@ pub async fn run(db: &anlg_db_core::Db, command: ProposalCommand, json: bool) ->
         } => {
             let page = list_proposals(
                 db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
                 ListProposalsInput {
                     meeting_id,
                     status,
@@ -59,12 +61,21 @@ pub async fn run(db: &anlg_db_core::Db, command: ProposalCommand, json: bool) ->
             Ok(())
         }
         ProposalCommand::Show { id } => {
-            let proposal = get_proposal(db.pool(), GetProposalInput { proposal_id: id }).await?;
+            let proposal = get_proposal(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                GetProposalInput { proposal_id: id },
+            )
+            .await?;
             emit_proposal("proposals.show", &proposal, json)
         }
         ProposalCommand::Decline { id } => {
-            let proposal =
-                decline_proposal(db.pool(), DeclineProposalInput { proposal_id: id }).await?;
+            let proposal = decline_proposal(
+                db.pool(),
+                &anlg_agent_access::local_scope(db.pool()).await?,
+                DeclineProposalInput { proposal_id: id },
+            )
+            .await?;
             emit_proposal("proposals.decline", &proposal, json)
         }
     }

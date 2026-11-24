@@ -1,5 +1,6 @@
 mod apple_identity;
 mod convert;
+pub mod direct;
 mod error;
 mod fetch;
 pub mod runtime;

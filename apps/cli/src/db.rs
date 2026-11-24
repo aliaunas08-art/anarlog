@@ -1,9 +1,43 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{Args, Error, Result};
+use crate::{Args, Error, Result, audit, lock};
 
+/// One device authentication per CLI run, even when a command opens the
+/// database more than once.
+static UNLOCKED_THIS_RUN: AtomicBool = AtomicBool::new(false);
+
+/// Opens the database read-only, after the app lock check (A2.7).
 pub async fn open(args: &Args) -> Result<anlg_db_core::Db> {
+    let db = connect_read(args).await?;
+    unlock(args, &db).await?;
+    Ok(db)
+}
+
+/// Opens the database for writes, after the app lock check (A2.7).
+pub async fn open_write(args: &Args) -> Result<anlg_db_core::Db> {
+    let db = connect_write(args).await?;
+    unlock(args, &db).await?;
+    Ok(db)
+}
+
+async fn unlock(args: &Args, db: &anlg_db_core::Db) -> Result<()> {
+    if UNLOCKED_THIS_RUN.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+    if lock::require_unlocked(db, &lock::system_authenticator()).await? {
+        audit::record(
+            args,
+            anlg_audit_log::NewEntry::new(anlg_audit_log::actions::APP_UNLOCKED, "app", ""),
+        )
+        .await;
+    }
+    UNLOCKED_THIS_RUN.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+async fn connect_read(args: &Args) -> Result<anlg_db_core::Db> {
     let path = resolve_path(args)?;
     if !path.is_file() {
         return Err(Error::DatabaseNotFound(path));
@@ -14,7 +48,9 @@ pub async fn open(args: &Args) -> Result<anlg_db_core::Db> {
         .map_err(|error| Error::operation("open database", error.to_string()))
 }
 
-pub async fn open_write(args: &Args) -> Result<anlg_db_core::Db> {
+/// Without the lock check: only for the MCP server, which checks the lock
+/// on each request instead (`lock::McpLock`).
+pub(crate) async fn connect_write(args: &Args) -> Result<anlg_db_core::Db> {
     let path = resolve_path(args)?;
     if !path.is_file() {
         return Err(Error::DatabaseNotFound(path));

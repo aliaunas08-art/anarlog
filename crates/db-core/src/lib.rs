@@ -1,4 +1,5 @@
 mod cloudsync;
+mod webview_sql;
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -18,6 +19,10 @@ pub use crate::cloudsync::{
     cloudsync_receive_error,
 };
 use crate::cloudsync::{CloudsyncInterruptHandle, CloudsyncRuntimeState};
+pub use crate::webview_sql::{
+    AuthorizedConnection, SqlDenial, WORKSPACE_SCOPED_TABLES, WebviewSqlAuthorizer, WorkspaceGuard,
+    is_read_only_sql, table_data_type, with_authorized_connection,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub enum DbStorage<'a> {
@@ -335,6 +340,12 @@ async fn connect_with_options(
     }
     if options.foreign_keys {
         connect_options = connect_options.pragma("foreign_keys", "ON");
+    }
+    // ASPC D2.2: SQLite overwrites freed content with zeros, so the earlier
+    // text of an edited or deleted note never lingers in free pages of the
+    // database file. A permanent delete then leaves nothing to find.
+    if matches!(options.storage, DbStorage::Local(_)) {
+        connect_options = connect_options.pragma("secure_delete", "ON");
     }
 
     let (connect_options, cloudsync_path) = match (options.cloudsync_enabled, options.storage) {

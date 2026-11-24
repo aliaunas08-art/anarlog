@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-allow-http-origin"
+description = "Enables the allow_http_origin command without any pre-configured scope."
+commands.allow = ["allow_http_origin"]
+
+[[permission]]
+identifier = "deny-allow-http-origin"
+description = "Denies the allow_http_origin command without any pre-configured scope."
+commands.deny = ["allow_http_origin"]

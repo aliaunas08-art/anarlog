@@ -17,8 +17,16 @@ fn pool<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<sqlx::SqlitePool
 #[tauri::command]
 #[specta::specta]
 pub async fn list_webhooks<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<WebhookInfo>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
     Ok(anlg_db_app::list_webhook_endpoints(&pool)
         .await
@@ -31,10 +39,18 @@ pub async fn list_webhooks<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn create_webhook<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     url: String,
     events: Vec<String>,
 ) -> Result<CreatedWebhook, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Keys,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
     dispatch::create_endpoint(&pool, &url, &events).await
 }
@@ -42,9 +58,17 @@ pub async fn create_webhook<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_webhook<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     id: String,
 ) -> Result<bool, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Delete,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
     anlg_db_app::delete_webhook_endpoint(&pool, &id)
         .await
@@ -54,10 +78,18 @@ pub async fn delete_webhook<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn set_webhook_active<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     id: String,
     active: bool,
 ) -> Result<WebhookInfo, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
     anlg_db_app::set_webhook_endpoint_active(&pool, &id, active)
         .await
@@ -69,9 +101,17 @@ pub async fn set_webhook_active<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn test_webhook<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     id: String,
 ) -> Result<WebhookDelivery, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
     let endpoint = anlg_db_app::get_webhook_endpoint(&pool, &id)
         .await
@@ -84,9 +124,17 @@ pub async fn test_webhook<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn dispatch_event<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     event: String,
     meeting_id: String,
 ) -> Result<u32, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Share,
+    )
+    .map_err(|denied| denied.to_string())?;
     if !dispatch::KNOWN_EVENTS.contains(&event.as_str()) {
         return Err(format!(
             "unknown event '{event}'; known events: {}",
@@ -117,8 +165,13 @@ pub(crate) async fn run_markdown_export_automation(pool: &sqlx::SqlitePool, meet
     if !enabled || directory.is_empty() {
         return;
     }
+    // ASPC C6.4: the automatic export is a bulk export; Private meetings are
+    // left out.
+    if crate::dispatch::is_private_meeting(pool, meeting_id).await {
+        return;
+    }
 
-    let result = match anlg_agent_access::get_meeting_export(pool, meeting_id.to_string()).await {
+    let result = match scoped_meeting_export(pool, meeting_id.to_string()).await {
         Ok(export) => write_markdown_export(std::path::Path::new(&directory), &export),
         Err(error) => Err(error.to_string()),
     };
@@ -171,20 +224,42 @@ async fn load_setting(pool: &sqlx::SqlitePool, id: &str) -> Option<serde_json::V
 #[tauri::command]
 #[specta::specta]
 pub async fn export_meeting_markdown<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     meeting_id: String,
     directory: String,
     options: Option<MarkdownExportOptions>,
     previous: Option<MarkdownExportFile>,
 ) -> Result<MarkdownExportFile, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Export,
+    )
+    .map_err(|denied| denied.to_string())?;
     let directory = directory.trim();
     if directory.is_empty() {
         return Err("export directory is not set".to_string());
     }
     let pool = pool(&app)?;
-    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
+    let audited = meeting_id.clone();
+    let export = scoped_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::MEETING_EXPORTED,
+            "meeting",
+            if anlg_audit_log::is_identifier(&audited) {
+                audited.as_str()
+            } else {
+                ""
+            },
+        )
+        .id("format", "markdown"),
+    );
     let path = write_markdown_export_with_options(
         std::path::Path::new(directory),
         &export,
@@ -460,11 +535,19 @@ fn remove_stale_exports(directory: &std::path::Path, meeting_id: &str, keep_file
 #[tauri::command]
 #[specta::specta]
 pub async fn get_cloud_snapshot<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     meeting_id: String,
 ) -> Result<serde_json::Value, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
-    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
+    let export = scoped_meeting_export(&pool, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
     prepare_cloud_snapshot(export)
@@ -537,14 +620,26 @@ pub(crate) fn cloud_snapshot_jsonb_len(value: &serde_json::Value) -> Result<usiz
 #[tauri::command]
 #[specta::specta]
 pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<String>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let pool = pool(&app)?;
+    let scope = anlg_agent_access::local_scope(&pool)
+        .await
+        .map_err(|error| error.to_string())?;
     let mut offset = 0;
     let mut ids = Vec::new();
     loop {
         let page = anlg_agent_access::list_meetings(
             &pool,
+            &scope,
             anlg_agent_access::ListMeetingsInput {
                 query: None,
                 series_id: None,
@@ -567,10 +662,18 @@ pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn prepare_drive_markdown<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     meeting_id: String,
 ) -> Result<crate::types::DriveMarkdownExport, String> {
-    let export = anlg_agent_access::get_meeting_export(&pool(&app)?, meeting_id)
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Export,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let export = scoped_meeting_export(&pool(&app)?, meeting_id)
         .await
         .map_err(|error| error.to_string())?;
     drive_markdown(export)
@@ -602,4 +705,18 @@ pub(crate) fn drive_markdown(
     }
     markdown.push('\n');
     Ok(crate::types::DriveMarkdownExport { filename, markdown })
+}
+
+/// A meeting export limited to the local workspace (ASPC C1.2): a meeting
+/// of another workspace is "not found".
+pub(crate) async fn scoped_meeting_export(
+    pool: &sqlx::SqlitePool,
+    meeting_id: String,
+) -> Result<anlg_agent_access::MeetingExport, String> {
+    let scope = anlg_agent_access::local_scope(pool)
+        .await
+        .map_err(|error| error.to_string())?;
+    anlg_agent_access::get_meeting_export(pool, &scope, meeting_id)
+        .await
+        .map_err(|error| error.to_string())
 }

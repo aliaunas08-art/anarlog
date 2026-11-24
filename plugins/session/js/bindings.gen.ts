@@ -38,6 +38,31 @@ async restoreDeletedSession(request: TombstoneSessionRequest) : Promise<Result<R
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * ASPC D2.2: permanently deletes a soft-deleted meeting once its undo
+ * window is over (the webview calls this when the undo toast closes).
+ * A meeting that is not soft-deleted is left alone.
+ */
+async purgeDeletedSession(sessionId: string) : Promise<Result<PurgeReport, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|purge_deleted_session", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * ASPC C6.4 / D1.4: marks a meeting Private or not, and audit-logs the
+ * change (`meeting.private_changed`, the meeting id and the new value).
+ */
+async setSessionPrivate(sessionId: string, isPrivate: boolean) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|set_session_private", { sessionId, isPrivate }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async addSessionParticipant(request: AddSessionParticipantRequest) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:session|add_session_participant", { request }) };
@@ -205,6 +230,33 @@ async updateFolderIcon(request: UpdateFolderIconRequest) : Promise<Result<null, 
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * ASPC C5: writes a backup of the library to `path`, which the user just
+ * picked in `fs2:pick_save_path` (A3.6, single use). Rust asks the user to
+ * confirm that the backup is not encrypted.
+ */
+async backupLibrary(path: string) : Promise<Result<BackupSummary, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|backup_library", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * ASPC C5: checks the backup at `path` (picked by the user in
+ * `fs2:pick_open_paths`, single use) and, after a confirmation shown by
+ * Rust, stages it. It replaces the library on the next launch; the current
+ * library is kept beside it.
+ */
+async restoreLibrary(path: string) : Promise<Result<RestoreSummary, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:session|restore_library", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -219,6 +271,7 @@ async updateFolderIcon(request: UpdateFolderIconRequest) : Promise<Result<null, 
 /** user-defined types **/
 
 export type AddSessionParticipantRequest = { session_id: string; human_id: string; source: string }
+export type BackupSummary = { meetings: number; files: number; bytes: number }
 export type CatalogFolderMaterialRequest = { folder_path: string; attachment_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
 export type CatalogNoteAttachmentRequest = { session_id: string; attachment_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
 export type CatalogSessionAudioRequest = { session_id: string; filename: string; content_type: string; size_bytes: number; sha256: string }
@@ -231,11 +284,29 @@ export type EventParticipantIdentity = { email: string; name: string; company_na
 export type EventSessionResult = { session_id: string; created: boolean }
 export type MoveSessionContentsRequest = { source_session_id: string; target_session_id: string; rewrite_audio_ids: boolean; next_target_note: string | null; empty_source_note: string | null }
 export type PersistChatSessionProposalRequest = { id: string; session_id: string; kind: string; target_id: string; base_updated_at: string; current_markdown: string; proposed_markdown: string; source: string }
+export type PurgeReport = { 
+/**
+ * Meetings whose rows were removed (or blanked) by this run.
+ */
+purged: number; 
+/**
+ * Of those, the ones kept as blank sync tombstones.
+ */
+tombstones: number; rows_deleted: number; files_removed: number; 
+/**
+ * Whether the WAL was checkpointed and truncated.
+ */
+wal_truncated: boolean }
 export type RemoveSessionParticipantRequest = { mapping_id: string }
 export type RenameFolderCatalogRequest = { old_path: string; new_path: string }
 export type ResolveSessionConflictRequest = { conflict_id: string }
 export type ResolveSessionConflictsRequest = { session_id: string }
 export type RestoreDeletedSessionOutcome = "restored" | "alive" | "not_deleted"
+export type RestoreSummary = { meetings: number; files: number; created_at: string; 
+/**
+ * The restore is applied when the app next starts.
+ */
+restart_required: boolean }
 export type SessionAudioRequest = { session_id: string }
 export type SetAttachmentCloudSyncEnabledRequest = { session_id: string; attachment_id: string; enabled: boolean }
 export type SetSessionProposalStatusRequest = { proposal_id: string; status: string }

@@ -5,9 +5,13 @@ import { verifyProviderCredentials } from "@anlg/provider-validation";
 
 import { providerFetch } from "./provider-fetch";
 
+const { allowHttpOrigin } = vi.hoisted(() => ({ allowHttpOrigin: vi.fn() }));
+
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
+vi.mock("@anlg/plugin-misc", () => ({ commands: { allowHttpOrigin } }));
 
 beforeEach(() => {
+  allowHttpOrigin.mockReset();
   vi.mocked(tauriFetch).mockReset();
   vi.mocked(tauriFetch).mockResolvedValue(Response.json({ data: [] }));
 });
@@ -131,4 +135,41 @@ describe("providerFetch", () => {
       ).rejects.toThrow("The provider rejected this key");
     },
   );
+
+  it("asks Rust to allow a host outside the http scope and retries once", async () => {
+    const scopeError =
+      "url not allowed on the configured scope: https://my.example.com/v1/models";
+    vi.mocked(tauriFetch)
+      .mockRejectedValueOnce(scopeError)
+      .mockResolvedValueOnce(Response.json({ data: [] }));
+    allowHttpOrigin.mockResolvedValue({ status: "ok", data: true });
+
+    const response = await providerFetch("https://my.example.com/v1/models");
+
+    expect(response.ok).toBe(true);
+    expect(allowHttpOrigin).toHaveBeenCalledWith(
+      "https://my.example.com/v1/models",
+    );
+    expect(tauriFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry when the user declines the host", async () => {
+    const scopeError =
+      "url not allowed on the configured scope: https://my.example.com/v1";
+    vi.mocked(tauriFetch).mockRejectedValue(scopeError);
+    allowHttpOrigin.mockResolvedValue({ status: "ok", data: false });
+
+    await expect(providerFetch("https://my.example.com/v1")).rejects.toBe(
+      scopeError,
+    );
+    expect(tauriFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not ask for other errors", async () => {
+    vi.mocked(tauriFetch).mockRejectedValue(new Error("offline"));
+    await expect(providerFetch("https://api.openai.com/v1")).rejects.toThrow(
+      "offline",
+    );
+    expect(allowHttpOrigin).not.toHaveBeenCalled();
+  });
 });

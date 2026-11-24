@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { z } from "zod";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
+import { TimbreLogo } from "@/components/timbre-logo";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import {
   identityLinkMessages,
@@ -227,8 +227,8 @@ function Component() {
   return (
     <main className="surface text-color min-h-screen">
       <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24">
-        <Link to="/" aria-label="Anarlog home" className="inline-flex">
-          <AnarlogLogo className="h-8 w-auto" />
+        <Link to="/" aria-label="Timbre home" className="inline-flex">
+          <TimbreLogo className="h-8 w-auto" />
         </Link>
 
         <header className="mt-12 md:mt-16">

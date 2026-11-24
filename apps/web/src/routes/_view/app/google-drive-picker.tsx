@@ -39,7 +39,7 @@ function DrivePickerPage() {
         <>
           <p className="text-fg-muted">
             Google will open in this tab. Use the same Google account you
-            connected to Anarlog.
+            connected to Timbre.
           </p>
           <button
             className="rounded-full border px-5 py-2 font-mono"
@@ -51,7 +51,7 @@ function DrivePickerPage() {
       ) : handoff?.callback ? (
         <>
           <p className="text-fg-muted">
-            Return to Anarlog to finish validating your folder.
+            Return to Timbre to finish validating your folder.
           </p>
           <button
             className="rounded-full border px-5 py-2 font-mono"
@@ -60,15 +60,15 @@ function DrivePickerPage() {
               deliver({ callback: handoff.callback!, port: handoff.port })
             }
           >
-            Return to Anarlog
+            Return to Timbre
           </button>
         </>
       ) : (
-        <p>Return to Anarlog and choose a folder again.</p>
+        <p>Return to Timbre and choose a folder again.</p>
       )}
       {delivery.error ? (
         <p role="alert">
-          Could not reach Anarlog. Return to the app and choose a folder again.
+          Could not reach Timbre. Return to the app and choose a folder again.
         </p>
       ) : null}
     </main>

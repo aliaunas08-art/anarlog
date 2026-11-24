@@ -429,6 +429,7 @@ export type FloatingBarState = {
   transcriptNotice?: string | null;
   layout?: FloatingBarOverlayLayout | null;
   sessionId?: string | null;
+  elapsedSeconds?: number | null;
 };
 export type FloatingBarStatus = "recording" | "reconnecting" | "error";
 export type FloatingBarStop = Record<string, never>;

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { ArrowDown, ArrowUp, Sun } from "@anlg/ui/components/icons";
+import { ArrowUp } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 
@@ -75,40 +75,5 @@ export function TimelineTopChip({
       </span>
       <span className="truncate">{children}</span>
     </div>
-  );
-}
-
-export function TimelineNowChip({
-  ariaLabel,
-  children,
-  className,
-  direction,
-  onClick,
-}: {
-  ariaLabel: string;
-  children: ReactNode;
-  className?: string;
-  direction: "up" | "down";
-  onClick: () => void;
-}) {
-  const DirectionIcon = direction === "up" ? ArrowUp : ArrowDown;
-
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      className={cn([
-        "border-border bg-card text-foreground flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold shadow-md",
-        "hover:border-border hover:bg-accent hover:text-foreground transition-colors",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
-        className,
-      ])}
-      onClick={onClick}
-    >
-      {direction === "up" ? <DirectionIcon size={12} /> : null}
-      <Sun size={13} className="shrink-0 text-yellow-400" />
-      <span>{children}</span>
-      {direction === "down" ? <DirectionIcon size={12} /> : null}
-    </button>
   );
 }

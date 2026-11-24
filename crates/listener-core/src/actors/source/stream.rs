@@ -16,7 +16,7 @@ pub(super) async fn start_source_loop(
     myself: &ActorRef<SourceMsg>,
     st: &mut SourceState,
 ) -> Result<CaptureSettings, ActorProcessingErr> {
-    let new_mode = ChannelMode::determine(st.onboarding);
+    let new_mode = ChannelMode::determine(st.onboarding, st.mic_only);
 
     let mode_changed = st.current_mode != new_mode;
     st.current_mode = new_mode;

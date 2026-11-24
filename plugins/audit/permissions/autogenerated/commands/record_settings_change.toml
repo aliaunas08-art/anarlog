@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-record-settings-change"
+description = "Enables the record_settings_change command without any pre-configured scope."
+commands.allow = ["record_settings_change"]
+
+[[permission]]
+identifier = "deny-record-settings-change"
+description = "Denies the record_settings_change command without any pre-configured scope."
+commands.deny = ["record_settings_change"]

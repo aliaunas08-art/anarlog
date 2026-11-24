@@ -1,3 +1,5 @@
+import { LOCAL_WORKSPACE_ID_SQL } from "@anlg/db";
+
 import {
   type ChatMessageRecord,
   type ChatMessageSqlRow,
@@ -31,17 +33,23 @@ const EMPTY_CHAT_MESSAGES: PersistedChatMessage[] = [];
 export function useRecentChatGroups(
   chatScope: ChatScope,
   limit = 5,
+  askThreadKey?: string,
 ): ChatGroupRecord[] {
-  return useChatGroupsQuery(chatScope, limit);
+  return useChatGroupsQuery(chatScope, limit, askThreadKey);
 }
 
 export function useChatGroups(chatScope: ChatScope): ChatGroupRecord[] {
   return useChatGroupsQuery(chatScope);
 }
 
-function useChatGroupsQuery(
-  chatScope: ChatScope,
-  limit?: number,
+/**
+ * General chats from before scoped Ask threads (no user message carries an
+ * askScope). Listed under "Previous chats"; opened read-only in General and
+ * never part of a keyed thread's model context.
+ */
+export function usePreviousChatGroups(
+  enabled: boolean,
+  limit = 5,
 ): ChatGroupRecord[] {
   const { data = EMPTY_CHAT_GROUPS } = useLiveQuery<
     ChatGroupSqlRow,
@@ -51,11 +59,42 @@ function useChatGroupsQuery(
       SELECT g.id, g.owner_user_id, g.title, g.created_at, g.updated_at
       FROM chat_groups AS g
       WHERE g.deleted_at IS NULL
+        AND ${chatGroupScopePredicate("general")}
+        AND NOT ${ANY_ASK_SCOPE_PREDICATE}
+      ORDER BY g.created_at DESC, g.id DESC
+      LIMIT ?
+    `,
+    params: [limit],
+    enabled,
+    mapRows: (rows) => rows.map(mapChatGroupRow),
+  });
+
+  return enabled ? data : EMPTY_CHAT_GROUPS;
+}
+
+function useChatGroupsQuery(
+  chatScope: ChatScope,
+  limit?: number,
+  askThreadKey?: string,
+): ChatGroupRecord[] {
+  const askThread = askThreadKey ? askThreadSqlParams(askThreadKey) : null;
+  const { data = EMPTY_CHAT_GROUPS } = useLiveQuery<
+    ChatGroupSqlRow,
+    ChatGroupRecord[]
+  >({
+    sql: `
+      SELECT g.id, g.owner_user_id, g.title, g.created_at, g.updated_at
+      FROM chat_groups AS g
+      WHERE g.deleted_at IS NULL
         AND ${chatGroupScopePredicate(chatScope)}
+        ${askThread ? `AND ${ASK_THREAD_PREDICATE}` : ""}
       ORDER BY g.created_at DESC, g.id DESC
       ${limit === undefined ? "" : "LIMIT ?"}
     `,
-    params: limit === undefined ? [] : [limit],
+    params: [
+      ...(askThread ? [askThread.scope, askThread.meetingId] : []),
+      ...(limit === undefined ? [] : [limit]),
+    ],
     mapRows: (rows) => rows.map(mapChatGroupRow),
   });
 
@@ -149,7 +188,7 @@ export function createChatGroupWithMessage({
             id, workspace_id, owner_user_id, title, created_at, updated_at,
             deleted_at
           )
-          VALUES (?, '', ?, ?, ?, ?, NULL)
+          VALUES (?, ${LOCAL_WORKSPACE_ID_SQL}, ?, ?, ?, ?, NULL)
           ON CONFLICT(id) DO UPDATE SET
             owner_user_id = excluded.owner_user_id,
             title = excluded.title,
@@ -301,6 +340,43 @@ function mapChatGroupRow(row: ChatGroupSqlRow): ChatGroupRecord {
   };
 }
 
+// A group belongs to the Ask thread its first user message was sent in.
+// Groups from before scoped threads have no askScope and never match.
+const ASK_THREAD_PREDICATE = `
+  EXISTS (
+    SELECT 1
+    FROM chat_messages AS am
+    WHERE am.chat_group_id = g.id
+      AND am.deleted_at IS NULL
+      AND am.role = 'user'
+      AND json_valid(am.metadata_json)
+      AND json_extract(am.metadata_json, '$.askScope') = ?
+      AND COALESCE(json_extract(am.metadata_json, '$.askMeetingId'), '') = ?
+  )
+`;
+
+const ANY_ASK_SCOPE_PREDICATE = `
+  EXISTS (
+    SELECT 1
+    FROM chat_messages AS am
+    WHERE am.chat_group_id = g.id
+      AND am.deleted_at IS NULL
+      AND am.role = 'user'
+      AND json_valid(am.metadata_json)
+      AND json_extract(am.metadata_json, '$.askScope') IS NOT NULL
+  )
+`;
+
+function askThreadSqlParams(askThreadKey: string) {
+  if (askThreadKey.startsWith("meeting:")) {
+    return {
+      scope: "meeting",
+      meetingId: askThreadKey.slice("meeting:".length),
+    };
+  }
+  return { scope: askThreadKey, meetingId: "" };
+}
+
 function chatGroupScopePredicate(chatScope: ChatScope) {
   const automationsScopeExists = `
     EXISTS (
@@ -331,7 +407,7 @@ function buildUpsertChatMessageStatement(
         id, workspace_id, chat_group_id, owner_user_id, role, content,
         metadata_json, parts_json, status, created_at, updated_at, deleted_at
       )
-      VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      VALUES (?, ${LOCAL_WORKSPACE_ID_SQL}, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
       ON CONFLICT(id) DO UPDATE SET
         chat_group_id = excluded.chat_group_id,
         owner_user_id = excluded.owner_user_id,

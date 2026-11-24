@@ -10,6 +10,32 @@ import {
 
 const currentTimestamp = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
 
+/**
+ * ASPC C1.1: the device's local workspace id (the CloudSync binding), read
+ * by SQLite when the row is inserted. Same source as Rust's `insert_session`.
+ */
+export const LOCAL_WORKSPACE_ID_SQL = `COALESCE(NULLIF((
+  SELECT json_extract(value_json, '$.workspace_id')
+  FROM app_settings WHERE id = 'cloudsync_workspace_binding'
+), ''), '')`;
+
+/** ASPC C1.1: the local owner id (the active local library, else the binding). */
+export const LOCAL_OWNER_USER_ID_SQL = `COALESCE(
+  (SELECT NULLIF(library_workspace_id, '') FROM local_library_connections WHERE active = 1),
+  NULLIF((
+    SELECT json_extract(value_json, '$.workspace_id')
+    FROM app_settings WHERE id = 'cloudsync_workspace_binding'
+  ), ''),
+  ''
+)`;
+
+// Drizzle inserts that leave these columns out get the local ids instead of
+// the column default ''. Drizzle prefers `.default()` over `$defaultFn`, so
+// these columns carry only `$defaultFn`. Not a schema change: the SQL
+// default in app.db is unchanged.
+const localWorkspaceId = () => sql.raw(`(${LOCAL_WORKSPACE_ID_SQL})`);
+const localOwnerUserId = () => sql.raw(`(${LOCAL_OWNER_USER_ID_SQL})`);
+
 export const localLibraryConnections = sqliteTable(
   "local_library_connections",
   {
@@ -143,8 +169,8 @@ export const workspaceMemberships = sqliteTable(
 
 export const organizations = sqliteTable("organizations", {
   id: text("id").primaryKey().notNull(),
-  workspaceId: text("workspace_id").notNull().default(""),
-  ownerUserId: text("owner_user_id").notNull().default(""),
+  workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+  ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
   name: text("name").notNull().default(""),
   memo: text("memo").notNull().default(""),
   pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
@@ -159,8 +185,8 @@ export const humans = sqliteTable(
   "humans",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     organizationId: text("organization_id").notNull().default(""),
     name: text("name").notNull().default(""),
     email: text("email").notNull().default(""),
@@ -185,8 +211,8 @@ export const sessions = sqliteTable(
   "sessions",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     title: text("title").notNull().default(""),
     kind: text("kind").notNull().default("meeting"),
     status: text("status").notNull().default("active"),
@@ -207,6 +233,8 @@ export const sessions = sqliteTable(
     metadataJson: text("metadata_json").notNull().default("{}"),
     shareActivationJson: text("share_activation_json").notNull().default("{}"),
     deletionContext: text("deletion_context").notNull().default(""),
+    // ASPC C6.4 Private flag (migration 20261116120000_session_private).
+    private: integer("private").notNull().default(0),
     deletedAt: text("deleted_at"),
   },
   (table) => [
@@ -220,7 +248,7 @@ export const sessionDocuments = sqliteTable(
   "session_documents",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
     sessionId: text("session_id").notNull().default(""),
     kind: text("kind").notNull().default("note"),
     templateId: text("template_id").notNull().default(""),
@@ -331,8 +359,8 @@ export const transcripts = sqliteTable(
   "transcripts",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     sessionId: text("session_id").notNull().default(""),
     source: text("source").notNull().default(""),
     provider: text("provider").notNull().default(""),
@@ -357,8 +385,8 @@ export const sessionParticipants = sqliteTable(
   "session_participants",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     sessionId: text("session_id").notNull().default(""),
     humanId: text("human_id").notNull().default(""),
     displayName: text("display_name").notNull().default(""),
@@ -380,7 +408,7 @@ export const actionItems = sqliteTable(
   "action_items",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
     sessionId: text("session_id").notNull().default(""),
     sourceType: text("source_type").notNull().default(""),
     sourceId: text("source_id").notNull().default(""),
@@ -408,7 +436,7 @@ export const sessionAttachments = sqliteTable(
   "session_attachments",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
     sessionId: text("session_id").notNull().default(""),
     filename: text("filename").notNull().default(""),
     relativePath: text("relative_path").notNull().default(""),
@@ -432,7 +460,7 @@ export const folders = sqliteTable(
   "folders",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
     path: text("path").notNull().default(""),
     instructions: text("instructions").notNull().default(""),
     iconJson: text("icon_json", { mode: "json" })
@@ -449,7 +477,7 @@ export const folderAttachments = sqliteTable(
   "folder_attachments",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
     folderPath: text("folder_path").notNull().default(""),
     filename: text("filename").notNull().default(""),
     relativePath: text("relative_path").notNull().default(""),
@@ -590,8 +618,8 @@ export const tags = sqliteTable(
   "tags",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     name: text("name").notNull().default(""),
     createdAt: text("created_at").notNull().default(currentTimestamp),
     updatedAt: text("updated_at").notNull().default(currentTimestamp),
@@ -604,8 +632,8 @@ export const sessionTags = sqliteTable(
   "session_tags",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     sessionId: text("session_id").notNull().default(""),
     tagId: text("tag_id").notNull().default(""),
     createdAt: text("created_at").notNull().default(currentTimestamp),
@@ -622,8 +650,8 @@ export const entityMentions = sqliteTable(
   "entity_mentions",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     sourceType: text("source_type").notNull().default(""),
     sourceId: text("source_id").notNull().default(""),
     targetType: text("target_type").notNull().default(""),
@@ -640,8 +668,8 @@ export const entityMentions = sqliteTable(
 
 export const chatGroups = sqliteTable("chat_groups", {
   id: text("id").primaryKey().notNull(),
-  workspaceId: text("workspace_id").notNull().default(""),
-  ownerUserId: text("owner_user_id").notNull().default(""),
+  workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+  ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
   title: text("title").notNull().default(""),
   createdAt: text("created_at").notNull().default(currentTimestamp),
   updatedAt: text("updated_at").notNull().default(currentTimestamp),
@@ -652,9 +680,9 @@ export const chatMessages = sqliteTable(
   "chat_messages",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
     chatGroupId: text("chat_group_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     role: text("role").notNull().default(""),
     content: text("content").notNull().default(""),
     metadataJson: text("metadata_json").notNull().default("{}"),
@@ -673,8 +701,8 @@ export const dailyNotes = sqliteTable(
   "daily_notes",
   {
     id: text("id").primaryKey().notNull(),
-    workspaceId: text("workspace_id").notNull().default(""),
-    ownerUserId: text("owner_user_id").notNull().default(""),
+    workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
+    ownerUserId: text("owner_user_id").notNull().$defaultFn(localOwnerUserId),
     noteDate: text("note_date").notNull().default(""),
     bodyFormat: text("body_format").notNull().default("prosemirror_json"),
     body: text("body").notNull().default(""),
@@ -693,7 +721,7 @@ export const appSettings = sqliteTable("app_settings", {
 
 export const syncedPreferences = sqliteTable("synced_preferences", {
   id: text("id").primaryKey().notNull(),
-  workspaceId: text("workspace_id").notNull().default(""),
+  workspaceId: text("workspace_id").notNull().$defaultFn(localWorkspaceId),
   valueJson: text("value_json").notNull().default("null"),
   updatedAt: text("updated_at").notNull().default(currentTimestamp),
 });

@@ -223,10 +223,10 @@ const ItemBase = memo(function ItemBase({
       className={cn([
         "group/sidebar-live-item relative [content-visibility:auto]",
         extraRows === 2
-          ? "[contain-intrinsic-size:auto_88px]"
+          ? "[contain-intrinsic-size:auto_68px]"
           : extraRows === 1
-            ? "[contain-intrinsic-size:auto_72px]"
-            : "[contain-intrinsic-size:auto_56px]",
+            ? "[contain-intrinsic-size:auto_52px]"
+            : "[contain-intrinsic-size:auto_36px]",
       ])}
     >
       <InteractiveButton
@@ -237,18 +237,16 @@ const ItemBase = memo(function ItemBase({
         onDragStart={onDragStart}
         contextMenu={hasSelection ? undefined : contextMenu}
         className={cn([
-          "w-full rounded-lg px-3 py-2 text-left",
+          "cf-motion flex min-h-9 w-full flex-col justify-center rounded-[10px] px-2.5 py-1.5 text-left transition-colors",
           showUpcomingGauge && "pl-4",
           showLiveStop && "pr-10",
           ignored ? "cursor-default" : "cursor-pointer",
-          multiSelected && "bg-accent",
-          !multiSelected && selected && "bg-accent",
-          !multiSelected && !selected && "hover:bg-accent/50",
-          isUpcoming &&
-            !isLive && [
-              "bg-destructive/8 text-foreground",
-              "focus-visible:ring-destructive/25",
-            ],
+          multiSelected && "bg-[var(--cf-selection)]",
+          !multiSelected && selected && "bg-[var(--cf-selection)]",
+          !multiSelected &&
+            !selected &&
+            "hover:bg-black/[0.035] dark:hover:bg-white/[0.06]",
+          isUpcoming && !isLive && "focus-visible:ring-[var(--cf-accent)]/30",
           isLive && [
             "bg-destructive text-destructive-foreground hover:bg-destructive/90",
             "focus-visible:ring-destructive/40 focus-visible:ring-2 focus-visible:outline-hidden",
@@ -259,14 +257,14 @@ const ItemBase = memo(function ItemBase({
         draggable={draggable}
       >
         <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-1 flex-col">
             {folderLabel ? (
               <div
                 className={cn([
                   "pointer-events-none flex min-w-0 items-center gap-1 text-[11px] leading-4",
                   isLive
                     ? "text-destructive-foreground/65"
-                    : "text-muted-foreground",
+                    : "text-[var(--cf-secondary)]",
                 ])}
               >
                 <FolderSimple className="size-3 shrink-0" aria-hidden />
@@ -275,37 +273,38 @@ const ItemBase = memo(function ItemBase({
             ) : null}
             <div
               className={cn(
-                "pointer-events-none min-w-0 truncate text-sm font-normal",
+                "pointer-events-none min-w-0 truncate text-[15px] leading-5",
+                selected || multiSelected ? "font-medium" : "font-normal",
                 ignored && "line-through",
               )}
             >
               {title || t`Untitled`}
             </div>
-            {displayTime && (
-              <div
-                className={cn([
-                  "font-mono text-xs",
-                  isLive
-                    ? "text-destructive-foreground/65"
-                    : "text-muted-foreground",
-                ])}
-              >
-                {displayTime}
-              </div>
-            )}
             {tagLine ? (
               <div
                 className={cn([
                   "pointer-events-none min-w-0 truncate text-[11px] leading-4",
                   isLive
                     ? "text-destructive-foreground/65"
-                    : "text-muted-foreground",
+                    : "text-[var(--cf-secondary)]",
                 ])}
               >
                 {tagLine}
               </div>
             ) : null}
           </div>
+          {displayTime && !showLiveStop ? (
+            <div
+              className={cn([
+                "pointer-events-none shrink-0 text-[12px] leading-5 tabular-nums",
+                isLive
+                  ? "text-destructive-foreground/65"
+                  : "text-[var(--cf-tertiary)]",
+              ])}
+            >
+              {displayTime}
+            </div>
+          ) : null}
           {isLocked ? (
             isLockRevealed ? (
               <LockOpen
@@ -337,11 +336,11 @@ const ItemBase = memo(function ItemBase({
         <div
           aria-hidden
           data-sidebar-timeline-upcoming-gauge
-          className="bg-destructive/20 pointer-events-none absolute top-2 bottom-2 left-1.5 w-0.5 overflow-hidden rounded-full"
+          className="pointer-events-none absolute top-2 bottom-2 left-1.5 w-[3px] overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--cf-accent)_22%,transparent)]"
         >
           <div
             data-sidebar-timeline-upcoming-gauge-fill
-            className="bg-destructive absolute bottom-0 left-0 w-full rounded-full transition-[height] duration-300 ease-linear"
+            className="absolute bottom-0 left-0 w-full rounded-full bg-[var(--cf-accent)] transition-[height] duration-300 ease-linear"
             style={{ height: `${upcomingGaugePercent}%` }}
           />
         </div>
@@ -859,9 +858,7 @@ function formatDisplayTime(
 
   const now = timezone ? new TZDate(new Date(), timezone) : new Date();
   const sameYear = getYear(date) === getYear(now);
-  const dateStr = sameYear
-    ? format(date, "MMM d")
-    : format(date, "MMM d, yyyy");
-
-  return `${dateStr}, ${time}`;
+  // Shown as a compact trailing label beside the title, so older notes get
+  // just the date (the bucket header already gives the period).
+  return sameYear ? format(date, "MMM d") : format(date, "MMM yyyy");
 }

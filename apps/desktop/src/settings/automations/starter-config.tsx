@@ -38,6 +38,7 @@ import { env } from "~/env";
 import { listSlackChannels } from "~/session-sharing/delivery-client";
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
 import { type SettingKey } from "~/settings/schema";
+import { APP_NAME } from "~/shared/app-name";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
 type TargetSettingKey =
@@ -519,7 +520,7 @@ function NotionPageSearch({
               setSubmittedQuery(query.trim());
             }
           }}
-          placeholder={t`Search pages shared with Anarlog…`}
+          placeholder={t`Search pages shared with ${APP_NAME}…`}
           className={cn([
             "border-border bg-accent/50 h-8 min-w-0 flex-1 rounded-lg border px-3 text-xs",
             "placeholder:text-muted-foreground focus:outline-hidden",
@@ -559,7 +560,7 @@ function NotionPageSearch({
       ) : pages.data ? (
         <p className="text-muted-foreground text-xs">
           <Trans>
-            No pages found. Share the page with the Anarlog integration in
+            No pages found. Share the page with the {APP_NAME} integration in
             Notion first.
           </Trans>
         </p>

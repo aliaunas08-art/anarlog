@@ -27,7 +27,6 @@ import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
 } from "~/services/audio-retention";
-import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
 import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -55,6 +54,8 @@ type RunOptions = {
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
   notifyOnCompletion?: boolean;
+  /** Set false to fall back to another batch provider without a toast. */
+  warnOnFallback?: boolean;
   resume?: { provider: BatchProvider; model: string };
   provider?: string;
   model?: string;
@@ -326,7 +327,6 @@ export const useRunBatch = (sessionId: string) => {
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
-  const rememberSpeakers = useConfigValue("remember_speakers") === true;
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
@@ -420,7 +420,12 @@ export const useRunBatch = (sessionId: string) => {
         target = { ...target, apiKey: cloudAccessToken };
       }
 
-      if (!shouldUseSelectedTarget && !options?.recovery && !options?.resume) {
+      if (
+        !shouldUseSelectedTarget &&
+        !options?.recovery &&
+        !options?.resume &&
+        options?.warnOnFallback !== false
+      ) {
         toast.warning("Using a batch transcription provider", {
           description: `${
             selectedTarget
@@ -661,12 +666,6 @@ export const useRunBatch = (sessionId: string) => {
                     ),
                   );
                 }
-                await maybeExtractVoiceprintCandidates({
-                  enabled: rememberSpeakers,
-                  sessionId,
-                  transcriptId: saved.transcript_id,
-                  audioPath: filePath,
-                });
               }
             }
             if (!options?.deferAudioFinalization) {
@@ -699,7 +698,6 @@ export const useRunBatch = (sessionId: string) => {
       audioRetention,
       billing.isPaid,
       dictionaryTerms,
-      rememberSpeakers,
       session,
       participants,
       spokenLanguages,

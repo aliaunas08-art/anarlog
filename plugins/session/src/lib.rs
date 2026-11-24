@@ -1,6 +1,7 @@
 use tauri::Wry;
 
 mod attachments;
+pub mod backup;
 mod commands;
 mod conflicts;
 mod creation;
@@ -9,11 +10,16 @@ mod folder_catalog;
 mod folder_materials;
 mod move_contents;
 mod participants;
+mod private;
 mod proposals;
+pub mod purge;
+pub mod retention;
 mod transaction_utils;
 
 #[cfg(test)]
 mod attachment_folder_tests;
+#[cfg(test)]
+mod content_marker_tests;
 #[cfg(test)]
 mod tests;
 
@@ -27,6 +33,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::create_session_for_event::<Wry>,
             commands::soft_delete_session::<Wry>,
             commands::restore_deleted_session::<Wry>,
+            commands::purge_deleted_session::<Wry>,
+            commands::set_session_private::<Wry>,
             commands::add_session_participant::<Wry>,
             commands::remove_session_participant::<Wry>,
             commands::persist_chat_session_proposal::<Wry>,
@@ -48,6 +56,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::update_folder_instructions::<Wry>,
             commands::update_folder_workspace::<Wry>,
             commands::update_folder_icon::<Wry>,
+            commands::backup_library::<Wry>,
+            commands::restore_library::<Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

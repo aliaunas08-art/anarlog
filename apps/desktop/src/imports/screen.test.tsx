@@ -52,7 +52,9 @@ vi.mock("~/auth/useConnections", async () => {
   };
 });
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: mocks.selectFiles }));
+vi.mock("@anlg/plugin-fs2", () => ({
+  commands: { pickOpenPaths: mocks.selectFiles },
+}));
 vi.mock("@anlg/plugin-importer", () => ({
   commands: { readTextFiles: mocks.readTextFiles },
 }));
@@ -165,7 +167,10 @@ function mockDetected(ids: string[]) {
 describe("MeetingImportScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.selectFiles.mockResolvedValue(["export.json"]);
+    mocks.selectFiles.mockResolvedValue({
+      status: "ok",
+      data: ["export.json"],
+    });
     mocks.readTextFiles.mockResolvedValue({ status: "ok", data: [] });
     mocks.signedIn = true;
     mocks.connections = [];
@@ -366,7 +371,7 @@ describe("MeetingImportScreen", () => {
 
   it("does not show an import result when the file picker is cancelled", async () => {
     mockDetected(["slack-huddles"]);
-    mocks.selectFiles.mockResolvedValue(null);
+    mocks.selectFiles.mockResolvedValue({ status: "ok", data: [] });
     renderImports();
     fireEvent.click(
       await screen.findByRole("button", { name: "Choose files" }),

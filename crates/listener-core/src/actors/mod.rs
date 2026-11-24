@@ -17,19 +17,38 @@ pub const SAMPLE_RATE: u32 = 16 * 1000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChannelMode {
-    #[allow(dead_code)]
     MicOnly,
     SpeakerOnly,
     MicAndSpeaker,
 }
 
 impl ChannelMode {
-    pub fn determine(onboarding: bool) -> Self {
+    /// `mic_only` is the in-person mode: capture the microphone and never open
+    /// the system-audio tap.
+    pub fn determine(onboarding: bool, mic_only: bool) -> Self {
         if onboarding {
             return ChannelMode::SpeakerOnly;
         }
+        if mic_only {
+            return ChannelMode::MicOnly;
+        }
 
         ChannelMode::MicAndSpeaker
+    }
+}
+
+#[cfg(test)]
+mod channel_mode_tests {
+    use super::ChannelMode;
+
+    #[test]
+    fn mic_only_selects_mic_only_unless_onboarding() {
+        assert_eq!(
+            ChannelMode::determine(false, false),
+            ChannelMode::MicAndSpeaker
+        );
+        assert_eq!(ChannelMode::determine(false, true), ChannelMode::MicOnly);
+        assert_eq!(ChannelMode::determine(true, true), ChannelMode::SpeakerOnly);
     }
 }
 

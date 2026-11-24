@@ -48,4 +48,6 @@ struct FloatingBarStatePayload: Codable {
   let liveCaptionToggleVisible: Bool
   let transcriptBubbles: [FloatingTranscriptBubblePayload]?
   var transcriptNotice: String? = nil
+  /// Recording time for the bar's timer; absent for dictation.
+  var elapsedSeconds: Double? = nil
 }

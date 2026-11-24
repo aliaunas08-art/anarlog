@@ -24,6 +24,20 @@ pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
         Ok(None) => {}
         Err(error) => eprintln!("failed to reset the application database: {error}"),
     }
+    // ASPC C5: a restore staged by `session:restore_library` replaces the
+    // library before the database opens; the previous one is kept aside.
+    match tauri_plugin_session::backup::apply_pending_restore(&dir) {
+        Ok(Some(applied)) => eprintln!(
+            "restored the library from a backup; the previous one is kept as {}",
+            applied
+                .previous_database
+                .as_deref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "nothing (there was none)".into())
+        ),
+        Ok(None) => {}
+        Err(error) => eprintln!("failed to apply the staged restore: {error}"),
+    }
     let db_path = dir.join(DB_FILENAME);
 
     // During an update relaunch the previous process can hold the database for

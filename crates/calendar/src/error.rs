@@ -17,6 +17,8 @@ pub enum Error {
     InvalidAuthHeader(#[from] reqwest::header::InvalidHeaderValue),
     #[error("http client error: {0}")]
     HttpClient(#[from] reqwest::Error),
+    #[error("the provider rejected the access token")]
+    Unauthorized,
     #[error("api error: {0}")]
     Api(String),
     #[error("apple calendar error: {0}")]

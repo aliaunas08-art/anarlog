@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Anarlog Dev",
+  "productName": "Timbre",
   "mainBinaryName": "anarlog-dev",
   "identifier": "com.hyprnote.dev",
   "build": {
@@ -12,15 +12,41 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "macOSPrivateApi": false,
     "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost blob: data: https:",
+        "media-src": "'self' asset: http://asset.localhost blob: data:",
+        "font-src": "'self' data:",
+        "connect-src": "'self' ipc: http://ipc.localhost asset: http://asset.localhost blob: data: https://api.anarlog.so https://anarlog.so https://static.anarlog.so https://api.github.com https://raw.githubusercontent.com https://*.supabase.co https://*.sentry.io",
+        "worker-src": "'self' blob:",
+        "frame-src": "'none'",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'none'"
+      },
+      "devCsp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'unsafe-inline'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost blob: data: https:",
+        "media-src": "'self' asset: http://asset.localhost blob: data:",
+        "font-src": "'self' data:",
+        "connect-src": "'self' ipc: http://ipc.localhost asset: http://asset.localhost blob: data: https://api.anarlog.so https://anarlog.so https://static.anarlog.so https://api.github.com https://raw.githubusercontent.com https://*.supabase.co https://*.sentry.io http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*",
+        "worker-src": "'self' blob:",
+        "frame-src": "'none'",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'none'"
+      },
+      "dangerousDisableAssetCspModification": ["style-src"],
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "**/*",
-          "$APPDATA/**"
-        ]
+        "scope": ["$APPCACHE/**"]
       }
     }
   },
@@ -78,6 +104,7 @@
         "../../../crates/cloudsync/vendor/cloudsync/macos/aarch64/cloudsync.dylib"
       ],
       "entitlements": "./Entitlements.plist",
+      "signingIdentity": "-",
       "dmg": {
         "background": "assets/dmg-background-stable.png",
         "windowSize": {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskConfig } from ".";
 import { enhanceSuccess, runEnhanceSuccess } from "./enhance-success";
+import { rememberGeneratedTitle } from "./enhance-title";
 
 import { useLiveTitle } from "~/store/zustand/live-title";
 
@@ -194,14 +195,8 @@ describe("enhanceSuccess.onSuccess", () => {
       title: null,
       tag_names: ["launch", "prep"],
     });
-    expect(params.startTask).toHaveBeenCalledWith(
-      "session-1-title",
-      expect.objectContaining({
-        args: expect.objectContaining({
-          enhancedNote: "# Summary\n\nDiscussed #Launch.\n\n#launch #prep",
-        }),
-      }),
-    );
+    // The title comes from the same call (C7.5); no title task is started.
+    expect(params.startTask).not.toHaveBeenCalled();
     const cloudsyncLeaseKey = mocks.beginCloudsyncActivity.mock.calls[0]?.[1];
     expect(cloudsyncLeaseKey).toMatch(/^note-1-enhance:/);
     expect(mocks.beginCloudsyncActivity).toHaveBeenCalledWith(
@@ -288,32 +283,13 @@ describe("enhanceSuccess.onSuccess", () => {
     );
   });
 
-  it("saves the generated title and summary in the same request", async () => {
-    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
-      config.onComplete?.("Generated title");
-    });
+  it("saves the title from the same enhance call with the summary", async () => {
+    const params = createParams();
+    rememberGeneratedTitle(params.transformedArgs, "Generated title");
 
-    await enhanceSuccess.onSuccess?.(createParams({ startTask }));
+    await enhanceSuccess.onSuccess?.(params);
 
-    expect(startTask).toHaveBeenCalledWith(
-      "session-1-title",
-      expect.objectContaining({
-        taskType: "title",
-        args: expect.objectContaining({ skipPersist: true }),
-      }),
-    );
-    expect(startTask).toHaveBeenCalledBefore(mocks.beginCloudsyncActivity);
-    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledBefore(
-      mocks.endCloudsyncActivity,
-    );
-    expect(startTask).toHaveBeenCalledWith(
-      "session-1-title",
-      expect.objectContaining({
-        args: expect.objectContaining({
-          enhancedNote: "# Summary\n\n- Point",
-        }),
-      }),
-    );
+    expect(params.startTask).not.toHaveBeenCalled();
     expect(mocks.composeGeneratedSummary).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Generated title" }),
     );
@@ -324,32 +300,15 @@ describe("enhanceSuccess.onSuccess", () => {
     );
   });
 
-  it("regenerates the title instead of reusing an earlier finished title", async () => {
-    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
-      config.onComplete?.("New title");
-    });
+  it("drops an empty generated title", async () => {
+    const params = createParams();
+    rememberGeneratedTitle(params.transformedArgs, "<EMPTY>");
 
-    await enhanceSuccess.onSuccess?.(
-      createParams({
-        startTask,
-        getTaskState: vi.fn().mockReturnValue({
-          taskType: "title",
-          status: "success",
-          streamedText: "Old title",
-          abortController: null,
-        }),
-      }),
-    );
+    await enhanceSuccess.onSuccess?.(params);
 
-    expect(startTask).toHaveBeenCalledWith(
-      "session-1-title",
-      expect.objectContaining({ taskType: "title" }),
-    );
-    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: { currentTitle: "", nextTitle: "New title" },
-      }),
-    );
+    expect(
+      mocks.persistGeneratedEnhancedNote.mock.calls[0]?.[0].title,
+    ).toBeUndefined();
   });
 
   it("uses an existing title without starting title generation", async () => {
@@ -498,23 +457,6 @@ describe("enhanceSuccess.onSuccess", () => {
     await persist;
 
     expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledOnce();
-  });
-
-  it("does not save after cancellation during title generation", async () => {
-    const abortController = new AbortController();
-    const onPersisted = vi.fn();
-    const startTask = vi.fn().mockImplementation(async (_taskId, config) => {
-      abortController.abort();
-      config.onComplete?.("Generated title");
-    });
-
-    await runEnhanceSuccess({
-      ...createParams({ signal: abortController.signal, startTask }),
-      onPersisted,
-    });
-
-    expect(mocks.persistGeneratedEnhancedNote).not.toHaveBeenCalled();
-    expect(onPersisted).not.toHaveBeenCalled();
   });
 
   it("rejects persistence when the target summary disappeared", async () => {

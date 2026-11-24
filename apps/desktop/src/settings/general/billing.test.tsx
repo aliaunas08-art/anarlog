@@ -326,7 +326,7 @@ describe("SettingsBilling", () => {
       screen.queryByRole("button", { name: "Sign in for Pro" }),
     ).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign in to Anarlog" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in to Timbre" }));
 
     expect(mocks.openNew).toHaveBeenCalledWith({
       type: "settings",
@@ -368,7 +368,7 @@ describe("SettingsBilling", () => {
       isPaused: false,
       plan: "trial",
       trialDaysRemaining: 18,
-      trialEnd: new Date("2025-10-01T00:00:00Z"),
+      trialEnd: new Date("2025-10-01T12:00:00Z"),
     };
 
     renderBilling();
@@ -393,7 +393,7 @@ describe("SettingsBilling", () => {
       isPaused: false,
       plan: "pro",
       trialDaysRemaining: null,
-      currentPeriodEnd: new Date("2025-10-15T00:00:00Z"),
+      currentPeriodEnd: new Date("2025-10-15T12:00:00Z"),
     };
     mocks.requestSyncDevices.mockResolvedValue({
       devices: [{ deviceFingerprint: "device-a" }],

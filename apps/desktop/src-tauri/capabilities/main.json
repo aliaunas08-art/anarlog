@@ -1,0 +1,234 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Main and note windows: full app, including database, files and secrets (ASPC A2.5).",
+  "windows": [
+    "main",
+    "note-*"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-center",
+    "core:window:allow-set-size",
+    "core:window:allow-set-min-size",
+    "core:window:allow-inner-size",
+    "core:window:allow-scale-factor",
+    "core:window:allow-current-monitor",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-position",
+    "core:window:allow-is-maximized",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-set-theme",
+    "core:window:allow-request-user-attention",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-is-always-on-top",
+    "core:webview:allow-set-webview-zoom",
+    "accounts:default",
+    "calendar:default",
+    "audio-priority:default",
+    "auth:default",
+    "db:default",
+    "db:allow-begin-cloudsync-activity",
+    "db:allow-end-cloudsync-activity",
+    "db:allow-sync-cloudsync-now",
+    "windows:default",
+    "windows:allow-floating-bar-show",
+    "windows:allow-floating-bar-hide",
+    "windows:allow-floating-bar-update",
+    "windows:allow-floating-bar-update-amplitude",
+    "windows:allow-floating-bar-current-state",
+    "windows:allow-live-caption-current-state",
+    "tracing:default",
+    "anlg-tray:default",
+    "analytics:default",
+    "attachment-sync:default",
+    "agent:default",
+    "ai-engine:default",
+    "audit:default",
+    "updater:default",
+    "updater2:default",
+    "deeplink2:default",
+    "store:default",
+    "store2:default",
+    "process:default",
+    "local-stt:default",
+    "dialog:default",
+    "icon:default",
+    "importer:default",
+    "transcription:default",
+    "template:default",
+    "session:default",
+    "session:allow-backup-library",
+    "session:allow-restore-library",
+    "todo:default",
+    "notification:default",
+    "overlay:default",
+    "notify:default",
+    "tantivy:default",
+    "clipboard-manager:allow-write-image",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text",
+    "shell:allow-open",
+    "misc:default",
+    "fs-sync:default",
+    "fs2:default",
+    "os:default",
+    "os:allow-hostname",
+    "opener2:default",
+    "mcp:default",
+    "messenger:default",
+    "detect:default",
+    "dock:default",
+    "permissions:default",
+    "settings:default",
+    "sfx:default",
+    "path2:default",
+    "export:default",
+    "autostart:default",
+    "js:default",
+    "local-api:default",
+    "local-auth:default",
+    "relay:default",
+    "shortcut:default",
+    "dictation:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://api.anarlog.so"
+        },
+        {
+          "url": "https://*.supabase.co"
+        },
+        {
+          "url": "https://github.com"
+        },
+        {
+          "url": "https://api.github.com"
+        },
+        {
+          "url": "https://api.aquavoice.com"
+        },
+        {
+          "url": "https://api.assemblyai.com"
+        },
+        {
+          "url": "https://api.cartesia.ai"
+        },
+        {
+          "url": "https://api.cohere.com"
+        },
+        {
+          "url": "https://api.deepgram.com"
+        },
+        {
+          "url": "https://api.elevenlabs.io"
+        },
+        {
+          "url": "https://api.gladia.io"
+        },
+        {
+          "url": "https://api.gradium.ai"
+        },
+        {
+          "url": "https://api.groq.com"
+        },
+        {
+          "url": "https://api.inworld.ai"
+        },
+        {
+          "url": "https://api.meta.ai"
+        },
+        {
+          "url": "https://api.mistral.ai"
+        },
+        {
+          "url": "https://api.narilabs.com"
+        },
+        {
+          "url": "https://api.openai.com"
+        },
+        {
+          "url": "https://api.pyannote.ai"
+        },
+        {
+          "url": "https://api.rev.ai"
+        },
+        {
+          "url": "https://api.siliconflow.com"
+        },
+        {
+          "url": "https://api.smallest.ai"
+        },
+        {
+          "url": "https://api.soniox.com"
+        },
+        {
+          "url": "https://api.together.xyz"
+        },
+        {
+          "url": "https://api.x.ai"
+        },
+        {
+          "url": "https://api.z.ai"
+        },
+        {
+          "url": "https://asr.alebex.ai"
+        },
+        {
+          "url": "https://dashscope-intl.aliyuncs.com"
+        },
+        {
+          "url": "https://generativelanguage.googleapis.com"
+        },
+        {
+          "url": "https://openrouter.ai"
+        },
+        {
+          "url": "https://platform-api.wisprflow.ai"
+        },
+        {
+          "url": "https://platform.modulate.ai"
+        },
+        {
+          "url": "https://speech.googleapis.com"
+        },
+        {
+          "url": "https://*.asr.api.speechmatics.com"
+        },
+        {
+          "url": "https://*.cognitiveservices.azure.com"
+        },
+        {
+          "url": "https://api.cloudflare.com"
+        },
+        {
+          "url": "https://bedrock-mantle.*.api.aws"
+        },
+        {
+          "url": "https://bedrock-runtime.*.amazonaws.com"
+        },
+        {
+          "url": "http://localhost:*"
+        },
+        {
+          "url": "http://127.0.0.1:*"
+        },
+        {
+          "url": "https://localhost:*"
+        },
+        {
+          "url": "https://127.0.0.1:*"
+        }
+      ],
+      "deny": []
+    }
+  ]
+}

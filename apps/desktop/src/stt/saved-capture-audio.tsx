@@ -15,6 +15,7 @@ import {
 } from "./window-control";
 
 import { useLiveQuery } from "~/db";
+import { APP_NAME } from "~/shared/app-name";
 
 const DISMISSED_SAVED_CAPTURE_AUDIO_KEY =
   "anarlog:dismissed-saved-capture-audio-prompts";
@@ -85,7 +86,7 @@ export function SavedCaptureAudioPrompt({ sessionId }: { sessionId: string }) {
         console.error("[listener] failed to resume listening", error);
       });
     };
-    toast.warning("Anarlog saved this meeting's audio", {
+    toast.warning(`${APP_NAME} saved this meeting's audio`, {
       id,
       duration: Infinity,
       description: (

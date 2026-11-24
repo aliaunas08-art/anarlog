@@ -222,6 +222,7 @@ dependencies = [
 name = "agent-access"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "db-app",
  "db-core",
  "schemars 1.2.1",
@@ -274,6 +275,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddd31a130427c27518df266943a5308ed92d4b226cc639f5a8f1002816174301"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "ai-engine"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures-util",
+ "local-accounts",
+ "regex",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "toml 0.8.2",
+ "tracing",
+ "url",
+ "wiremock",
 ]
 
 [[package]]
@@ -366,11 +389,13 @@ name = "anarlog-cli"
 version = "0.1.0"
 dependencies = [
  "agent-access",
+ "audit-log",
  "base64 0.22.1",
  "clap",
  "cli-docs",
  "db-app",
  "db-core",
+ "device-auth",
  "dirs 6.0.0",
  "insta",
  "keyring",
@@ -1167,6 +1192,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aspc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "specta",
+ "tauri",
+]
+
+[[package]]
 name = "assert-json-diff"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1658,10 +1692,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio-encode"
+version = "0.1.0"
+dependencies = [
+ "audio-utils",
+ "flacenc",
+ "hound",
+ "objc2-audio-toolbox",
+ "objc2-core-audio-types",
+ "objc2-core-foundation",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "audio-interface"
 version = "0.1.0"
 dependencies = [
- "dasp",
  "futures-util",
  "rodio",
 ]
@@ -1691,10 +1738,10 @@ version = "0.1.0"
 dependencies = [
  "afconvert",
  "assert_fs",
+ "audio-encode",
  "audio-utils",
  "audioadapter-buffers",
  "data",
- "mp3",
  "resampler",
  "rodio",
  "thiserror 2.0.18",
@@ -1775,6 +1822,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "audit-log"
+version = "0.1.0"
+dependencies = [
+ "aspc",
+ "chrono",
+ "local-accounts",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "specta",
+ "sqlx",
+ "tauri",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "auto-launch"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1790,15 +1856,6 @@ name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
-
-[[package]]
-name = "autotools"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef941527c41b0fc0dd48511a8154cd5fc7e29200a0ff8b7203c5d777dbc795cf"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "aws-config"
@@ -2796,6 +2853,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "built"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56ed6191a7e78c36abdb16ab65341eefd73d64d303fffccdbb00d51e4205967b"
+
+[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2941,6 +3004,7 @@ dependencies = [
 name = "calendar"
 version = "0.1.0"
 dependencies = [
+ "anlg-http-utils",
  "api-client",
  "apple-calendar",
  "calendar-interface",
@@ -2956,6 +3020,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "urlencoding",
  "wiremock",
 ]
 
@@ -4392,6 +4457,7 @@ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
 name = "db-app"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "base64 0.22.1",
  "cloudsync",
  "db-core",
@@ -4422,6 +4488,7 @@ dependencies = [
 name = "db-core"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "backon",
  "cloudsync",
  "db-change",
@@ -4444,6 +4511,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -4694,8 +4762,10 @@ dependencies = [
 name = "desktop"
 version = "0.0.0"
 dependencies = [
+ "aspc",
  "audio-actual",
  "audio-mock",
+ "audit-log",
  "chrono",
  "db-app",
  "db-core",
@@ -4703,6 +4773,7 @@ dependencies = [
  "dirs 6.0.0",
  "host",
  "intercept",
+ "local-accounts",
  "pico-args",
  "ractor",
  "sentry",
@@ -4716,15 +4787,17 @@ dependencies = [
  "supervisor",
  "tauri",
  "tauri-build",
+ "tauri-plugin-accounts",
  "tauri-plugin-agent",
+ "tauri-plugin-ai-engine",
  "tauri-plugin-analytics",
  "tauri-plugin-anlg-tray",
  "tauri-plugin-attachment-sync",
  "tauri-plugin-audio-priority",
+ "tauri-plugin-audit",
  "tauri-plugin-auth",
  "tauri-plugin-automation",
  "tauri-plugin-autostart",
- "tauri-plugin-bedrock",
  "tauri-plugin-calendar",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-db",
@@ -4737,14 +4810,12 @@ dependencies = [
  "tauri-plugin-export",
  "tauri-plugin-fs-sync",
  "tauri-plugin-fs2",
- "tauri-plugin-hooks",
  "tauri-plugin-http",
  "tauri-plugin-icon",
  "tauri-plugin-importer",
  "tauri-plugin-js",
  "tauri-plugin-local-api",
  "tauri-plugin-local-auth",
- "tauri-plugin-local-llm",
  "tauri-plugin-local-stt",
  "tauri-plugin-mcp",
  "tauri-plugin-messenger",
@@ -4825,6 +4896,17 @@ name = "deunicode"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abd57806937c9cc163efc8ea3910e00a62e2aeb0b8119f1793a978088f8f6b04"
+
+[[package]]
+name = "device-auth"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "objc2",
+ "objc2-foundation",
+ "objc2-local-authentication",
+ "tracing",
+]
 
 [[package]]
 name = "device-monitor"
@@ -5770,6 +5852,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
+name = "flacenc"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74c892c2b5fa08f967e8b5ad29121570b4762202f2402033ce08479ec65eccd0"
+dependencies = [
+ "built",
+ "crc",
+ "heapless",
+ "md-5",
+ "num-traits",
+ "rustversion",
+ "seq-macro",
+]
+
+[[package]]
 name = "flate2"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5972,6 +6069,7 @@ name = "fs-sync-core"
 version = "0.1.0"
 dependencies = [
  "assert_fs",
+ "audio-encode",
  "audio-norm",
  "audio-utils",
  "chrono",
@@ -7767,19 +7865,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hooks"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "serde",
- "serde_json",
- "shellexpand",
- "specta",
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
 name = "host"
 version = "0.1.0"
 dependencies = [
@@ -9392,6 +9477,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "audio-device",
+ "audio-encode",
  "audio-utils",
  "bytes",
  "data",
@@ -9400,7 +9486,6 @@ dependencies = [
  "host",
  "hound",
  "language",
- "mp3",
  "owhisper-client",
  "owhisper-interface",
  "ractor",
@@ -9433,6 +9518,7 @@ dependencies = [
  "aspasia",
  "async-stream",
  "audio-chunking",
+ "audio-encode",
  "audio-utils",
  "axum",
  "data",
@@ -9440,7 +9526,6 @@ dependencies = [
  "futures-util",
  "hound",
  "language",
- "mp3",
  "owhisper-client",
  "owhisper-interface",
  "pyannote-local",
@@ -9459,6 +9544,7 @@ dependencies = [
  "transcribe-core",
  "transcribe-soniqo",
  "transcribe-speechanalyzer",
+ "transcript",
  "user-error",
  "voiceprint",
 ]
@@ -9518,6 +9604,26 @@ dependencies = [
  "dirs 6.0.0",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "local-accounts"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "keyring",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]
@@ -10122,37 +10228,6 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
-]
-
-[[package]]
-name = "mp3"
-version = "0.1.0"
-dependencies = [
- "audio-utils",
- "hound",
- "mp3lame-encoder",
- "tempfile",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "mp3lame-encoder"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4764fd362524f3b15808fe877c40d49a191f31f1b043ceabb4079c5d327e3b"
-dependencies = [
- "mp3lame-sys",
-]
-
-[[package]]
-name = "mp3lame-sys"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e3b1772db47828840702e5a2e05694527f731abadf9b931355d54035f019d8"
-dependencies = [
- "autotools",
- "cc",
- "libc",
 ]
 
 [[package]]
@@ -16505,10 +16580,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-accounts"
+version = "0.1.0"
+dependencies = [
+ "aspc",
+ "local-accounts",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-opener",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "tauri-plugin-agent"
 version = "0.1.0"
 dependencies = [
  "agent-core",
+ "aspc",
  "serde",
  "specta",
  "specta-typescript",
@@ -16519,10 +16612,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-ai-engine"
+version = "0.1.0"
+dependencies = [
+ "ai-engine",
+ "aspc",
+ "audit-log",
+ "local-accounts",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+]
+
+[[package]]
 name = "tauri-plugin-analytics"
 version = "0.1.0"
 dependencies = [
  "analytics",
+ "aspc",
  "host",
  "serde",
  "serde_json",
@@ -16574,6 +16683,7 @@ dependencies = [
 name = "tauri-plugin-attachment-sync"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "attachment-sync-core",
  "db-app",
  "e2ee",
@@ -16599,6 +16709,7 @@ dependencies = [
 name = "tauri-plugin-audio-priority"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "audio-device",
  "serde",
  "serde_json",
@@ -16614,9 +16725,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-audit"
+version = "0.1.0"
+dependencies = [
+ "aspc",
+ "audit-log",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+]
+
+[[package]]
 name = "tauri-plugin-auth"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -16683,12 +16808,14 @@ dependencies = [
 name = "tauri-plugin-calendar"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "calendar",
  "calendar-interface",
  "chrono",
  "db-app",
  "db-core",
  "indexmap 2.14.0",
+ "local-accounts",
  "regex",
  "serde",
  "serde_json",
@@ -16697,12 +16824,14 @@ dependencies = [
  "sqlx",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-accounts",
  "tauri-plugin-auth",
  "tauri-plugin-db",
  "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "unicode-normalization",
  "uuid",
 ]
@@ -16728,6 +16857,7 @@ version = "0.1.0"
 dependencies = [
  "agent-access",
  "anyhow",
+ "aspc",
  "db-app",
  "db-core",
  "db-execute",
@@ -16805,6 +16935,7 @@ dependencies = [
 name = "tauri-plugin-detect"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "base64 0.22.1",
  "detect",
  "notification-interface",
@@ -16850,6 +16981,7 @@ dependencies = [
 name = "tauri-plugin-dictation"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "atspi",
  "audio",
  "dictation-ui-macos",
@@ -16892,11 +17024,14 @@ dependencies = [
 name = "tauri-plugin-export"
 version = "0.1.0"
 dependencies = [
+ "aspc",
+ "audit-log",
  "export-core",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-fs2",
  "tauri-specta",
  "tokio",
 ]
@@ -16929,6 +17064,7 @@ dependencies = [
 name = "tauri-plugin-fs-sync"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "fs-sync-core",
  "rayon",
  "serde_json",
@@ -16936,6 +17072,7 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-fs2",
  "tauri-plugin-notify",
  "tauri-plugin-settings",
  "tauri-specta",
@@ -16948,13 +17085,16 @@ dependencies = [
 name = "tauri-plugin-fs2"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "serde",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-dialog",
  "tauri-plugin-settings",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -16971,23 +17111,6 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-plugin",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "tauri-plugin-hooks"
-version = "0.1.0"
-dependencies = [
- "docs",
- "hooks",
- "serde",
- "serde_yaml",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-settings",
- "tauri-specta",
  "thiserror 2.0.18",
 ]
 
@@ -17038,6 +17161,7 @@ dependencies = [
 name = "tauri-plugin-importer"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "meeting-import",
  "rmcp",
  "serde",
@@ -17046,6 +17170,7 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-fs2",
  "tauri-specta",
  "tokio",
  "tokio-util",
@@ -17072,6 +17197,8 @@ name = "tauri-plugin-local-api"
 version = "0.1.0"
 dependencies = [
  "agent-access",
+ "aspc",
+ "audit-log",
  "bytes",
  "chrono",
  "db-app",
@@ -17092,6 +17219,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "url",
  "uuid",
 ]
 
@@ -17099,16 +17227,27 @@ dependencies = [
 name = "tauri-plugin-local-auth"
 version = "0.1.0"
 dependencies = [
+ "aspc",
+ "audit-log",
  "block2",
+ "db-app",
+ "db-core",
+ "device-auth",
+ "host",
  "objc2",
  "objc2-foundation",
  "objc2-local-authentication",
+ "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tokio",
+ "tracing",
  "windows 0.62.2",
 ]
 
@@ -17211,15 +17350,21 @@ dependencies = [
 name = "tauri-plugin-misc"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "buffer",
  "host",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
  "sysinfo",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-dialog",
  "tauri-specta",
+ "tokio",
+ "tracing",
+ "url",
  "vergen-gix",
 ]
 
@@ -17434,6 +17579,8 @@ dependencies = [
 name = "tauri-plugin-session"
 version = "0.1.0"
 dependencies = [
+ "aspc",
+ "audit-log",
  "chrono",
  "db-app",
  "db-core",
@@ -17442,11 +17589,19 @@ dependencies = [
  "specta",
  "specta-typescript",
  "sqlx",
+ "tar",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-db",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs2",
+ "tauri-plugin-settings",
+ "tauri-plugin-tantivy",
  "tauri-specta",
+ "tempfile",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -17454,6 +17609,8 @@ dependencies = [
 name = "tauri-plugin-settings"
 version = "0.1.0"
 dependencies = [
+ "aspc",
+ "audit-log",
  "camino",
  "serde",
  "serde_json",
@@ -17576,6 +17733,8 @@ name = "tauri-plugin-store2"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aspc",
+ "audit-log",
  "keyring",
  "objc2-security",
  "security-framework",
@@ -17598,6 +17757,7 @@ dependencies = [
 name = "tauri-plugin-tantivy"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "language",
  "serde",
  "specta",
@@ -17617,6 +17777,7 @@ dependencies = [
 name = "tauri-plugin-template"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "chrono",
  "db-app",
  "db-core",
@@ -17645,6 +17806,7 @@ dependencies = [
  "anlg-http-utils",
  "api-client",
  "apple-todo",
+ "aspc",
  "github-issues",
  "reqwest 0.13.2",
  "serde",
@@ -17662,6 +17824,7 @@ dependencies = [
 name = "tauri-plugin-tracing"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "dirs 6.0.0",
  "regex",
  "rquickjs 0.10.0",
@@ -17685,8 +17848,10 @@ dependencies = [
 name = "tauri-plugin-transcription"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "audio",
  "audio-utils",
+ "audit-log",
  "base64 0.22.1",
  "chrono",
  "db-app",
@@ -17760,6 +17925,7 @@ dependencies = [
 name = "tauri-plugin-updater2"
 version = "0.1.0"
 dependencies = [
+ "aspc",
  "semver",
  "serde",
  "specta",
@@ -17980,6 +18146,7 @@ dependencies = [
  "insta",
  "minijinja",
  "serde",
+ "serde_json",
  "specta",
  "template-eval",
  "thiserror 2.0.18",

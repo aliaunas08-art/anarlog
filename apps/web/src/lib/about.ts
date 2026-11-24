@@ -1,12 +1,12 @@
 export const ABOUT_UPDATED_ON = "2026-10-15";
 
 export const VALUE_PROP =
-  "Anarlog is an open-source, bot-free AI meeting notetaker with device-audio capture, local SQLite meeting records, and a choice of local, hosted, or bring-your-own-key AI for transcription and summaries.";
+  "Timbre is an open-source, bot-free AI meeting notetaker with device-audio capture, local SQLite meeting records, and a choice of local, hosted, or bring-your-own-key AI for transcription and summaries.";
 
-export const whatAnarlogDoes = [
+export const whatTimbreDoes = [
   {
     title: "Bot-free meeting capture",
-    body: "Anarlog records system audio and your microphone directly from your computer. Nothing joins the call, nothing shows up in the participant list, and no calendar permissions are needed. It works the same on Zoom, Google Meet, Teams, phone calls, and in-person conversations.",
+    body: "Timbre records system audio and your microphone directly from your computer. Nothing joins the call, nothing shows up in the participant list, and no calendar permissions are needed. It works the same on Zoom, Google Meet, Teams, phone calls, and in-person conversations.",
   },
   {
     title: "Live transcription while you take notes",
@@ -14,7 +14,7 @@ export const whatAnarlogDoes = [
   },
   {
     title: "AI summaries you control",
-    body: "After the meeting, Anarlog combines your notes with the transcript into an editable summary. You pick the model: hosted AI on Pro, your own API keys (OpenAI, Anthropic, Deepgram, and others), or a local model through Ollama or LM Studio.",
+    body: "After the meeting, Timbre combines your notes with the transcript into an editable summary. You pick the model: hosted AI on Pro, your own API keys (OpenAI, Anthropic, Deepgram, and others), or a local model through Ollama or LM Studio.",
   },
   {
     title: "Local-first storage",
@@ -29,11 +29,11 @@ export const whatAnarlogDoes = [
 export const differentiators = [
   {
     title: "No bot joins your meeting",
-    body: "Anarlog captures microphone and system audio without adding a participant to the call. Capture and processing are separate choices: select your transcription and summary providers, and handle the required participant notice and permission before recording.",
+    body: "Timbre captures microphone and system audio without adding a participant to the call. Capture and processing are separate choices: select your transcription and summary providers, and handle the required participant notice and permission before recording.",
   },
   {
     title: "Local records and explicit cloud choices",
-    body: "Anarlog keeps canonical meeting records in local SQLite. Hosted or BYOK AI requests send the audio or text needed by the selected provider. Optional Cloud Sync encrypts content on-device before upload; shared notes and the Cloud API are separate opt-in paths that store a server-readable copy.",
+    body: "Timbre keeps canonical meeting records in local SQLite. Hosted or BYOK AI requests send the audio or text needed by the selected provider. Optional Cloud Sync encrypts content on-device before upload; shared notes and the Cloud API are separate opt-in paths that store a server-readable copy.",
   },
   {
     title: "Open source under the MIT license",
@@ -49,7 +49,7 @@ export const differentiators = [
   },
 ] as const;
 
-export const whoUsesAnarlog = [
+export const whoUsesTimbre = [
   "Engineers, developers, and technical founders who want a notetaker they can audit and fork",
   "Lawyers, healthcare, and finance professionals whose meetings cannot go through a third-party bot",
   "People whose company has banned cloud notetakers like Otter, Granola, or ChatGPT",
@@ -82,7 +82,7 @@ export const originStory = [
   "Hyprnote was renamed Char, then split into two products in 2026: Anarlog is the meeting notetaker, relicensed from GPL to MIT and kept open source; Char became a separate agentic notepad. Anarlog is built by Fastrepl, a small software studio between Seoul and San Francisco.",
 ] as const;
 
-export const howAnarlogWorks = [
+export const howTimbreWorks = [
   {
     title: "Getting started",
     body: "Download the desktop app for macOS, Windows, or Linux and start recording. Free can run without an account after you configure and download supported local models. Pro is free for 30 days when you sign up with your work email (7 days with a personal email), and includes shared workspaces for teams.",
@@ -97,12 +97,12 @@ export const howAnarlogWorks = [
   },
   {
     title: "Release cadence",
-    body: "Anarlog ships regularly with release notes on the changelog. Development happens in the open on GitHub, so you can see what is being worked on before it ships.",
+    body: "Timbre ships regularly with release notes on the changelog. Development happens in the open on GitHub, so you can see what is being worked on before it ships.",
   },
 ] as const;
 
 export const keyFacts = [
-  { term: "Company name", detail: "Fastrepl, Inc. (product: Anarlog)" },
+  { term: "Company name", detail: "Fastrepl, Inc. (product: Timbre)" },
   {
     term: "Type",
     detail: "Open-source desktop software with Free, Pro, and Enterprise plans",
@@ -162,14 +162,14 @@ export const keyFacts = [
 
 export const faqs = [
   {
-    question: "Is Anarlog free?",
+    question: "Is Timbre free?",
     answer:
       "Yes. The Free plan has no app meeting or minute limits for on-device models or BYOK; API providers can charge for usage. Pro ($14/person/month) adds hosted transcription and AI, Cloud Sync, and sharing.",
   },
   {
-    question: "Does Anarlog join my meetings as a bot?",
+    question: "Does Timbre join my meetings as a bot?",
     answer:
-      "No. Anarlog captures system audio and your microphone directly on your computer. Nothing is added to the call and no calendar access is required.",
+      "No. Timbre captures system audio and your microphone directly on your computer. Nothing is added to the call and no calendar access is required.",
   },
   {
     question: "Where is my meeting data stored?",
@@ -182,7 +182,7 @@ export const faqs = [
       "Choose Transcription and Intelligence separately: hosted models on Pro, your own provider keys, or supported local models. Ollama and LM Studio can provide local Intelligence. Fastrepl never trains models on your notes, transcripts, or audio; hosted and BYOK providers handle requests under their own terms.",
   },
   {
-    question: "Is Anarlog open source?",
+    question: "Is Timbre open source?",
     answer:
       "Yes. The community desktop app is MIT-licensed and developed in the open at github.com/fastrepl/anarlog. Enterprise components have a separate commercial license.",
   },
@@ -194,6 +194,6 @@ export const faqs = [
   {
     question: "Which platforms are supported?",
     answer:
-      "macOS is the most mature build; Windows and Linux are available in beta. Anarlog works with Zoom, Google Meet, Teams, phone calls, and in-person meetings in 45+ languages.",
+      "macOS is the most mature build; Windows and Linux are available in beta. Timbre works with Zoom, Google Meet, Teams, phone calls, and in-person meetings in 45+ languages.",
   },
 ] as const;

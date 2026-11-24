@@ -35,6 +35,7 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
 
 vi.mock("~/chat/store/queries", () => ({
   useRecentChatGroups: mocks.useRecentChatGroups,
+  usePreviousChatGroups: () => [],
 }));
 
 import { ChatToolbarControls } from "./toolbar-controls";
@@ -104,6 +105,10 @@ describe("ChatToolbarControls", () => {
       />,
     );
 
-    expect(mocks.useRecentChatGroups).toHaveBeenCalledWith("automations", 5);
+    expect(mocks.useRecentChatGroups).toHaveBeenCalledWith(
+      "automations",
+      5,
+      undefined,
+    );
   });
 });

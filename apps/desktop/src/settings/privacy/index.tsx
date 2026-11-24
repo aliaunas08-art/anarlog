@@ -1,10 +1,16 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 
+import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
-import { DEVICE_AUTH_REASON } from "~/lock/auth";
-import { useAppLock } from "~/lock/store";
+import { BackupSettings } from "./backup";
+import { IdleRelockSetting } from "./idle-relock";
+import { LegalLinks } from "./legal";
+import { RetentionSetting } from "./retention";
+
+import { DiskEncryptionRow } from "~/data-protection/disk-encryption-row";
+import { startRustLockSync, useAppLock } from "~/lock/store";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
@@ -12,6 +18,7 @@ import {
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 import { resolveConfigValue } from "~/shared/config";
 
 export function SettingsPrivacy() {
@@ -20,12 +27,13 @@ export function SettingsPrivacy() {
   const setSettingValues = useSetSettingValues();
   const available = useAppLock((state) => state.available);
   const authenticating = useAppLock((state) => state.authenticating);
-  const authenticate = useAppLock((state) => state.authenticate);
-  const lockApp = useAppLock((state) => state.lockApp);
+  const lockAppEnabled = useAppLock((state) => state.lockEnabled === true);
+  const setLockEnabled = useAppLock((state) => state.setLockEnabled);
   const refreshAvailability = useAppLock((state) => state.refreshAvailability);
 
   useMountEffect(() => {
     void refreshAvailability();
+    void startRustLockSync();
   });
 
   if (settingsQuery.error) {
@@ -36,26 +44,30 @@ export function SettingsPrivacy() {
   }
 
   const posthogEnabled = resolveConfigValue(
-    "telemetry_consent",
+    "analytics_opt_in",
+    settingsQuery.data,
+  );
+  const sessionReplayEnabled = resolveConfigValue(
+    "session_replay_opt_in",
     settingsQuery.data,
   );
   const sentryEnabled = resolveConfigValue(
     "crash_reporting_consent",
     settingsQuery.data,
   );
-  const lockAppEnabled = resolveConfigValue("lock_app", settingsQuery.data);
   const authAvailable = available === true;
   const lockAppDescription = !authAvailable
     ? t`Device authentication is not available on this computer.`
     : platform() === "windows"
-      ? t`Require Windows Hello face, PIN, or password when opening Anarlog.`
-      : t`Require Touch ID or your password when opening Anarlog.`;
+      ? t`Require Windows Hello face, PIN, or password when opening ${APP_NAME}.`
+      : t`Require Touch ID or your password when opening ${APP_NAME}.`;
 
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={i18n._(privacyMessages.title)} />
 
       <section className="flex flex-col gap-4">
+        <DiskEncryptionRow />
         <SettingSwitchRow
           title={t`Lock app`}
           description={lockAppDescription}
@@ -65,26 +77,40 @@ export function SettingsPrivacy() {
             void (async () => {
               const canAuth = await refreshAvailability();
               if (!canAuth) return;
-              const ok = await authenticate(
-                DEVICE_AUTH_REASON.changeLockSettings,
-              );
-              if (!ok) return;
-              setSettingValues({ lock_app: next });
-              if (next) lockApp();
+              // Rust runs the device authentication and stores the setting
+              // (ASPC A4.2); the webview never writes `lock_app` itself.
+              const changed = await setLockEnabled(next);
+              if (!changed) {
+                // Say why the switch didn't move instead of failing quietly.
+                const reason = useAppLock.getState().unlockError;
+                toast.error(
+                  next
+                    ? t`App lock wasn't turned on`
+                    : t`App lock wasn't turned off`,
+                  {
+                    description:
+                      reason ??
+                      t`Touch ID or your password wasn't confirmed. Try again and confirm the macOS prompt.`,
+                  },
+                );
+              }
             })();
           }}
         />
+        {lockAppEnabled && authAvailable ? (
+          <IdleRelockSetting disabled={authenticating} />
+        ) : null}
         <SettingSwitchRow
           title={i18n._(privacyMessages.posthogTitle)}
           description={i18n._(privacyMessages.posthogDescription)}
           checked={posthogEnabled}
-          onChange={(telemetryConsent) => {
-            setSettingValues({ telemetry_consent: telemetryConsent });
+          onChange={(analyticsOptIn) => {
+            setSettingValues({ analytics_opt_in: analyticsOptIn });
           }}
         />
         <SettingSwitchRow
           title={t`Error`}
-          description={t`Send sanitized crash and error reports to help improve Anarlog.`}
+          description={t`Send sanitized crash and error reports to help improve ${APP_NAME}.`}
           checked={sentryEnabled}
           onChange={(crashReportingConsent) => {
             setSettingValues({
@@ -92,7 +118,31 @@ export function SettingsPrivacy() {
             });
           }}
         />
+        <SettingSwitchRow
+          title={t`Session replay`}
+          description={t`With error reports on, also send a replay of the app's screens with all text and inputs masked and media blocked. Off by default.`}
+          checked={sessionReplayEnabled}
+          onChange={(sessionReplayOptIn) => {
+            setSettingValues({ session_replay_opt_in: sessionReplayOptIn });
+          }}
+        />
       </section>
+
+      <section className="flex flex-col gap-4">
+        <RetentionSetting
+          value={resolveConfigValue(
+            "meeting_retention_days",
+            settingsQuery.data,
+          )}
+          onChange={(days) => {
+            setSettingValues({ meeting_retention_days: days });
+          }}
+        />
+      </section>
+
+      <BackupSettings />
+
+      <LegalLinks />
     </div>
   );
 }

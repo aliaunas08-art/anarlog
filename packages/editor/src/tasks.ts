@@ -20,6 +20,12 @@ export interface TaskRecord {
   textPreview: string;
   body: JSONContent[];
   dueDate?: string;
+  /**
+   * `humans.id` of the task's owner. The note sets it only when a person
+   * mention (`@Name`) is added or changed in the task; otherwise the stored
+   * value is kept (see `extractTasksFromContent`).
+   */
+  assigneeHumanId?: string;
 }
 
 export function createTaskId(): string {
@@ -108,10 +114,6 @@ export function getNextTaskStatus(status: TaskStatus): TaskStatus {
   return status === "done" ? "todo" : "done";
 }
 
-export function isTaskDone(status: TaskStatus): boolean {
-  return status === "done";
-}
-
 export function createTaskSourceKey(source: TaskSource): string {
   return `${source.type}:${source.id}`;
 }
@@ -125,6 +127,7 @@ export function isSameTask(left: TaskRecord, right: TaskRecord): boolean {
     left.status === right.status &&
     left.textPreview === right.textPreview &&
     left.dueDate === right.dueDate &&
+    (left.assigneeHumanId ?? "") === (right.assigneeHumanId ?? "") &&
     JSON.stringify(left.body) === JSON.stringify(right.body)
   );
 }
@@ -168,11 +171,60 @@ export function extractTasksFromContent(
       status: normalizeTaskStatus(node.attrs?.status, node.attrs?.checked),
       textPreview: getTaskItemTextContent(node),
       body: cloneContentArray(node.content),
+      // The note has no date nodes, so the due date always comes from storage.
       dueDate: previousTask?.dueDate,
+      assigneeHumanId: getExtractedOwnerId(node, previousTask),
     });
   });
 
   return tasks;
+}
+
+/**
+ * The note only decides the owner when the editor changed it: a person
+ * mention that is new, or different from the one in the stored body. An
+ * unchanged mention keeps the stored owner, so an owner picked elsewhere
+ * (e.g. the Tasks view) isn't overwritten on the next keystroke. Removing a
+ * mention doesn't clear the owner either; the stored one is kept.
+ */
+function getExtractedOwnerId(
+  node: JSONContent,
+  previousTask: TaskRecord | undefined,
+): string | undefined {
+  const mentionId = getTaskItemOwnerMentionId(node);
+  if (!previousTask) {
+    return mentionId ?? undefined;
+  }
+  const previousMentionId = getTaskItemOwnerMentionId({
+    type: "taskItem",
+    content: previousTask.body,
+  });
+  return mentionId && mentionId !== previousMentionId
+    ? mentionId
+    : previousTask.assigneeHumanId;
+}
+
+/**
+ * The `humans.id` of the first person mentioned in the task item's own
+ * content (nested task lists belong to their own tasks), or null.
+ */
+export function getTaskItemOwnerMentionId(node: JSONContent): string | null {
+  let ownerId: string | null = null;
+  const visit = (child: JSONContent) => {
+    if (ownerId || child.type === "taskList") return;
+    if (
+      child.type?.startsWith("mention-") &&
+      child.attrs?.type === "human" &&
+      typeof child.attrs.id === "string" &&
+      child.attrs.id.trim()
+    ) {
+      ownerId = child.attrs.id;
+      return;
+    }
+    child.content?.forEach(visit);
+  };
+  node.content?.forEach(visit);
+  return ownerId;
 }
 
 export function createTaskItemNode(task: TaskRecord): JSONContent {

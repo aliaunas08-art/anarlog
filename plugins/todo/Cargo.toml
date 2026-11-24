@@ -10,6 +10,7 @@ description = ""
 [dependencies]
 anlg-api-client = { workspace = true }
 anlg-apple-todo = { workspace = true, features = ["specta"] }
+anlg-aspc = { workspace = true, features = ["tauri"] }
 anlg-github-issues = { workspace = true, features = ["specta"] }
 anlg-http = { workspace = true }
 anlg-ticket-interface = { workspace = true }

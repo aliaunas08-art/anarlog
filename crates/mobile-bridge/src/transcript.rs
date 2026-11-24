@@ -198,7 +198,8 @@ mod tests {
                 .iter()
                 .map(|s| s["speaker"].as_str().unwrap())
                 .collect::<Vec<_>>(),
-            ["John Jeong", "Artem Savelev", "John Jeong"]
+            // Calendar invitees never name system audio.
+            ["John Jeong", "Them", "John Jeong"]
         );
 
         let mut hints: Vec<Value> =

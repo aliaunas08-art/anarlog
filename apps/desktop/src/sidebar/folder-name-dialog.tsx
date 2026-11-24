@@ -53,7 +53,7 @@ export function FolderNameDialog({
   const submit = async () => {
     const normalized = normalizeFolderPath(value.trim());
     if (!normalized || normalized.includes("/")) {
-      setError(t`Enter a valid folder name.`);
+      setError(t`Enter a valid project name.`);
       return;
     }
 
@@ -67,8 +67,8 @@ export function FolderNameDialog({
         String(cause instanceof Error ? cause.message : cause).includes(
           "folder_target_exists",
         )
-          ? t`A folder with this name already exists.`
-          : t`Could not save the folder.`,
+          ? t`A project with this name already exists.`
+          : t`Could not save the project.`,
       );
     } finally {
       setBusy(false);
@@ -83,7 +83,7 @@ export function FolderNameDialog({
             {title}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            <Trans>Folder name</Trans>
+            <Trans>Project name</Trans>
           </DialogDescription>
         </DialogHeader>
         <form
@@ -96,7 +96,7 @@ export function FolderNameDialog({
             autoFocus
             value={value}
             disabled={busy}
-            aria-label={t`Folder name`}
+            aria-label={t`Project name`}
             onChange={(event) => {
               setValue(event.target.value);
               setError(null);

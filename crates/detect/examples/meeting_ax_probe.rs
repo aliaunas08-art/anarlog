@@ -32,6 +32,17 @@ fn main() {
             }
         }
 
+        println!("speaking labels:");
+        for line in detect::describe_speaking_labels(inspection.pid, inspection.app.clone()) {
+            println!("  {line}");
+        }
+        for sample in detect::sample_meeting_active_speakers(&[inspection.app.id.clone()]) {
+            println!(
+                "active speakers: call={} remote={:?} self={}",
+                sample.active_call, sample.speakers, sample.self_speaking
+            );
+        }
+
         let capture = detect::capture_meeting_chat_messages(vec![inspection.app.id.clone()]);
         println!(
             "--- capture platform={:?} surface={:?} context={:?} messages={} ---",

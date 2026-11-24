@@ -162,8 +162,12 @@ pub async fn run(args: &Args, id: &str, expected: &str, json: bool) -> Result<()
         // A separate read-only pool observes the committed snapshot while our
         // IMMEDIATE transaction prevents all competing writers.
         let reader = db::open(args).await?;
-        let exported =
-            anlg_agent_access::get_local_meeting_export(reader.pool(), id.to_owned()).await?;
+        let exported = anlg_agent_access::get_local_meeting_export(
+            reader.pool(),
+            &anlg_agent_access::local_scope(reader.pool()).await?,
+            id.to_owned(),
+        )
+        .await?;
         reader.pool().close().await;
         // Stdout ends with a newline; `--output` files do not. Accept either.
         let body = output::json("meetings.export", &exported, None)?;
@@ -296,9 +300,13 @@ mod tests {
         ] {
             sqlx::query(statement).execute(db.pool()).await.unwrap();
         }
-        let exported = anlg_agent_access::get_local_meeting_export(db.pool(), "meeting-1".into())
-            .await
-            .unwrap();
+        let exported = anlg_agent_access::get_local_meeting_export(
+            db.pool(),
+            &anlg_agent_access::local_scope(db.pool()).await.unwrap(),
+            "meeting-1".into(),
+        )
+        .await
+        .unwrap();
         let bytes = format!(
             "{}\n",
             output::json("meetings.export", &exported, None).unwrap()
@@ -334,9 +342,13 @@ mod tests {
     async fn saved_export_file_hash_is_accepted() {
         let (dir, args, _) = fixture().await;
         let db = db::open(&args).await.unwrap();
-        let exported = anlg_agent_access::get_local_meeting_export(db.pool(), "meeting-1".into())
-            .await
-            .unwrap();
+        let exported = anlg_agent_access::get_local_meeting_export(
+            db.pool(),
+            &anlg_agent_access::local_scope(db.pool()).await.unwrap(),
+            "meeting-1".into(),
+        )
+        .await
+        .unwrap();
         let body = output::json("meetings.export", &exported, None).unwrap();
         db.pool().close().await;
         let hash = Sha256::digest(body.as_bytes())
@@ -431,9 +443,13 @@ mod tests {
             .execute(db.pool())
             .await
             .unwrap();
-        let exported = anlg_agent_access::get_local_meeting_export(db.pool(), "meeting-1".into())
-            .await
-            .unwrap();
+        let exported = anlg_agent_access::get_local_meeting_export(
+            db.pool(),
+            &anlg_agent_access::local_scope(db.pool()).await.unwrap(),
+            "meeting-1".into(),
+        )
+        .await
+        .unwrap();
         let bytes = format!(
             "{}\n",
             output::json("meetings.export", &exported, None).unwrap()

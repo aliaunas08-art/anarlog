@@ -98,16 +98,11 @@ function ReadyImport({ job }: { job: ImportJob }) {
   const session = useSession(job.meeting_id);
   const settingsReady = useSettingsReady();
   const stt = useAiProvidersState("stt");
-  const llm = useAiProvidersState("llm");
   const billing = useBillingAccess();
   const auth = useAuth();
   // Signed-out users have no billing claims to load; local providers still run.
   const billingSettled = billing.isReady || auth.session === null;
-  return session &&
-    settingsReady &&
-    stt.isReady &&
-    llm.isReady &&
-    billingSettled ? (
+  return session && settingsReady && stt.isReady && billingSettled ? (
     <RunImport job={job} />
   ) : null;
 }

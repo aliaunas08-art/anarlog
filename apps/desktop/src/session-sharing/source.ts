@@ -41,6 +41,7 @@ type SessionShareSourceSqlRow = {
   assigned_workspace_role: string | null;
   binding_json: string | null;
   library_account_id?: string | null;
+  private?: number | boolean | null;
 };
 
 type AvailableShareWorkspaceSqlRow = {
@@ -63,7 +64,30 @@ export type SessionShareSource = {
   body: JSONContent;
   rawBody: string;
   bodyFormat: string;
+  /** ASPC C6.4: Private meetings are shared only when the user includes them. */
+  isPrivate: boolean;
 };
+
+export class PrivateMeetingShareError extends Error {
+  constructor() {
+    super("This meeting is Private. Include it explicitly to share it.");
+    this.name = "PrivateMeetingShareError";
+  }
+}
+
+/**
+ * ASPC C6.4: a new share of a Private meeting needs the user's explicit
+ * inclusion for that one action; automatic shares (folder defaults) never
+ * include it.
+ */
+export function assertShareable(
+  source: Pick<SessionShareSource, "isPrivate">,
+  { includePrivate }: { includePrivate: boolean },
+): void {
+  if (source.isPrivate && !includePrivate) {
+    throw new PrivateMeetingShareError();
+  }
+}
 
 export type AvailableShareWorkspace = {
   id: string;
@@ -79,6 +103,7 @@ const SESSION_SHARE_SOURCE_SQL = `
     session.title,
     session.created_at,
     session.started_at,
+    session.private,
     calendar_event.tracking_id_event AS event_tracking_id,
     calendar_event.started_at AS event_started_at,
     COALESCE((
@@ -225,6 +250,7 @@ export async function loadSessionShareSource(
     body,
     rawBody: row.body,
     bodyFormat: row.body_format,
+    isPrivate: row.private === true || Number(row.private) === 1,
   };
 }
 

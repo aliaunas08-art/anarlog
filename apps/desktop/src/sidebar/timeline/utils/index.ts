@@ -624,7 +624,7 @@ function buildFolderBuckets(items: TimelineItem[]): TimelineBucket[] {
       return left.localeCompare(right);
     })
     .map(([key, bucketItems]) => ({
-      label: key === "" ? t`No folder` : key,
+      label: key === "" ? t`No project` : key,
       items: bucketItems,
       precision: "date" as const,
     }));
@@ -701,4 +701,88 @@ export function buildTimelineBuckets({
   }
 
   return buildDateBuckets({ items, sortOrder, timezone });
+}
+
+// --- Day filter -------------------------------------------------------------
+// A note's day is the same instant the timeline sorts and buckets by: the
+// linked event's start, else the note's created_at, parsed with safeParseDate
+// and read in the configured timezone. Keeping one definition here means the
+// date filter's counts always match what the timeline shows.
+
+const dayKeyFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function getDayKeyFormatter(timezone?: string): Intl.DateTimeFormat {
+  const cacheKey = timezone ?? "";
+  let formatter = dayKeyFormatters.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: timezone,
+      year: "numeric",
+    });
+    dayKeyFormatters.set(cacheKey, formatter);
+  }
+  return formatter;
+}
+
+/** "YYYY-MM-DD" for the calendar day `date` falls on in `timezone`. */
+export function toTimelineDayKey(date: Date, timezone?: string): string {
+  const parts = getDayKeyFormatter(timezone).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function getTimelineSessionDate(row: TimelineSessionRow): Date | null {
+  return safeParseDate(getSessionEvent(row)?.started_at ?? row.created_at);
+}
+
+export function filterTimelineSessionsByDay(
+  timelineSessionsTable: TimelineSessionsTable,
+  dayKey: string,
+  timezone?: string,
+): TimelineSessionsTable {
+  if (!timelineSessionsTable) {
+    return timelineSessionsTable;
+  }
+
+  return Object.fromEntries(
+    Object.entries(timelineSessionsTable).filter(([, row]) => {
+      const date = getTimelineSessionDate(row);
+      return !!date && toTimelineDayKey(date, timezone) === dayKey;
+    }),
+  );
+}
+
+/** Notes per day key, deduplicated the same way the timeline list is. */
+export function countTimelineSessionsByDay(
+  timelineSessionsTable: TimelineSessionsTable,
+  timezone?: string,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!timelineSessionsTable) {
+    return counts;
+  }
+
+  const seenTrackingIds = new Set<string>();
+  for (const row of Object.values(timelineSessionsTable)) {
+    const date = getTimelineSessionDate(row);
+    if (!date) {
+      continue;
+    }
+
+    const trackingId = getSessionTrackingId(row);
+    if (trackingId) {
+      if (seenTrackingIds.has(trackingId)) {
+        continue;
+      }
+      seenTrackingIds.add(trackingId);
+    }
+
+    const dayKey = toTimelineDayKey(date, timezone);
+    counts.set(dayKey, (counts.get(dayKey) ?? 0) + 1);
+  }
+
+  return counts;
 }

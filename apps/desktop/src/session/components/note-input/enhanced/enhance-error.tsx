@@ -16,11 +16,14 @@ export function EnhanceError({
   enhancedNoteId,
   error,
   isUnauthenticated,
+  compact = false,
 }: {
   sessionId: string;
   enhancedNoteId: string;
   error: Error | undefined;
   isUnauthenticated: boolean;
+  /** A notice above the last saved summary instead of a full-page error. */
+  compact?: boolean;
 }) {
   const auth = useAuth();
   const model = useLanguageModel("enhance");
@@ -39,6 +42,52 @@ export function EnhanceError({
     });
   };
 
+  // The Engine's "AI paused: …" errors mean AI is unavailable (no key,
+  // quota, provider down), not that something broke.
+  const aiPaused = /^AI paused:/.test(error?.message ?? "");
+
+  if (compact) {
+    return (
+      <div
+        role="status"
+        className="border-border bg-muted/40 mb-4 flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm"
+      >
+        <WarningCircle
+          aria-hidden
+          className="text-muted-foreground mt-0.5 size-4 shrink-0"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="font-medium">
+            {aiPaused ? (
+              <Trans>AI is paused. Showing the last saved summary.</Trans>
+            ) : (
+              <Trans>
+                Couldn't regenerate the summary. Showing the last saved one.
+              </Trans>
+            )}
+          </p>
+          {error?.message ? (
+            <p className="text-muted-foreground leading-relaxed">
+              {error.message}
+            </p>
+          ) : null}
+        </div>
+        <Button
+          onClick={handleRetry}
+          disabled={!model}
+          size="sm"
+          variant="ghost"
+          className="shrink-0 gap-1.5"
+        >
+          <ArrowsClockwise size={14} />
+          <span>
+            <Trans>Retry</Trans>
+          </span>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div
       role="alert"
@@ -52,6 +101,8 @@ export function EnhanceError({
         <p className="text-base font-medium">
           {isUnauthenticated ? (
             <Trans>Sign in to generate this summary</Trans>
+          ) : aiPaused ? (
+            <Trans>AI is paused</Trans>
           ) : (
             <Trans>Summary generation failed</Trans>
           )}
@@ -59,8 +110,8 @@ export function EnhanceError({
         <p className="text-muted-foreground text-sm leading-relaxed">
           {isUnauthenticated ? (
             <Trans>
-              Anarlog could not generate this summary because you were not
-              signed in. Sign in, then try again.
+              Notes could not generate this summary because you were not signed
+              in. Sign in, then try again.
             </Trans>
           ) : (
             error?.message || (
@@ -124,7 +175,7 @@ function ErrorSourceNote({ error }: { error: Error | undefined }) {
       label = t`Source: OpenRouter or the AI model provider`;
       break;
     case "anarlog":
-      label = t`Source: Anarlog`;
+      label = t`Source: Notes`;
       break;
   }
 

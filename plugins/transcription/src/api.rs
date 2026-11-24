@@ -25,6 +25,12 @@ pub struct CaptureSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mic_muted: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused: Option<bool>,
+    /// Total paused time so far, including a pause in progress. Wall-clock time since
+    /// `started_at_ms` minus this is the length of the recorded audio.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub degraded: Option<listener::DegradedError>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capture_health: Option<listener::actors::CaptureHealth>,
@@ -97,6 +103,8 @@ pub struct CaptureParams {
     pub retain_audio: Option<bool>,
     pub languages: Vec<anlg_language::Language>,
     pub onboarding: bool,
+    #[serde(default)]
+    pub mic_only: bool,
     pub model: String,
     pub base_url: String,
     pub api_key: String,
@@ -184,6 +192,8 @@ pub enum CaptureDataEvent {
     },
     #[serde(rename = "mic_muted")]
     MicMuted { session_id: String, value: bool },
+    #[serde(rename = "paused")]
+    Paused { session_id: String, value: bool },
     #[serde(rename = "mic_isolated")]
     MicIsolated { session_id: String, value: bool },
     #[serde(rename = "mic_dropouts")]
@@ -296,6 +306,7 @@ impl From<CaptureParams> for listener::actors::SessionParams {
             retain_audio: value.retain_audio,
             languages: value.languages,
             onboarding: value.onboarding,
+            mic_only: value.mic_only,
             transcription_mode,
             model: value.model,
             base_url: value.base_url,
@@ -345,6 +356,8 @@ impl From<listener::Snapshot> for CaptureSnapshot {
             live_segments: None,
             started_at_ms: None,
             mic_muted: None,
+            paused: None,
+            paused_ms: None,
             degraded: None,
             capture_health: None,
         }
@@ -409,6 +422,9 @@ impl From<listener::SessionDataEvent> for CaptureDataEvent {
             },
             listener::SessionDataEvent::MicMuted { session_id, value } => {
                 Self::MicMuted { session_id, value }
+            }
+            listener::SessionDataEvent::Paused { session_id, value } => {
+                Self::Paused { session_id, value }
             }
             listener::SessionDataEvent::MicIsolated { session_id, value } => {
                 Self::MicIsolated { session_id, value }
@@ -499,6 +515,7 @@ mod tests {
             retain_audio: None,
             languages: vec![],
             onboarding: false,
+            mic_only: false,
             model: "nova-3-general".to_string(),
             base_url: "https://api.deepgram.com/v1".to_string(),
             api_key: "test-key".to_string(),

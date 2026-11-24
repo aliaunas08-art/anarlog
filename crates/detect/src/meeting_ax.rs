@@ -36,6 +36,8 @@ mod linux;
 mod node;
 #[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod platform;
+#[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
+mod speakers;
 mod types;
 #[cfg(target_os = "windows")]
 mod windows;
@@ -94,9 +96,9 @@ use types::{
 #[cfg(target_os = "macos")]
 use types::{AxChatElement, SlackHuddleRoot};
 pub use types::{
-    AxRect, MeetingAccessibilityInspection, MeetingApp, MeetingCapturedChatMessage,
-    MeetingChatCaptureResult, MeetingChatDirection, MeetingChatSendResult, MeetingPlatform,
-    MeetingSurface,
+    AxRect, MeetingAccessibilityInspection, MeetingActiveSpeakerSample, MeetingApp,
+    MeetingCapturedChatMessage, MeetingChatCaptureResult, MeetingChatDirection,
+    MeetingChatSendResult, MeetingPlatform, MeetingSurface,
 };
 
 #[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -1823,6 +1825,70 @@ fn inspect_app(
     pid: i32,
     accessibility_trusted: bool,
 ) -> MeetingAccessibilityInspection {
+    inspect_app_nodes(app, pid, accessibility_trusted).0
+}
+
+/// Reads who the meeting platform marks as speaking in every running meeting
+/// app (optionally only `bundle_ids`). Apps without a uniquely scoped,
+/// active call window report nothing.
+#[cfg(target_os = "macos")]
+pub fn sample_meeting_active_speakers(bundle_ids: &[String]) -> Vec<MeetingActiveSpeakerSample> {
+    let accessibility_trusted = macos_accessibility_client::accessibility::application_is_trusted();
+    if !accessibility_trusted {
+        return Vec::new();
+    }
+    running_meeting_apps()
+        .into_iter()
+        .filter(|(app, _)| bundle_ids.is_empty() || bundle_ids.contains(&app.id))
+        .map(|(app, pid)| {
+            let (inspection, nodes) = inspect_app_nodes(app, pid, accessibility_trusted);
+            let speakers = if inspection.active_call {
+                speakers::active_speakers_from_nodes(&inspection.platform, &nodes)
+            } else {
+                speakers::ActiveSpeakers::default()
+            };
+            MeetingActiveSpeakerSample {
+                app: inspection.app,
+                platform: inspection.platform,
+                active_call: inspection.active_call,
+                speakers: speakers.names,
+                self_speaking: speakers.self_speaking,
+            }
+        })
+        .collect()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn sample_meeting_active_speakers(_bundle_ids: &[String]) -> Vec<MeetingActiveSpeakerSample> {
+    Vec::new()
+}
+
+/// Labels in the scoped meeting window that mention speaking, for
+/// calibrating the active-speaker patterns against a live call.
+#[cfg(target_os = "macos")]
+pub fn describe_speaking_labels(pid: i32, app: MeetingApp) -> Vec<String> {
+    let trusted = macos_accessibility_client::accessibility::application_is_trusted();
+    let (_, nodes) = inspect_app_nodes(app, pid, trusted);
+    nodes
+        .iter()
+        .flat_map(|node| {
+            node_labels(node)
+                .filter(|label| {
+                    let label = label.to_lowercase();
+                    label.contains("speak") || label.contains("talk")
+                })
+                .map(|label| format!("{:?}: {label}", node.role))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn inspect_app_nodes(
+    app: MeetingApp,
+    pid: i32,
+    accessibility_trusted: bool,
+) -> (MeetingAccessibilityInspection, Vec<AxNode>) {
     let mut warnings = Vec::new();
     let bundle_platform = classify_bundle(&app.id);
     let mut window_title = None;
@@ -1910,7 +1976,7 @@ fn inspect_app(
     let surface = classify_surface(&app.id, &platform);
     let active_call =
         accessibility_trusted && scoped_meeting_is_active(&platform, &nodes, native_scope);
-    MeetingAccessibilityInspection {
+    let inspection = MeetingAccessibilityInspection {
         active_call,
         app,
         pid,
@@ -1920,7 +1986,8 @@ fn inspect_app(
         window_title,
         remote_screen_share: active_call && nodes_show_remote_screen_share(&nodes),
         warnings,
-    }
+    };
+    (inspection, nodes)
 }
 
 #[cfg(target_os = "macos")]

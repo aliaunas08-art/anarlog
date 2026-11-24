@@ -10,7 +10,7 @@ import {
   type AvatarRecipe,
 } from "@anlg/ui/lib/avatar";
 
-import { ANARLOG_WORDMARK } from "./brand-assets.ts";
+import { TIMBRE_LOGO } from "./brand-assets.ts";
 import { getOgFontFamilies } from "./og-font-catalog.ts";
 import { createSharedNoteParticipantPresentation } from "./shared-note-presentation.ts";
 
@@ -24,7 +24,7 @@ const AVATAR_LABEL_GAP = 16;
 const SUMMARY_FONT_SIZE = 31;
 const SUMMARY_LINE_HEIGHT = 42;
 const SUMMARY_MAX_LINES = 2;
-const WORDMARK_WIDTH = 165;
+const WORDMARK_WIDTH = 220;
 const ROOT_OG_BACKGROUND = "#ffe09d";
 const CACHE_CONTROL =
   "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800";
@@ -212,7 +212,7 @@ function formatDate(date: string | undefined) {
   });
 }
 
-function createAnarlogWordmark({
+function createTimbreLogo({
   x,
   y,
   width,
@@ -221,9 +221,9 @@ function createAnarlogWordmark({
   y: number;
   width: number;
 }) {
-  const height = (width * ANARLOG_WORDMARK.height) / ANARLOG_WORDMARK.width;
+  const height = (width * TIMBRE_LOGO.height) / TIMBRE_LOGO.width;
 
-  return `<svg data-wordmark="anarlog" aria-label="Anarlog" x="${x}" y="${y}" width="${width}" height="${height.toFixed(1)}" viewBox="0 0 ${ANARLOG_WORDMARK.width} ${ANARLOG_WORDMARK.height}" preserveAspectRatio="xMidYMid meet"><path d="${ANARLOG_WORDMARK.path}" fill="#000000"/></svg>`;
+  return `<svg data-wordmark="timbre" aria-label="Timbre" x="${x}" y="${y}" width="${width}" height="${height.toFixed(1)}" viewBox="0 0 ${TIMBRE_LOGO.width} ${TIMBRE_LOGO.height}" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" d="${TIMBRE_LOGO.path}" fill="#000000"/></svg>`;
 }
 
 function participantAvatarRecipe(seed: string): AvatarRecipe {
@@ -345,8 +345,8 @@ export function createBlogOgSvg(input: BlogOgImageInput) {
         `<text x="90" y="${descriptionStartY + index * 42}" fill="#57534e" font-family="${fonts.sans}" font-size="32" font-weight="500">${escapeXml(line)}</text>`,
     )
     .join("")}
-  <text x="86" y="552" fill="#756b5d" font-family="${fonts.sans}" font-size="26" font-weight="600">${escapeXml(meta || "anarlog")}</text>
-  ${createAnarlogWordmark({ x: 962, y: 516, width: 152 })}
+  <text x="86" y="552" fill="#756b5d" font-family="${fonts.sans}" font-size="26" font-weight="600">${escapeXml(meta || "Timbre")}</text>
+  ${createTimbreLogo({ x: 904, y: 520, width: 210 })}
 </svg>`;
 }
 
@@ -419,9 +419,9 @@ export function createSharedNoteOgSvg(
   <text x="${participantX}" y="${footerCenterY + 9}"${participantTextLength} fill="#37322d" font-family="${fonts.sans}" font-size="27" font-weight="600">${escapeXml(participantSummary)}</text>
   <circle cx="${separatorX}" cy="${footerCenterY}" r="3" fill="#9d9387"/>
   <text x="${dateX}" y="${footerCenterY + 9}" fill="#57534e" font-family="${fonts.sans}" font-size="27" font-weight="500">${escapeXml(date)}</text>
-  ${createAnarlogWordmark({
+  ${createTimbreLogo({
     x: CONTENT_RIGHT_X - WORDMARK_WIDTH,
-    y: 477,
+    y: 484,
     width: WORDMARK_WIDTH,
   })}
 </svg>`;

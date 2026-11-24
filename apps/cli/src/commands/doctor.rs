@@ -67,13 +67,16 @@ async fn inspect(args: &Args) -> Result<DoctorReport> {
 }
 
 async fn schema_check(db: &anlg_db_core::Db) -> std::result::Result<(), String> {
+    // Any scope works here: the check only proves the queries prepare.
+    let scope =
+        anlg_agent_access::WorkspaceScope::local("__anarlog_doctor__").expect("non-empty scope");
     tokio::try_join!(
-        anlg_db_app::get_session(db.pool(), "__anarlog_doctor__"),
-        anlg_db_app::list_session_documents(db.pool(), "__anarlog_doctor__"),
-        anlg_db_app::list_session_transcripts(db.pool(), "__anarlog_doctor__"),
-        anlg_db_app::list_session_participants(db.pool(), "__anarlog_doctor__"),
-        anlg_db_app::list_session_action_items(db.pool(), "__anarlog_doctor__"),
-        anlg_db_app::list_session_proposals(db.pool(), None, None, 1, 0),
+        anlg_db_app::get_session(db.pool(), &scope, "__anarlog_doctor__"),
+        anlg_db_app::list_session_documents(db.pool(), &scope, "__anarlog_doctor__"),
+        anlg_db_app::list_session_transcripts(db.pool(), &scope, "__anarlog_doctor__"),
+        anlg_db_app::list_session_participants(db.pool(), &scope, "__anarlog_doctor__"),
+        anlg_db_app::list_session_action_items(db.pool(), &scope, "__anarlog_doctor__"),
+        anlg_db_app::list_session_proposals(db.pool(), &scope, None, None, 1, 0),
     )
     .map(|_| ())
     .map_err(|error| format!("schema check failed: {error}"))

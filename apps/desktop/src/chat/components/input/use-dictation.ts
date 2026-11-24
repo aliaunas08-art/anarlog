@@ -7,6 +7,7 @@ import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { APP_NAME } from "~/shared/app-name";
 import { useConfigValue } from "~/shared/config";
 import { useTabs } from "~/store/zustand/tabs";
 import { useRunBatch } from "~/stt/useRunBatch";
@@ -90,7 +91,7 @@ export function useDictation({
       }
       if (captureState.data !== "inactive") {
         toast.warning(
-          t`Voice input is unavailable while Anarlog is recording a meeting.`,
+          t`Voice input is unavailable while ${APP_NAME} is recording a meeting.`,
         );
         setPhase("idle");
         return;

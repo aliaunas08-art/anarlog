@@ -1,6 +1,21 @@
+import { createContext, useContext } from "react";
+
 import { json2md, parseJsonContent } from "@anlg/editor/markdown";
 import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
+
+/**
+ * "tray": compact icon pills (legacy header switcher).
+ * "glass": labelled segments inside the C · Final Liquid Glass bottom bar.
+ */
+export type HeaderViewVariant = "tray" | "glass";
+
+export const HeaderViewVariantContext =
+  createContext<HeaderViewVariant>("tray");
+
+export function useHeaderViewVariant() {
+  return useContext(HeaderViewVariantContext);
+}
 
 export function getStoredNoteMarkdown(content: string | undefined) {
   const trimmed = content?.trim() ?? "";
@@ -45,6 +60,29 @@ export function IconHeaderView({
   size?: "tray" | "standalone";
   className?: string;
 }) {
+  const variant = useHeaderViewVariant();
+
+  if (variant === "glass") {
+    return (
+      <button
+        data-main-area-window-drag-region
+        data-tauri-drag-region="false"
+        type="button"
+        aria-label={label}
+        aria-current={isActive ? "page" : undefined}
+        aria-pressed={pressed}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        title={title}
+        className={glassHeaderViewClassName(isActive, className)}
+      >
+        {icon}
+        <span className="min-w-0 truncate">{label}</span>
+        {isActive ? suffixIcon : null}
+      </button>
+    );
+  }
+
   return (
     <button
       data-main-area-window-drag-region
@@ -88,6 +126,22 @@ export function IconHeaderView({
       {isActive ? suffixIcon : null}
     </button>
   );
+}
+
+export function glassHeaderViewClassName(
+  isActive: boolean,
+  className?: string,
+) {
+  return cn([
+    "group/header-view cf-motion rounded-pill relative z-[1] flex h-9 max-w-44 min-w-0 shrink-0 items-center justify-center gap-[7px] px-4 text-[13px] whitespace-nowrap transition-colors select-none [corner-shape:round] [&>svg]:shrink-0",
+    "focus-visible:ring-2 focus-visible:ring-[var(--cf-accent)] focus-visible:outline-none",
+    "@max-[640px]:px-3",
+    // The active segment's fill is the switcher's sliding solid thumb.
+    isActive
+      ? "font-semibold text-[var(--cf-window)]"
+      : "text-[var(--cf-secondary)] hover:text-[var(--cf-label)]",
+    className,
+  ]);
 }
 
 export function iconHeaderViewClassName(

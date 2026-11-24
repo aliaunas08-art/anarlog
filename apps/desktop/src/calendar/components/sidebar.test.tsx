@@ -46,6 +46,23 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: () => "macos",
 }));
 
+vi.mock("~/accounts/local", () => ({
+  localProviderForCalendar: (id: string) =>
+    id === "google" ? "google" : id === "outlook" ? "microsoft" : null,
+  useLocalAccountProviders: () => ({ data: [] }),
+  useLocalAccounts: () => ({ data: [] }),
+}));
+
+vi.mock("./oauth/local-provider-content", () => ({
+  useLocalCalendarConnect: () => ({
+    connect: vi.fn(),
+    cancel: vi.fn(),
+    disconnect: vi.fn(),
+    connecting: null,
+    isConnecting: false,
+  }),
+}));
+
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: {} }),
 }));

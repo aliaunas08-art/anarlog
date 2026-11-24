@@ -37,8 +37,16 @@ pub(crate) async fn set_properties<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn set_disabled<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     disabled: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.analytics()
         .set_disabled(disabled)
         .map_err(|e| e.to_string())

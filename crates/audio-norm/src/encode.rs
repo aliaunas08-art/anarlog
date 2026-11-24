@@ -14,11 +14,11 @@ use crate::Error;
 pub const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 const RESAMPLE_CHUNK_SIZE: usize = 1024;
 const MONO_ENCODE_CHUNK_SIZE: usize = 4096;
-const TARGET_MP3_BYTES_PER_SECOND_MONO: usize = 64_000 / 8;
-const TARGET_MP3_BYTES_PER_SECOND_STEREO: usize = 128_000 / 8;
-const MP3_BUFFER_OVERHEAD_BYTES: usize = 4096;
+const TARGET_ENCODED_BYTES_PER_SECOND_MONO: usize = 64_000 / 8;
+const TARGET_ENCODED_BYTES_PER_SECOND_STEREO: usize = 128_000 / 8;
+const ENCODED_BUFFER_OVERHEAD_BYTES: usize = 4096;
 
-pub(crate) fn encode_source_to_mp3<S, W>(
+pub(crate) fn encode_source_to_aac<S, W>(
     source: S,
     max_duration: Option<Duration>,
     output: W,
@@ -55,11 +55,11 @@ where
     let mut processed_frames: usize = 0;
 
     if channel_count == 2 {
-        let mut encoder =
-            anlg_mp3::StereoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(mp3_err)?;
-        let mut output = Mp3Output::new(
+        let mut encoder = anlg_audio_encode::StereoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ)
+            .map_err(encode_err)?;
+        let mut output = EncodedOutput::new(
             output,
-            estimated_mp3_capacity(effective_duration, TARGET_MP3_BYTES_PER_SECOND_STEREO),
+            estimated_encoded_capacity(effective_duration, TARGET_ENCODED_BYTES_PER_SECOND_STEREO),
         );
         let mut source_iter = source.into_iter();
 
@@ -208,15 +208,15 @@ where
         if let Some(ref mut cb) = on_progress {
             cb(1.0);
         }
-        encoder.flush(output.buffer()).map_err(mp3_err)?;
+        encoder.flush(output.buffer()).map_err(encode_err)?;
         output.flush()?;
         Ok(output.bytes_written())
     } else {
         let mut encoder =
-            anlg_mp3::MonoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(mp3_err)?;
-        let mut output = Mp3Output::new(
+            anlg_audio_encode::MonoStreamEncoder::new(TARGET_SAMPLE_RATE_HZ).map_err(encode_err)?;
+        let mut output = EncodedOutput::new(
             output,
-            estimated_mp3_capacity(effective_duration, TARGET_MP3_BYTES_PER_SECOND_MONO),
+            estimated_encoded_capacity(effective_duration, TARGET_ENCODED_BYTES_PER_SECOND_MONO),
         );
 
         if needs_resample {
@@ -301,17 +301,17 @@ where
         if let Some(ref mut cb) = on_progress {
             cb(1.0);
         }
-        encoder.flush(output.buffer()).map_err(mp3_err)?;
+        encoder.flush(output.buffer()).map_err(encode_err)?;
         output.flush()?;
         Ok(output.bytes_written())
     }
 }
 
-fn mp3_err(e: anlg_mp3::Error) -> Error {
-    Error::Mp3Encode(e.to_string())
+fn encode_err(e: anlg_audio_encode::Error) -> Error {
+    Error::Encode(e.to_string())
 }
 
-fn estimated_mp3_capacity(duration: Option<Duration>, bytes_per_second: usize) -> usize {
+fn estimated_encoded_capacity(duration: Option<Duration>, bytes_per_second: usize) -> usize {
     let Some(duration) = duration else {
         return 0;
     };
@@ -322,7 +322,7 @@ fn estimated_mp3_capacity(duration: Option<Duration>, bytes_per_second: usize) -
         / 1_000_000_000u64;
     let total_bytes = bytes_from_seconds
         .saturating_add(bytes_from_nanos)
-        .saturating_add(MP3_BUFFER_OVERHEAD_BYTES as u64);
+        .saturating_add(ENCODED_BUFFER_OVERHEAD_BYTES as u64);
 
     total_bytes.min(usize::MAX as u64) as usize
 }
@@ -417,8 +417,8 @@ impl ResamplerState {
 
     fn encode_chunk(
         &mut self,
-        encoder: &mut anlg_mp3::MonoStreamEncoder,
-        output: &mut Mp3Output<impl Write>,
+        encoder: &mut anlg_audio_encode::MonoStreamEncoder,
+        output: &mut EncodedOutput<impl Write>,
         partial_len: Option<usize>,
     ) -> Result<(), Error> {
         let frames = self.process_resample(partial_len)?;
@@ -430,10 +430,10 @@ impl ResamplerState {
 }
 
 fn encode_mono_chunk<W: Write>(
-    encoder: &mut anlg_mp3::MonoStreamEncoder,
+    encoder: &mut anlg_audio_encode::MonoStreamEncoder,
     samples: &[f32],
     mono_pcm: &mut Vec<i16>,
-    output: &mut Mp3Output<W>,
+    output: &mut EncodedOutput<W>,
 ) -> Result<(), Error> {
     if samples.is_empty() {
         return Ok(());
@@ -443,17 +443,17 @@ fn encode_mono_chunk<W: Write>(
     mono_pcm.extend(samples.iter().copied().map(f32_to_i16));
     encoder
         .encode_i16(mono_pcm, output.buffer())
-        .map_err(mp3_err)?;
+        .map_err(encode_err)?;
     output.flush()
 }
 
 fn encode_stereo_chunk<W: Write>(
-    encoder: &mut anlg_mp3::StereoStreamEncoder,
+    encoder: &mut anlg_audio_encode::StereoStreamEncoder,
     left: &[f32],
     right: &[f32],
     left_pcm: &mut Vec<i16>,
     right_pcm: &mut Vec<i16>,
-    output: &mut Mp3Output<W>,
+    output: &mut EncodedOutput<W>,
 ) -> Result<(), Error> {
     if left.is_empty() && right.is_empty() {
         return Ok(());
@@ -465,21 +465,21 @@ fn encode_stereo_chunk<W: Write>(
     right_pcm.extend(right.iter().copied().map(f32_to_i16));
     encoder
         .encode_i16(left_pcm, right_pcm, output.buffer())
-        .map_err(mp3_err)?;
+        .map_err(encode_err)?;
     output.flush()
 }
 
-struct Mp3Output<W> {
+struct EncodedOutput<W> {
     writer: W,
     buffer: Vec<u8>,
     bytes_written: usize,
 }
 
-impl<W: Write> Mp3Output<W> {
+impl<W: Write> EncodedOutput<W> {
     fn new(writer: W, estimated_total_bytes: usize) -> Self {
         Self {
             writer,
-            buffer: Vec::with_capacity(estimated_total_bytes.min(MP3_BUFFER_OVERHEAD_BYTES)),
+            buffer: Vec::with_capacity(estimated_total_bytes.min(ENCODED_BUFFER_OVERHEAD_BYTES)),
             bytes_written: 0,
         }
     }
@@ -508,7 +508,7 @@ impl<W: Write> Mp3Output<W> {
 mod tests {
     use super::*;
 
-    const MIN_MP3_BYTES: usize = 1024;
+    const MIN_ENCODED_BYTES: usize = 1024;
 
     fn make_source(
         channels: u16,
@@ -521,9 +521,9 @@ mod tests {
         rodio::buffer::SamplesBuffer::new(channels_nz, rate_nz, vec![0.5f32; total_samples])
     }
 
-    fn decode_mp3_bytes(bytes: &[u8]) -> (u32, u16, Vec<f32>) {
+    fn decode_encoded_bytes(bytes: &[u8]) -> (u32, u16, Vec<f32>) {
         let temp = assert_fs::TempDir::new().unwrap();
-        let path = temp.path().join("test.mp3");
+        let path = temp.path().join("test.aac");
         std::fs::write(&path, bytes).unwrap();
         let decoder = rodio::Decoder::try_from(std::fs::File::open(&path).unwrap()).unwrap();
         let rate: u32 = decoder.sample_rate().into();
@@ -542,15 +542,19 @@ mod tests {
         ] {
             let source = make_source(channels, source_rate, secs);
             let mut bytes = Vec::new();
-            let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
+            let written = encode_source_to_aac(source, None, &mut bytes, None).unwrap();
             assert_eq!(written, bytes.len());
-            assert!(bytes.len() > MIN_MP3_BYTES);
+            assert!(bytes.len() > MIN_ENCODED_BYTES);
 
-            let (rate, decoded_channels, samples) = decode_mp3_bytes(&bytes);
+            let (rate, decoded_channels, samples) = decode_encoded_bytes(&bytes);
             assert_eq!(rate, TARGET_SAMPLE_RATE_HZ);
             assert_eq!(decoded_channels, channels);
 
-            let actual_frames = samples.len() / channels as usize;
+            // AAC adds a fixed encoder delay (2112 frames) and pads the last
+            // 1024-frame packet; ADTS has nowhere to record them for trimming.
+            const AAC_FIXED_FRAMES: usize = 2112 + 1024;
+            let actual_frames =
+                (samples.len() / channels as usize).saturating_sub(AAC_FIXED_FRAMES);
             let expected_frames = TARGET_SAMPLE_RATE_HZ as usize * secs;
             let ratio = actual_frames as f64 / expected_frames as f64;
             assert!(
@@ -564,7 +568,7 @@ mod tests {
     fn test_encode_empty_source_returns_zero() {
         let source = make_source(1, TARGET_SAMPLE_RATE_HZ, 0);
         let mut bytes = Vec::new();
-        let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
+        let written = encode_source_to_aac(source, None, &mut bytes, None).unwrap();
         assert_eq!(written, 0);
     }
 
@@ -573,10 +577,10 @@ mod tests {
         let source = make_source(1, 44_100, 10);
         let max = Some(Duration::from_secs(2));
         let mut bytes = Vec::new();
-        encode_source_to_mp3(source, max, &mut bytes, None).unwrap();
-        assert!(bytes.len() > MIN_MP3_BYTES);
+        encode_source_to_aac(source, max, &mut bytes, None).unwrap();
+        assert!(bytes.len() > MIN_ENCODED_BYTES);
 
-        let (_, _, samples) = decode_mp3_bytes(&bytes);
+        let (_, _, samples) = decode_encoded_bytes(&bytes);
         let actual_frames = samples.len();
         let expected_frames = TARGET_SAMPLE_RATE_HZ as usize * 2;
         let ratio = actual_frames as f64 / expected_frames as f64;
@@ -598,7 +602,7 @@ mod tests {
                 last_value = p;
                 call_count += 1;
             };
-            encode_source_to_mp3(source, None, &mut bytes, Some(&mut cb)).unwrap();
+            encode_source_to_aac(source, None, &mut bytes, Some(&mut cb)).unwrap();
         }
 
         assert!(call_count > 0, "progress callback was never called");

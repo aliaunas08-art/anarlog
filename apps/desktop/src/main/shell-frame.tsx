@@ -1,11 +1,11 @@
 import { memo } from "react";
 
 import { ClassicMainBody } from "./body";
+import { DevtoolsSlot } from "./devtools-slot";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { WindowsTitleBar } from "./windows-title-bar";
 
 import { useShell } from "~/contexts/shell";
-import { DevtoolsStatusBar } from "~/devtools-bar";
 import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
 import { ToastNotifications } from "~/sidebar/toast";
@@ -56,7 +56,7 @@ export function ClassicMainShellFrame() {
         />
       ) : null}
       <div className="min-h-0 flex-1">{shell}</div>
-      <DevtoolsStatusBar />
+      <DevtoolsSlot />
     </div>
   );
 }

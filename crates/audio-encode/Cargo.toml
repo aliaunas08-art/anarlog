@@ -1,0 +1,37 @@
+[package]
+name = "audio-encode"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anlg-audio-utils = { workspace = true }
+hound = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+
+# macOS: AAC through the operating system's own encoder (AudioToolbox). No codec
+# library is linked into the app: LAME (LGPL) was removed for licence reasons.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-audio-toolbox = { version = "0.3.2", default-features = false, features = ["std", "AudioConverter", "AudioFile", "ExtendedAudioFile", "objc2-core-audio-types", "objc2-core-foundation"] }
+objc2-core-audio-types = { version = "0.3.2", default-features = false, features = ["std", "CoreAudioBaseTypes"] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFString", "CFURL"] }
+
+# FLAC on Windows and Linux (Apache-2.0, pure Rust): the user's choice for
+# platforms without an OS AAC encoder the app may use.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+flacenc = { version = "0.5.1", default-features = false }
+
+[target.'cfg(target_os = "macos")'.dependencies.flacenc]
+version = "0.5.1"
+default-features = false
+optional = true
+
+[features]
+# Testing only: select the Windows/Linux FLAC path on macOS
+# (`cargo test -p audio-encode --features flac-platform`). Never enabled in
+# the app, so the macOS build links no FLAC encoder.
+flac-platform = ["dep:flacenc"]
+
+[dev-dependencies]
+# The FLAC encoder's own unit tests also run on macOS.
+flacenc = { version = "0.5.1", default-features = false }

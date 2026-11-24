@@ -45,8 +45,16 @@ pub(crate) fn is_downloaded<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) fn set_automatic_updates_enabled<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     enabled: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.updater2()
         .set_automatic_updates_enabled(enabled)
         .map_err(|e| e.to_string())

@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod app_lock_settings;
 mod attachment_ops;
 mod calendar_ops;
 mod calendar_sync_ops;
@@ -7,6 +8,7 @@ mod calendar_types;
 mod capture_lifecycle_ops;
 mod cloudsync;
 mod contact_ops;
+mod content_identity;
 mod e2ee;
 mod event_ops;
 mod event_types;
@@ -43,6 +45,7 @@ pub use calendar_types::*;
 pub use capture_lifecycle_ops::*;
 pub use cloudsync::*;
 pub use contact_ops::*;
+pub use content_identity::*;
 pub use e2ee::*;
 pub use event_ops::*;
 pub use event_types::*;
@@ -613,6 +616,18 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         id: "20261013090000_recording_import_jobs",
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20261013090000_recording_import_jobs.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20261114120000_meeting_minutes_template",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20261114120000_meeting_minutes_template.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20261116120000_session_private",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20261116120000_session_private.sql"),
     },
 ];
 

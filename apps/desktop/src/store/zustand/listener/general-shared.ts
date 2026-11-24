@@ -43,6 +43,15 @@ export type GeneralState = {
     intervalId?: LiveIntervalId;
     sessionId: string | null;
     muted: boolean;
+    /**
+     * The user paused the recording: nothing is recorded or transcribed and
+     * `seconds` (the audio timeline) stops advancing until resume.
+     */
+    paused: boolean;
+    /** Paused time from completed pauses, in ms. */
+    pausedTotalMs: number;
+    /** Wall-clock start of the pause in progress, or null. */
+    pausedSinceMs: number | null;
     captureHealth: {
       mic: boolean | null;
       speaker: boolean | null;
@@ -82,6 +91,9 @@ const initialLiveState: LiveState = {
   captureGenerationBySession: {},
   sessionId: null,
   muted: false,
+  paused: false,
+  pausedTotalMs: 0,
+  pausedSinceMs: null,
   captureHealth: { mic: null, speaker: null, unavailable: false },
   lastError: null,
   lastErrorSessionId: null,
@@ -212,6 +224,9 @@ export const markLiveActive = (
   markLiveCaptureStarted(live, sessionId);
   live.loadingPhase = "idle";
   live.seconds = 0;
+  live.paused = false;
+  live.pausedTotalMs = 0;
+  live.pausedSinceMs = null;
   live.intervalId = intervalId;
   live.degraded = degraded;
   live.requestedLiveTranscription = requestedLiveTranscription;
@@ -273,6 +288,9 @@ export const markLiveInactive = (
   live.finalStallAudibleSeconds = 0;
   live.transcriptionStalled = false;
   live.muted = initialLiveState.muted;
+  live.paused = initialLiveState.paused;
+  live.pausedTotalMs = 0;
+  live.pausedSinceMs = null;
   live.triggerAppIds = null;
 };
 
@@ -296,6 +314,9 @@ export const markLiveStartFailed = (
   live.seconds = 0;
   live.sessionId = null;
   live.muted = initialLiveState.muted;
+  live.paused = initialLiveState.paused;
+  live.pausedTotalMs = 0;
+  live.pausedSinceMs = null;
   live.lastError = audioError ?? error;
   live.lastErrorSessionId = sessionId;
   live.lastErrorIsAudioRelated = audioError !== null;
@@ -310,6 +331,31 @@ export const markLiveStartFailed = (
   live.triggerAppIds = null;
 };
 
+export const setLivePaused = (
+  live: LiveState,
+  paused: boolean,
+  nowMs: number,
+) => {
+  if (paused && live.pausedSinceMs === null) {
+    live.pausedSinceMs = nowMs;
+  } else if (!paused && live.pausedSinceMs !== null) {
+    live.pausedTotalMs += Math.max(0, nowMs - live.pausedSinceMs);
+    live.pausedSinceMs = null;
+  }
+  live.paused = paused;
+};
+
+/**
+ * All paused time so far, including a pause in progress. Wall-clock time since
+ * the capture started minus this is the capture's audio timeline.
+ */
+export const getLivePausedMs = (
+  live: Pick<LiveState, "pausedTotalMs" | "pausedSinceMs">,
+  nowMs: number,
+) =>
+  live.pausedTotalMs +
+  (live.pausedSinceMs === null ? 0 : Math.max(0, nowMs - live.pausedSinceMs));
+
 // Live STT can hang mid-session without any error or degraded event from the
 // capture pipeline: either the stream stops delivering anything, or it keeps
 // streaming partial words that never finalize (only finalized words are
@@ -321,6 +367,7 @@ export const tickTranscriptionStallWatchdog = (live: LiveState): boolean => {
   // STT, and the amplitude gate below already ignores silent stretches.
   if (
     live.status !== "active" ||
+    live.paused ||
     live.requestedLiveTranscription !== true ||
     live.liveTranscriptionActive !== true ||
     live.transcriptionStalled

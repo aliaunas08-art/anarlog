@@ -1,18 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SiteFooter } from "@/components/site-footer";
+import { TimbreLogo } from "@/components/timbre-logo";
 import {
   ABOUT_UPDATED_ON,
   differentiators,
   faqs,
   team,
-  howAnarlogWorks,
+  howTimbreWorks,
   keyFacts,
   originStory,
   VALUE_PROP,
-  whatAnarlogDoes,
-  whoUsesAnarlog,
+  whatTimbreDoes,
+  whoUsesTimbre,
 } from "@/lib/about";
 import {
   ANARLOG_SITE_URL,
@@ -20,9 +20,9 @@ import {
   getStructuredDataGraph,
 } from "@/lib/seo";
 
-const title = "About · Anarlog";
+const title = "About · Timbre";
 const description =
-  "Who builds Anarlog, what it does, how it differs from Granola, Otter, and Fathom, who uses it, and the key facts about the company.";
+  "Who builds Timbre, what it does, how it differs from Granola, Otter, and Fathom, who uses it, and the key facts about the company.";
 
 export const Route = createFileRoute("/about")({
   component: AboutPage,
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/about")({
           getStructuredDataGraph([
             {
               "@type": "Organization",
-              name: "Anarlog",
+              name: "Timbre",
               legalName: "Fastrepl, Inc.",
               url: getCanonicalUrl(),
               logo: `${ANARLOG_SITE_URL}/logo.svg`,
@@ -115,11 +115,11 @@ function AboutPage() {
     <main className="min-h-screen bg-white text-[#181613]">
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <section className="pt-10 pb-4 text-center md:pt-12 md:pb-6">
-          <Link to="/" aria-label="Anarlog home" className="inline-flex">
-            <AnarlogLogo className="h-8 w-auto md:h-9" />
+          <Link to="/" aria-label="Timbre home" className="inline-flex">
+            <TimbreLogo className="h-8 w-auto md:h-9" />
           </Link>
           <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
-            About Anarlog
+            About Timbre
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
             {VALUE_PROP}
@@ -130,9 +130,9 @@ function AboutPage() {
         </section>
 
         <section className="pt-10 pb-4 md:pt-12">
-          <SectionHeading>What Anarlog does</SectionHeading>
+          <SectionHeading>What Timbre does</SectionHeading>
           <div className="mt-6 flex flex-col gap-6">
-            {whatAnarlogDoes.map((item) => (
+            {whatTimbreDoes.map((item) => (
               <div key={item.title}>
                 <h3 className="text-base font-medium text-[#181613]">
                   {item.title}
@@ -146,7 +146,7 @@ function AboutPage() {
         </section>
 
         <section className="pt-10 pb-4 md:pt-12">
-          <SectionHeading>What makes Anarlog different</SectionHeading>
+          <SectionHeading>What makes Timbre different</SectionHeading>
           <p className="mt-5 text-base leading-7 text-[#4f4940]">
             Compare recording methods, free-plan limits and example paid plans
             on the{" "}
@@ -176,16 +176,16 @@ function AboutPage() {
         </section>
 
         <section className="pt-10 pb-4 md:pt-12">
-          <SectionHeading>Who uses Anarlog</SectionHeading>
+          <SectionHeading>Who uses Timbre</SectionHeading>
           <ul className="mt-6 list-disc space-y-2 pl-5 text-sm leading-6 text-[#4f4940]">
-            {whoUsesAnarlog.map((item) => (
+            {whoUsesTimbre.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
         </section>
 
         <section className="pt-10 pb-4 md:pt-12">
-          <SectionHeading>The team behind Anarlog</SectionHeading>
+          <SectionHeading>The team behind Timbre</SectionHeading>
           {originStory.map((paragraph) => (
             <p
               key={paragraph}
@@ -228,9 +228,9 @@ function AboutPage() {
         </section>
 
         <section className="pt-10 pb-4 md:pt-12">
-          <SectionHeading>How Anarlog works</SectionHeading>
+          <SectionHeading>How Timbre works</SectionHeading>
           <div className="mt-6 flex flex-col gap-6">
-            {howAnarlogWorks.map((item) => (
+            {howTimbreWorks.map((item) => (
               <div key={item.title}>
                 <h3 className="text-base font-medium text-[#181613]">
                   {item.title}

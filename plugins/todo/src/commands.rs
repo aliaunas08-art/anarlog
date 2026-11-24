@@ -40,7 +40,15 @@ pub fn request_full_access() -> Result<bool, Error> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_todo_lists() -> Result<Vec<ReminderList>, Error> {
+pub fn list_todo_lists<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+) -> Result<Vec<ReminderList>, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -55,7 +63,16 @@ pub fn list_todo_lists() -> Result<Vec<ReminderList>, Error> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn fetch_todos(filter: ReminderFilter) -> Result<Vec<Reminder>, Error> {
+pub fn fetch_todos<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    filter: ReminderFilter,
+) -> Result<Vec<Reminder>, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -73,10 +90,17 @@ pub fn fetch_todos(filter: ReminderFilter) -> Result<Vec<Reminder>, Error> {
 #[specta::specta]
 pub async fn read_path<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     path: String,
     limit: Option<u32>,
     cursor: Option<String>,
 ) -> Result<ReadPathResult, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     match ReadPath::parse(&path)? {
         ReadPath::Apple(path) => {
             #[cfg(target_os = "macos")]
@@ -165,7 +189,16 @@ pub async fn read_path<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub fn create_todo(input: CreateReminderInput) -> Result<String, Error> {
+pub fn create_todo<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    input: CreateReminderInput,
+) -> Result<String, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Create,
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -181,7 +214,16 @@ pub fn create_todo(input: CreateReminderInput) -> Result<String, Error> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn complete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
+pub fn complete_todo<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    target: ReminderIdentifierInput,
+) -> Result<(), Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Edit,
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -197,7 +239,16 @@ pub fn complete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
+pub fn delete_todo<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+    target: ReminderIdentifierInput,
+) -> Result<(), Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Delete,
+    )?;
     #[cfg(target_os = "macos")]
     {
         let handle = anlg_apple_todo::Handle;
@@ -215,10 +266,17 @@ pub fn delete_todo(target: ReminderIdentifierInput) -> Result<(), Error> {
 #[specta::specta]
 pub async fn linear_list_teams<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     connection_id: String,
     limit: Option<u32>,
     cursor: Option<String>,
 ) -> Result<CollectionPage, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     let config = app.state::<crate::PluginConfig>();
     let token = require_access_token(&app)?;
     crate::fetch::linear_list_teams(&config.api_base_url, &token, &connection_id, limit, cursor)
@@ -229,12 +287,19 @@ pub async fn linear_list_teams<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn linear_list_tickets<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     connection_id: String,
     team_id: String,
     query: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
 ) -> Result<TicketPage, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     let config = app.state::<crate::PluginConfig>();
     let token = require_access_token(&app)?;
     crate::fetch::linear_list_tickets(
@@ -251,31 +316,52 @@ pub async fn linear_list_tickets<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn github_issue_state(
+pub async fn github_issue_state<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     owner: String,
     repo: String,
     number: u64,
 ) -> Result<crate::github_state::GitHubIssueState, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     crate::github_state::fetch_public(&owner, &repo, number).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn github_issue_detail(
+pub async fn github_issue_detail<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     owner: String,
     repo: String,
     number: u64,
 ) -> Result<anlg_github_issues::Issue, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     crate::github_state::fetch_issue_detail(&owner, &repo, number).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn github_issue_comments(
+pub async fn github_issue_comments<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     owner: String,
     repo: String,
     number: u64,
 ) -> Result<Vec<anlg_github_issues::IssueComment>, Error> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Actions,
+        anlg_aspc::Action::Read,
+    )?;
     crate::github_state::fetch_issue_comments(&owner, &repo, number).await
 }
 

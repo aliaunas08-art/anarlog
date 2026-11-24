@@ -169,6 +169,7 @@ export async function showFloatingMeetingWindow(
     : await windowsCommands.floatingBarUpdate({
         dictation: routeState.dictation ?? null,
         amplitude: routeState.amplitude,
+        elapsedSeconds: routeState.elapsedSeconds ?? null,
         title: routeState.title,
         status: routeState.status,
         colorScheme: routeState.colorScheme,
@@ -224,6 +225,8 @@ function isAmplitudeOnlyFloatingRouteUpdate(
 ) {
   return (
     previousState.amplitude !== nextState.amplitude &&
+    (previousState.elapsedSeconds ?? null) ===
+      (nextState.elapsedSeconds ?? null) &&
     previousState.sessionId === nextState.sessionId &&
     previousState.title === nextState.title &&
     JSON.stringify(previousState.dictation) ===

@@ -17,6 +17,8 @@ import {
 
 import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
+import type { AskExplicitIntent } from "~/chat/guardrails/classifier";
+import type { AskScope } from "~/chat/guardrails/scope";
 import type { ChatMessageSender, ChatScope, AnlgUIMessage } from "~/chat/types";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
@@ -44,11 +46,16 @@ async function persistWithRetry(run: () => Promise<unknown>) {
 
 export function useChatActions({
   chatScope,
+  askScope,
+  askMeetingId,
   groupId,
   onGroupCreated,
   onGroupCreateFailed,
 }: {
   chatScope: ChatScope;
+  /** Ask scope stamped on the message; general chat only. */
+  askScope?: AskScope;
+  askMeetingId?: string;
   groupId: string | undefined;
   onGroupCreated: (newGroupId: string) => void;
   onGroupCreateFailed?: (failedGroupId: string) => void;
@@ -96,6 +103,7 @@ export function useChatActions({
       parts: AnlgUIMessage["parts"],
       sendMessage: ChatMessageSender,
       contextRefs?: ContextRef[],
+      sendOptions?: { askIntent?: AskExplicitIntent },
     ) => {
       if (!ownerUserId) {
         console.error("Cannot persist chat message without an owner user id");
@@ -106,6 +114,13 @@ export function useChatActions({
       const metadata = {
         chatScope,
         createdAt: Date.now(),
+        ...(chatScope === "general" && askScope ? { askScope } : {}),
+        ...(chatScope === "general" && askScope === "meeting" && askMeetingId
+          ? { askMeetingId }
+          : {}),
+        ...(chatScope === "general" && sendOptions?.askIntent
+          ? { askIntent: sendOptions.askIntent }
+          : {}),
         ...(contextRefs && contextRefs.length > 0 ? { contextRefs } : {}),
       };
       const uiMessage: AnlgUIMessage = {
@@ -170,6 +185,8 @@ export function useChatActions({
     },
     [
       chatScope,
+      askScope,
+      askMeetingId,
       groupId,
       ownerUserId,
       onGroupCreated,

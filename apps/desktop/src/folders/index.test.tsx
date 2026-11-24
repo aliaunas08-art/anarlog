@@ -172,8 +172,8 @@ describe("Folders workspace", () => {
   it("creates the first folder", async () => {
     renderFoldersWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "New folder" }));
-    fireEvent.change(screen.getByLabelText("Folder name"), {
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
+    fireEvent.change(screen.getByLabelText("Project name"), {
       target: { value: "CS 101" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -197,20 +197,18 @@ describe("Folders workspace", () => {
 
     renderFoldersWorkspace();
 
-    expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
-      "value",
-      "CS 101",
-    );
+    expect(
+      screen.getByRole("textbox", { name: "Project name" }),
+    ).toHaveProperty("value", "CS 101");
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
-    expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
-      "value",
-      "Work",
-    );
+    expect(
+      screen.getByRole("textbox", { name: "Project name" }),
+    ).toHaveProperty("value", "Work");
 
-    fireEvent.change(screen.getByLabelText("Folder context"), {
+    fireEvent.change(screen.getByLabelText("Project context"), {
       target: { value: "Prefer the syllabus." },
     });
-    fireEvent.blur(screen.getByLabelText("Folder context"));
+    fireEvent.blur(screen.getByLabelText("Project context"));
 
     await waitFor(() => {
       expect(mocks.updateFolderInstructions).toHaveBeenCalledWith(
@@ -236,7 +234,7 @@ describe("Folders workspace", () => {
 
     renderFoldersWorkspace();
 
-    const title = screen.getByRole("textbox", { name: "Folder name" });
+    const title = screen.getByRole("textbox", { name: "Project name" });
     fireEvent.change(title, { target: { value: "Algorithms" } });
     fireEvent.blur(title);
 
@@ -254,10 +252,9 @@ describe("Folders workspace", () => {
 
     renderFoldersWorkspace();
 
-    expect(screen.getByRole("textbox", { name: "Folder name" })).toHaveProperty(
-      "value",
-      "New Folder",
-    );
+    expect(
+      screen.getByRole("textbox", { name: "Project name" }),
+    ).toHaveProperty("value", "New Folder");
   });
 
   it("keeps a nested folder under its parent when renaming it", async () => {
@@ -266,7 +263,7 @@ describe("Folders workspace", () => {
 
     renderFoldersWorkspace();
 
-    const title = screen.getByRole("textbox", { name: "Folder name" });
+    const title = screen.getByRole("textbox", { name: "Project name" });
     fireEvent.change(title, { target: { value: "Data Structures" } });
     fireEvent.blur(title);
 
@@ -284,7 +281,7 @@ describe("Folders workspace", () => {
     renderFoldersWorkspace();
 
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: "Folder actions" }),
+      screen.getByRole("button", { name: "Project actions" }),
       { button: 0, ctrlKey: false },
     );
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
@@ -293,12 +290,12 @@ describe("Folders workspace", () => {
         "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted.",
       ),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Delete folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
 
     await waitFor(() => {
       expect(mocks.deleteNamedFolder).toHaveBeenCalledWith("Work");
       expect(
-        screen.getByRole("textbox", { name: "Folder name" }),
+        screen.getByRole("textbox", { name: "Project name" }),
       ).toHaveProperty("value", "Personal");
     });
   });
@@ -308,7 +305,9 @@ describe("Folders workspace", () => {
 
     renderFoldersWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose folder icon" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose project icon" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "target" }));
 
     await waitFor(() => {
@@ -334,7 +333,9 @@ describe("Folders workspace", () => {
 
     renderFoldersWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose folder icon" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose project icon" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "target" }));
 
     await waitFor(() => {

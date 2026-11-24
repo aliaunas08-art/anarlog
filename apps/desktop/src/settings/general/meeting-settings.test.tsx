@@ -64,7 +64,7 @@ describe("MeetingSettingsView", () => {
       screen.queryByText("Post recording disclosure in meeting chat"),
     ).toBeNull();
     expect(screen.queryByText("Capture meeting chat in Memos")).toBeNull();
-    expect(screen.getByText("Show floating bar")).toBeTruthy();
+    expect(screen.getByText("Show floating recording bar")).toBeTruthy();
     expect(screen.queryByText("Stop when meeting ends")).toBeNull();
   });
 

@@ -33,6 +33,8 @@ pub struct RecArgs {
     pub capture_started_at: u64,
     pub offset_ms: u64,
     pub session_id: String,
+    /// Resolved once the first audio of this capture is on disk.
+    pub first_audio: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
 pub struct RecState {
@@ -93,7 +95,7 @@ impl Actor for RecorderActor {
     async fn pre_start(
         &self,
         myself: ActorRef<Self::Msg>,
-        args: Self::Arguments,
+        mut args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         let writer_permit = try_acquire_writer_slot(WRITER_SLOTS.clone())?;
         let session_dir = find_session_dir(&args.app_dir, &args.session_id);
@@ -125,7 +127,12 @@ impl Actor for RecorderActor {
                 }
             })
         };
-        let persist_config = chunks::PersistConfig::new(health_notifier);
+        let mut persist_config = chunks::PersistConfig::new(health_notifier);
+        if let Some(first_audio) = args.first_audio.take() {
+            persist_config = persist_config.with_first_audio(Box::new(move || {
+                let _ = first_audio.send(());
+            }));
+        }
         let (sink, writer_permit, writer_path) = tokio::task::spawn_blocking(move || {
             std::fs::create_dir_all(&session_dir)?;
             let sink = chunks::ChunkedSink::new(
@@ -296,9 +303,11 @@ pub fn find_session_dir(sessions_base: &Path, session_id: &str) -> PathBuf {
 
 pub fn resolve_final_audio_path(sessions_base: &Path, session_id: &str) -> Option<PathBuf> {
     let session_dir = find_session_dir(sessions_base, session_id);
-    let mp3_path = session_dir.join("audio.mp3");
-    if mp3_path.exists() {
-        return Some(mp3_path);
+    for name in anlg_audio_encode::RECORDING_FILES {
+        let encoded_path = session_dir.join(name);
+        if encoded_path.exists() {
+            return Some(encoded_path);
+        }
     }
 
     let wav_path = session_dir.join("audio.wav");

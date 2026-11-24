@@ -44,6 +44,26 @@ mod tests {
     use super::*;
     use anlg_askama_utils::tpl_snapshot_with_assert;
 
+    #[test]
+    fn test_chat_system_shared_template() {
+        let rendered = askama::Template::render(&ChatSystem {
+            language: Some("en".to_string()),
+        })
+        .unwrap();
+
+        // Shared with the automations chat: Ask's scope/redirect rules live in
+        // the desktop app (chat/guardrails/prompt.ts), not here.
+        assert!(!rendered.contains("meeting_sources"));
+        assert!(!rendered.contains("not a general chatbot"));
+        assert!(!rendered.contains("one-line redirect"));
+        // Note rewrites are only produced when asked.
+        assert!(rendered.contains(
+            "Only when the user asks for a new or revised version of a note, put that version in a markdown block"
+        ));
+        assert!(!rendered.contains("Suggestion of a new version of the meeting note"));
+        assert!(!rendered.contains("Try your best to put markdown notes"));
+    }
+
     tpl_snapshot_with_assert!(
         test_context_block_wrapped,
         ContextBlock {

@@ -92,14 +92,18 @@ pub struct ProposalPage {
     pub pagination: Pagination,
 }
 
-pub async fn create_proposal(pool: &SqlitePool, input: CreateProposalInput) -> Result<Proposal> {
+pub async fn create_proposal(
+    pool: &SqlitePool,
+    scope: &crate::WorkspaceScope,
+    input: CreateProposalInput,
+) -> Result<Proposal> {
     let kind = normalize_kind(&input.kind)?;
     let content = input.content.trim().to_string();
     if content.is_empty() {
         return Err(Error::Invalid("proposal content is empty".to_string()));
     }
     let source = normalize_source(input.source.as_deref());
-    let session = anlg_db_app::get_session(pool, &input.meeting_id)
+    let session = anlg_db_app::get_session(pool, scope, &input.meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load meeting",
@@ -107,13 +111,18 @@ pub async fn create_proposal(pool: &SqlitePool, input: CreateProposalInput) -> R
         })?
         .ok_or_else(|| Error::NotFound(format!("meeting '{}'", input.meeting_id)))?;
 
-    let target = resolve_target(pool, &session.id, kind, input.target_id.as_deref()).await?;
+    let target = resolve_target(pool, scope, &session.id, kind, input.target_id.as_deref()).await?;
     let id = uuid::Uuid::new_v4().to_string();
     let row = anlg_db_app::insert_session_proposal(
         pool,
         anlg_db_app::InsertSessionProposal {
             id: &id,
-            workspace_id: &session.workspace_id,
+            // C1.1: never a new row with an empty workspace.
+            workspace_id: if session.workspace_id.is_empty() {
+                scope.workspace_id()
+            } else {
+                &session.workspace_id
+            },
             session_id: &session.id,
             kind,
             target_id: &target.id,
@@ -132,9 +141,13 @@ pub async fn create_proposal(pool: &SqlitePool, input: CreateProposalInput) -> R
     Ok(Proposal::from(row))
 }
 
-pub async fn list_proposals(pool: &SqlitePool, input: ListProposalsInput) -> Result<ProposalPage> {
+pub async fn list_proposals(
+    pool: &SqlitePool,
+    scope: &crate::WorkspaceScope,
+    input: ListProposalsInput,
+) -> Result<ProposalPage> {
     if let Some(meeting_id) = input.meeting_id.as_deref() {
-        let exists = anlg_db_app::get_session(pool, meeting_id)
+        let exists = anlg_db_app::get_session(pool, scope, meeting_id)
             .await
             .map_err(|source| Error::Database {
                 action: "load meeting",
@@ -163,6 +176,7 @@ pub async fn list_proposals(pool: &SqlitePool, input: ListProposalsInput) -> Res
     let offset = input.offset.unwrap_or(0);
     let mut rows = anlg_db_app::list_session_proposals(
         pool,
+        scope,
         input.meeting_id.as_deref(),
         status.as_deref(),
         limit + 1,
@@ -182,12 +196,20 @@ pub async fn list_proposals(pool: &SqlitePool, input: ListProposalsInput) -> Res
     })
 }
 
-pub async fn get_proposal(pool: &SqlitePool, input: GetProposalInput) -> Result<Proposal> {
-    load_proposal(pool, &input.proposal_id).await
+pub async fn get_proposal(
+    pool: &SqlitePool,
+    scope: &crate::WorkspaceScope,
+    input: GetProposalInput,
+) -> Result<Proposal> {
+    load_proposal(pool, scope, &input.proposal_id).await
 }
 
-pub async fn decline_proposal(pool: &SqlitePool, input: DeclineProposalInput) -> Result<Proposal> {
-    let current = load_proposal(pool, &input.proposal_id).await?;
+pub async fn decline_proposal(
+    pool: &SqlitePool,
+    scope: &crate::WorkspaceScope,
+    input: DeclineProposalInput,
+) -> Result<Proposal> {
+    let current = load_proposal(pool, scope, &input.proposal_id).await?;
     if current.status != STATUS_PENDING {
         return Err(Error::Conflict(format!(
             "proposal '{}' is {}",
@@ -197,6 +219,7 @@ pub async fn decline_proposal(pool: &SqlitePool, input: DeclineProposalInput) ->
 
     let row = anlg_db_app::update_session_proposal_status(
         pool,
+        scope,
         &input.proposal_id,
         STATUS_PENDING,
         STATUS_DECLINED,
@@ -264,12 +287,14 @@ struct TargetSnapshot {
 
 async fn resolve_target(
     pool: &SqlitePool,
+    scope: &crate::WorkspaceScope,
     meeting_id: &str,
     kind: &str,
     target_id: Option<&str>,
 ) -> Result<TargetSnapshot> {
     let meeting = crate::get_meeting(
         pool,
+        scope,
         crate::GetMeetingInput {
             meeting_id: meeting_id.to_string(),
         },
@@ -322,8 +347,12 @@ async fn resolve_target(
     })
 }
 
-async fn load_proposal(pool: &SqlitePool, proposal_id: &str) -> Result<Proposal> {
-    anlg_db_app::get_session_proposal(pool, proposal_id)
+async fn load_proposal(
+    pool: &SqlitePool,
+    scope: &crate::WorkspaceScope,
+    proposal_id: &str,
+) -> Result<Proposal> {
+    anlg_db_app::get_session_proposal(pool, scope, proposal_id)
         .await
         .map_err(|source| Error::Database {
             action: "load proposal",
@@ -388,9 +417,19 @@ impl From<anlg_db_app::SessionProposalRow> for Proposal {
 mod tests {
     use super::*;
 
+    fn test_scope() -> crate::WorkspaceScope {
+        crate::WorkspaceScope::local("test-workspace").unwrap()
+    }
+
     async fn test_db() -> anlg_db_core::Db {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}' WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         db
     }
 
@@ -428,6 +467,7 @@ mod tests {
 
         let created = create_proposal(
             db.pool(),
+            &test_scope(),
             CreateProposalInput {
                 meeting_id: "meeting-1".to_string(),
                 kind: "summary".to_string(),
@@ -448,6 +488,7 @@ mod tests {
 
         let page = list_proposals(
             db.pool(),
+            &test_scope(),
             ListProposalsInput {
                 meeting_id: Some("meeting-1".to_string()),
                 ..Default::default()
@@ -460,6 +501,7 @@ mod tests {
 
         let declined = decline_proposal(
             db.pool(),
+            &test_scope(),
             DeclineProposalInput {
                 proposal_id: created.id.clone(),
             },
@@ -470,6 +512,7 @@ mod tests {
 
         let conflict = decline_proposal(
             db.pool(),
+            &test_scope(),
             DeclineProposalInput {
                 proposal_id: created.id,
             },
@@ -486,6 +529,7 @@ mod tests {
 
         let empty = create_proposal(
             db.pool(),
+            &test_scope(),
             CreateProposalInput {
                 meeting_id: "meeting-1".to_string(),
                 kind: "memo".to_string(),
@@ -500,6 +544,7 @@ mod tests {
 
         let missing = create_proposal(
             db.pool(),
+            &test_scope(),
             CreateProposalInput {
                 meeting_id: "missing".to_string(),
                 kind: "memo".to_string(),

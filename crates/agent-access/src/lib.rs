@@ -11,6 +11,9 @@ use serde_json::Value;
 use specta::Type;
 use sqlx::SqlitePool;
 
+/// ASPC C1.2: every function here reads only this workspace's rows.
+pub use anlg_aspc::WorkspaceScope;
+
 pub use proposals::{
     CreateProposalInput, DeclineProposalInput, GetProposalInput, ListProposalsInput, Proposal,
     ProposalPage, create_proposal, decline_proposal, get_proposal, list_proposals,
@@ -40,6 +43,19 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// The device's local workspace scope (ASPC C1.2), resolved from the
+/// database each call because an account claim changes it. Fails closed when
+/// the database has no local workspace yet.
+pub async fn local_scope(pool: &SqlitePool) -> Result<WorkspaceScope> {
+    anlg_db_app::local_workspace_scope(pool)
+        .await
+        .map_err(|source| Error::Database {
+            action: "resolve workspace",
+            source,
+        })?
+        .ok_or_else(|| Error::Invalid("aspc.no_context: no local workspace".to_string()))
+}
 
 #[derive(
     Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema,
@@ -313,7 +329,33 @@ pub struct Speaker {
     pub is_self: bool,
 }
 
-pub async fn list_meetings(pool: &SqlitePool, input: ListMeetingsInput) -> Result<MeetingPage> {
+/// Lists meetings, leaving Private ones out (ASPC C6.4). This is what MCP,
+/// Ask, the local API and bulk exports use.
+pub async fn list_meetings(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: ListMeetingsInput,
+) -> Result<MeetingPage> {
+    list_meetings_with_privacy(pool, scope, input, false).await
+}
+
+/// Like [`list_meetings`] but including Private meetings. Only for an action
+/// the user explicitly widened (the CLI's `--include-private`); never from
+/// an AI tool or an automatic job.
+pub async fn list_meetings_including_private(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: ListMeetingsInput,
+) -> Result<MeetingPage> {
+    list_meetings_with_privacy(pool, scope, input, true).await
+}
+
+async fn list_meetings_with_privacy(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: ListMeetingsInput,
+    include_private: bool,
+) -> Result<MeetingPage> {
     let limit = input
         .limit
         .unwrap_or(DEFAULT_LIST_LIMIT)
@@ -331,6 +373,8 @@ pub async fn list_meetings(pool: &SqlitePool, input: ListMeetingsInput) -> Resul
     let mut meetings = anlg_db_app::list_sessions(
         pool,
         anlg_db_app::ListSessions {
+            scope,
+            include_private,
             query: input.query.as_deref(),
             series_id: input.series_id.as_deref(),
             folder_path: folder_path.as_deref(),
@@ -357,7 +401,11 @@ pub async fn list_meetings(pool: &SqlitePool, input: ListMeetingsInput) -> Resul
     })
 }
 
-pub async fn list_folders(pool: &SqlitePool, input: ListFoldersInput) -> Result<FolderPage> {
+pub async fn list_folders(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: ListFoldersInput,
+) -> Result<FolderPage> {
     let limit = input
         .limit
         .unwrap_or(DEFAULT_FOLDER_LIST_LIMIT)
@@ -369,7 +417,7 @@ pub async fn list_folders(pool: &SqlitePool, input: ListFoldersInput) -> Result<
         .map(str::trim)
         .unwrap_or_default()
         .to_lowercase();
-    let stored = anlg_db_app::list_folder_paths(pool)
+    let stored = anlg_db_app::list_folder_paths(pool, scope)
         .await
         .map_err(|source| Error::Database {
             action: "list folders",
@@ -403,14 +451,18 @@ pub async fn list_folders(pool: &SqlitePool, input: ListFoldersInput) -> Result<
     })
 }
 
-pub async fn get_meeting(pool: &SqlitePool, input: GetMeetingInput) -> Result<Meeting> {
+pub async fn get_meeting(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    input: GetMeetingInput,
+) -> Result<Meeting> {
     let meeting_id = input.meeting_id;
     let (session, note, documents, participants, action_items) = tokio::try_join!(
-        anlg_db_app::get_session(pool, &meeting_id),
-        anlg_db_app::get_session_note(pool, &meeting_id),
-        anlg_db_app::list_session_documents(pool, &meeting_id),
-        anlg_db_app::list_session_participants(pool, &meeting_id),
-        anlg_db_app::list_session_action_items(pool, &meeting_id),
+        anlg_db_app::get_session(pool, scope, &meeting_id),
+        anlg_db_app::get_session_note(pool, scope, &meeting_id),
+        anlg_db_app::list_session_documents(pool, scope, &meeting_id),
+        anlg_db_app::list_session_participants(pool, scope, &meeting_id),
+        anlg_db_app::list_session_action_items(pool, scope, &meeting_id),
     )
     .map_err(|source| Error::Database {
         action: "load meeting",
@@ -446,9 +498,10 @@ pub async fn get_meeting(pool: &SqlitePool, input: GetMeetingInput) -> Result<Me
 
 pub async fn get_meeting_transcript(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     input: GetMeetingTranscriptInput,
 ) -> Result<TranscriptPage> {
-    let exists = anlg_db_app::get_session(pool, &input.meeting_id)
+    let exists = anlg_db_app::get_session(pool, scope, &input.meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load meeting",
@@ -459,7 +512,7 @@ pub async fn get_meeting_transcript(
         return Err(Error::NotFound(format!("meeting '{}'", input.meeting_id)));
     }
 
-    let transcripts = load_transcripts(pool, &input.meeting_id).await?;
+    let transcripts = load_transcripts(pool, scope, &input.meeting_id).await?;
     Ok(paginate_transcripts(
         &input.meeting_id,
         &transcripts,
@@ -473,9 +526,10 @@ pub async fn get_meeting_transcript(
 
 pub async fn get_recurring_meeting_history(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     input: GetRecurringMeetingHistoryInput,
 ) -> Result<MeetingPage> {
-    let meeting = anlg_db_app::get_session(pool, &input.meeting_id)
+    let meeting = anlg_db_app::get_session(pool, scope, &input.meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load meeting",
@@ -497,6 +551,7 @@ pub async fn get_recurring_meeting_history(
 
     list_meetings(
         pool,
+        scope,
         ListMeetingsInput {
             query: None,
             series_id: Some(series_id.to_string()),
@@ -526,10 +581,11 @@ pub struct LocalMeetingExport {
 
 pub async fn get_local_meeting_export(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     meeting_id: String,
 ) -> Result<LocalMeetingExport> {
-    let export = get_meeting_export(pool, meeting_id.clone()).await?;
-    let session = anlg_db_app::get_session(pool, &meeting_id)
+    let export = get_meeting_export(pool, scope, meeting_id.clone()).await?;
+    let session = anlg_db_app::get_session(pool, scope, &meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load local meeting metadata",
@@ -540,9 +596,12 @@ pub async fn get_local_meeting_export(
         "SELECT a.id, COALESCE(l.relative_path,a.relative_path) relative_path,
          a.filename,a.content_type,a.size_bytes,a.sha256 FROM session_attachments a
          LEFT JOIN attachment_local_state l ON l.attachment_id=a.id
-         WHERE a.session_id=? AND a.deleted_at IS NULL ORDER BY a.id",
+         WHERE a.session_id=? AND a.deleted_at IS NULL AND a.workspace_id IN (?, ?)
+         ORDER BY a.id",
     )
     .bind(&meeting_id)
+    .bind(scope.sql_values()[0])
+    .bind(scope.sql_values()[1])
     .fetch_all(pool)
     .await
     .map_err(|source| Error::Database {
@@ -575,16 +634,21 @@ pub async fn get_local_meeting_export(
     })
 }
 
-pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result<MeetingExport> {
+pub async fn get_meeting_export(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    meeting_id: String,
+) -> Result<MeetingExport> {
     let (meeting, transcript_rows, speaker_context) = tokio::try_join!(
         get_meeting(
             pool,
+            scope,
             GetMeetingInput {
                 meeting_id: meeting_id.clone(),
             }
         ),
-        load_transcript_rows(pool, &meeting_id),
-        load_speaker_context(pool, &meeting_id),
+        load_transcript_rows(pool, scope, &meeting_id),
+        load_speaker_context(pool, scope, &meeting_id),
     )?;
     let self_human_id = transcript_rows
         .iter()
@@ -595,7 +659,7 @@ pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result
         .into_iter()
         .map(Transcript::from)
         .collect::<Vec<_>>();
-    let speakers = load_speakers(pool, &meeting, &transcripts, self_human_id).await?;
+    let speakers = load_speakers(pool, scope, &meeting, &transcripts, self_human_id).await?;
     Ok(MeetingExport {
         meeting,
         transcripts,
@@ -604,16 +668,23 @@ pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result
     })
 }
 
-async fn load_speaker_context(pool: &SqlitePool, meeting_id: &str) -> Result<Option<Value>> {
-    let metadata_json: Option<String> =
-        sqlx::query_scalar("SELECT metadata_json FROM sessions WHERE id = ?")
-            .bind(meeting_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(|source| Error::Database {
-                action: "load speaker context",
-                source,
-            })?;
+async fn load_speaker_context(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    meeting_id: &str,
+) -> Result<Option<Value>> {
+    let metadata_json: Option<String> = sqlx::query_scalar(
+        "SELECT metadata_json FROM sessions WHERE id = ? AND workspace_id IN (?, ?)",
+    )
+    .bind(meeting_id)
+    .bind(scope.sql_values()[0])
+    .bind(scope.sql_values()[1])
+    .fetch_optional(pool)
+    .await
+    .map_err(|source| Error::Database {
+        action: "load speaker context",
+        source,
+    })?;
     Ok(metadata_json
         .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
         .and_then(|mut metadata| match metadata.get_mut("speaker_context") {
@@ -624,6 +695,7 @@ async fn load_speaker_context(pool: &SqlitePool, meeting_id: &str) -> Result<Opt
 
 async fn load_speakers(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     meeting: &Meeting,
     transcripts: &[Transcript],
     self_human_id: Option<String>,
@@ -645,7 +717,9 @@ async fn load_speakers(
     for id in &human_ids {
         separated.push_bind(id);
     }
-    separated.push_unseparated(") ORDER BY id");
+    separated.push_unseparated(")");
+    anlg_db_app::push_workspace_scope(&mut query, "workspace_id", scope);
+    query.push(" ORDER BY id");
     let names = query
         .build_query_as::<(String, String)>()
         .fetch_all(pool)
@@ -891,17 +965,22 @@ impl From<anlg_db_app::SessionTranscriptRow> for Transcript {
     }
 }
 
-async fn load_transcripts(pool: &SqlitePool, meeting_id: &str) -> Result<Vec<Transcript>> {
-    load_transcript_rows(pool, meeting_id)
+async fn load_transcripts(
+    pool: &SqlitePool,
+    scope: &WorkspaceScope,
+    meeting_id: &str,
+) -> Result<Vec<Transcript>> {
+    load_transcript_rows(pool, scope, meeting_id)
         .await
         .map(|rows| rows.into_iter().map(Transcript::from).collect())
 }
 
 async fn load_transcript_rows(
     pool: &SqlitePool,
+    scope: &WorkspaceScope,
     meeting_id: &str,
 ) -> Result<Vec<anlg_db_app::SessionTranscriptRow>> {
-    anlg_db_app::list_session_transcripts(pool, meeting_id)
+    anlg_db_app::list_session_transcripts(pool, scope, meeting_id)
         .await
         .map_err(|source| Error::Database {
             action: "load transcript",
@@ -1032,10 +1111,61 @@ pub(crate) fn pagination(
 mod tests {
     use super::*;
 
+    fn test_scope() -> crate::WorkspaceScope {
+        crate::WorkspaceScope::local("test-workspace").unwrap()
+    }
+
     async fn test_db() -> anlg_db_core::Db {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "UPDATE app_settings SET value_json = '{\"workspace_id\":\"test-workspace\",\"account_user_id\":null}' WHERE id = 'cloudsync_workspace_binding'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         db
+    }
+
+    /// C6.4: MCP, Ask, the local API and bulk exports never list a Private
+    /// meeting; only an explicit include does. A single read by id still
+    /// works for its owner.
+    #[tokio::test]
+    async fn private_meetings_are_left_out_of_listings() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, title, workspace_id, private) VALUES
+             ('open', 'Open meeting', 'test-workspace', 0),
+             ('secret', 'Secret meeting', 'test-workspace', 1)",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let ids = |page: MeetingPage| {
+            page.meetings
+                .into_iter()
+                .map(|meeting| meeting.id)
+                .collect::<Vec<_>>()
+        };
+        let listed = list_meetings(db.pool(), &test_scope(), ListMeetingsInput::default())
+            .await
+            .unwrap();
+        assert_eq!(ids(listed), vec!["open".to_string()]);
+        let included =
+            list_meetings_including_private(db.pool(), &test_scope(), ListMeetingsInput::default())
+                .await
+                .unwrap();
+        assert_eq!(included.meetings.len(), 2);
+        let one = get_meeting(
+            db.pool(),
+            &test_scope(),
+            GetMeetingInput {
+                meeting_id: "secret".into(),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(one.id, "secret");
     }
 
     #[test]
@@ -1157,7 +1287,7 @@ mod tests {
         .await
         .unwrap();
 
-        let export = get_meeting_export(db.pool(), "meeting-1".to_string())
+        let export = get_meeting_export(db.pool(), &test_scope(), "meeting-1".to_string())
             .await
             .unwrap();
         assert_eq!(
@@ -1177,7 +1307,7 @@ mod tests {
         );
         let markdown = export.to_markdown();
         assert!(
-            markdown.ends_with("## Transcript\n\nSpeaker 1: Hello there\n\nAlice: Hi"),
+            markdown.ends_with("## Transcript\n\nMe: Hello there\n\nAlice: Hi"),
             "{markdown}"
         );
     }
@@ -1189,8 +1319,8 @@ mod tests {
             "INSERT INTO sessions
              (id, title, started_at, series_id, workspace_id, owner_user_id, metadata_json)
              VALUES
-             ('meeting-1', 'Planning', '2026-07-13', 'series-1', 'workspace-1', 'owner-1', '{\"private\":true}'),
-             ('meeting-2', 'Prior planning', '2026-07-06', 'series-1', 'workspace-1', 'owner-1', '{}')",
+             ('meeting-1', 'Planning', '2026-07-13', 'series-1', 'test-workspace', 'owner-1', '{\"private\":true}'),
+             ('meeting-2', 'Prior planning', '2026-07-06', 'series-1', 'test-workspace', 'owner-1', '{}')",
         )
         .execute(db.pool())
         .await
@@ -1236,6 +1366,7 @@ mod tests {
 
         let listed = list_meetings(
             db.pool(),
+            &test_scope(),
             ListMeetingsInput {
                 query: Some("plan".to_string()),
                 limit: Some(1),
@@ -1253,6 +1384,7 @@ mod tests {
 
         let meeting = get_meeting(
             db.pool(),
+            &test_scope(),
             GetMeetingInput {
                 meeting_id: "meeting-1".to_string(),
             },
@@ -1276,6 +1408,7 @@ mod tests {
 
         let transcript = get_meeting_transcript(
             db.pool(),
+            &test_scope(),
             GetMeetingTranscriptInput {
                 meeting_id: "meeting-1".to_string(),
                 offset: Some(1),
@@ -1290,6 +1423,7 @@ mod tests {
 
         let history = get_recurring_meeting_history(
             db.pool(),
+            &test_scope(),
             GetRecurringMeetingHistoryInput {
                 meeting_id: "meeting-1".to_string(),
                 limit: None,
@@ -1328,7 +1462,7 @@ mod tests {
             .await
             .unwrap();
 
-        let folders = list_folders(db.pool(), ListFoldersInput::default())
+        let folders = list_folders(db.pool(), &test_scope(), ListFoldersInput::default())
             .await
             .unwrap();
         assert_eq!(
@@ -1359,6 +1493,7 @@ mod tests {
 
         let searched = list_folders(
             db.pool(),
+            &test_scope(),
             ListFoldersInput {
                 query: Some("launch".to_string()),
                 limit: Some(1),
@@ -1373,6 +1508,7 @@ mod tests {
 
         let in_folder = list_meetings(
             db.pool(),
+            &test_scope(),
             ListMeetingsInput {
                 folder_path: Some(" Projects/Launch/ ".to_string()),
                 ..Default::default()
@@ -1391,6 +1527,7 @@ mod tests {
 
         let all = list_meetings(
             db.pool(),
+            &test_scope(),
             ListMeetingsInput {
                 folder_path: Some(String::new()),
                 ..Default::default()
@@ -1403,6 +1540,7 @@ mod tests {
 
         let invalid = list_meetings(
             db.pool(),
+            &test_scope(),
             ListMeetingsInput {
                 folder_path: Some("../Projects".to_string()),
                 ..Default::default()

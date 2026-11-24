@@ -7,6 +7,7 @@ import {
   IconHeaderView,
   copyTextToClipboard,
   getStoredNoteMarkdown,
+  useHeaderViewVariant,
 } from "./header-shared";
 
 import { useSession } from "~/session/queries";
@@ -66,12 +67,13 @@ function HeaderViewRawButton({
   standalone: boolean;
 }) {
   const { t } = useLingui();
+  const glass = useHeaderViewVariant() === "glass";
 
   return (
     <IconHeaderView
       isActive={isActive}
-      label={label || t`Memos`}
-      icon={<TextAlignLeft className="size-3.5" />}
+      label={label || (glass ? t`Notes` : t`Memos`)}
+      icon={glass ? null : <TextAlignLeft className="size-3.5" />}
       onClick={onClick}
       onContextMenu={onContextMenu}
       size={standalone ? "standalone" : "tray"}

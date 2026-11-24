@@ -1,9 +1,10 @@
-import { Apple } from "@lobehub/icons";
 import type { ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
 
 import { AiIconSlot, ProviderLobeIcon } from "~/settings/ai/shared";
+import { APP_MARK_ICON_SRC } from "~/shared/app-mark";
+import { APP_NAME } from "~/shared/app-name";
 import { staticAssetUrl, fallbackToLocalAsset } from "~/shared/static-assets";
 
 type ModelIconSpec = {
@@ -16,7 +17,7 @@ type ModelIconSpec = {
 };
 
 const MODEL_ICON_ASSET_BASE = "/assets/model-icons";
-const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
+const ANARLOG_ICON_SRC = APP_MARK_ICON_SRC;
 
 function getLocalModelIcon(model: string): ModelIconSpec | null {
   const value = model.toLowerCase();
@@ -24,7 +25,7 @@ function getLocalModelIcon(model: string): ModelIconSpec | null {
   if (value === "cloud") {
     return {
       label: "A",
-      title: "Anarlog Pro",
+      title: `${APP_NAME} Pro`,
       imageSrc: ANARLOG_ICON_SRC,
     };
   }
@@ -32,7 +33,7 @@ function getLocalModelIcon(model: string): ModelIconSpec | null {
   if (value === "apple-speech") {
     return {
       title: "Apple Speech",
-      node: <ProviderLobeIcon icon={Apple} />,
+      node: <ProviderLobeIcon icon="Apple" />,
     };
   }
 

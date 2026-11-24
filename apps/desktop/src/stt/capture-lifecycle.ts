@@ -25,6 +25,7 @@ import {
 } from "./capture-result";
 import { useListener } from "./contexts";
 import { discardEmptyAutomaticCapture } from "./empty-automatic-capture";
+import { isSessionMarkedInPerson } from "./in-person-sessions";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
 import { createNativeTranscriptPersistence } from "./native-transcript-persistence";
 import { persistTranscriptWrite } from "./persist-retry";
@@ -47,7 +48,6 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
-import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
 import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import {
   catalogLocalSessionAudio,
@@ -59,9 +59,16 @@ import {
   useSession,
   useSessionTranscriptExistence,
 } from "~/session/queries";
+import { APP_NAME } from "~/shared/app-name";
 import { playCompletionSound } from "~/shared/completion-sound";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
+import {
+  resolveSpeakerAttributionMode,
+  runPostCaptureSpeakerPass,
+} from "~/speakers/post-capture";
+import { maybeShowSpeakerSetupPrompt } from "~/speakers/setup-prompt";
+import { getLivePausedMs } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import type {
   LiveTranscriptPersistCallback,
@@ -88,6 +95,7 @@ import {
   useSessionParticipantHumanIds,
 } from "~/stt/queries";
 import { waitForSessionSearchIndex } from "~/stt/search-index-consistency";
+import { waitForSpeakerContextStop } from "~/stt/speaker-context-capture";
 
 const CLOUDSYNC_CAPTURE_ACTIVITY = "capture";
 export const CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS = 3;
@@ -196,7 +204,6 @@ export function useCaptureLifecycle(sessionId: string) {
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
-  const rememberSpeakers = useConfigValue("remember_speakers") === true;
   const {
     conn,
     isReady: connectionReady,
@@ -462,8 +469,7 @@ export function useCaptureLifecycle(sessionId: string) {
           audioRecovery.persistenceFailed();
           toast.error("Your transcript could not be saved", {
             id: `transcript-storage-${sessionId}`,
-            description:
-              "Free up disk space. Anarlog will try to recover the missing text while this meeting is still recording.",
+            description: `Free up disk space. ${APP_NAME} will try to recover the missing text while this meeting is still recording.`,
           });
           console.error("[listener] failed to persist transcript", error);
         },
@@ -498,8 +504,18 @@ export function useCaptureLifecycle(sessionId: string) {
           (chunk) => chunk.capture_started_at >= earliestStartedAt - 5_000,
         );
       };
+      // The last value seen while this capture was live, so gaps settled after
+      // stop still subtract every pause.
+      let capturePausedMs = 0;
       const audioRecovery = createCaptureAudioRecovery({
         startedAt,
+        pausedMs: () => {
+          const live = listenerStore.getState().live;
+          if (live.sessionId === sessionId) {
+            capturePausedMs = getLivePausedMs(live, Date.now());
+          }
+          return capturePausedMs;
+        },
         list: listRecoveryChunks,
         inherited: (chunk) => inheritedCaptureFor(chunk) !== undefined,
         acknowledge: async (chunk) => {
@@ -1051,7 +1067,7 @@ export function useCaptureLifecycle(sessionId: string) {
             });
             if (transcriptWriteError || !details.liveTranscriptionActive) {
               await notifyFailure(
-                "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
+                `${APP_NAME} could not finish saving the transcript. The recording was kept so you can try again.`,
                 "post-capture-transcript-incomplete",
               );
             } else {
@@ -1085,8 +1101,8 @@ export function useCaptureLifecycle(sessionId: string) {
         ) {
           await notifyFailure(
             details.audioPath
-              ? "Anarlog could not finish saving the transcript. The recording was kept so you can try again."
-              : "Anarlog could not save part of the live transcript.",
+              ? `${APP_NAME} could not finish saving the transcript. The recording was kept so you can try again.`
+              : `${APP_NAME} could not save part of the live transcript.`,
             details.audioPath
               ? "post-capture-transcript-incomplete"
               : "live-transcript-persist-failed",
@@ -1162,6 +1178,25 @@ export function useCaptureLifecycle(sessionId: string) {
             }
           }
         }
+        // Speaker pass runs before the summary so minutes and action owners
+        // use resolved names. It never blocks saving or the summary.
+        if (hasTranscriptEvidence && transcriptIsComplete) {
+          // The platform's active-speaker timeline is saved as the capture
+          // stops; let that land before the pass reads it.
+          await waitForSpeakerContextStop(sessionId);
+          await runPostCaptureSpeakerPass({
+            sessionId,
+            transcriptId,
+            mode: resolveSpeakerAttributionMode({
+              inPerson: isSessionMarkedInPerson(sessionId),
+              recovered: Boolean(recoveredMarker),
+            }),
+          });
+          if (!recoveredMarker && !pendingSummaryMode) {
+            void maybeShowSpeakerSetupPrompt(ownerUserId);
+          }
+        }
+
         const shouldEnhance =
           hasTranscriptEvidence &&
           (transcriptIsComplete ||
@@ -1193,7 +1228,7 @@ export function useCaptureLifecycle(sessionId: string) {
                 error,
               );
               await notifyFailure(
-                "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
+                `The transcript was saved, but ${APP_NAME} could not start the summary. Try generating it again.`,
                 "post-capture-summary-failed",
               );
               await requestRecovery();
@@ -1211,7 +1246,7 @@ export function useCaptureLifecycle(sessionId: string) {
             summaryScheduled = false;
             console.error("[listener] failed to schedule summary", error);
             await notifyFailure(
-              "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
+              `The transcript was saved, but ${APP_NAME} could not start the summary. Try generating it again.`,
               "post-capture-summary-failed",
             );
           }
@@ -1228,12 +1263,6 @@ export function useCaptureLifecycle(sessionId: string) {
 
         try {
           if (details.audioPath && transcriptIsComplete) {
-            await maybeExtractVoiceprintCandidates({
-              enabled: rememberSpeakers,
-              sessionId,
-              transcriptId,
-              audioPath: details.audioPath,
-            });
             await persistTranscriptWrite(() =>
               markSessionAudioTranscriptionComplete(sessionId),
             );
@@ -1356,15 +1385,13 @@ export function useCaptureLifecycle(sessionId: string) {
             toast.error("Audio could not be deleted", {
               id: `audio-deletion-${sessionId}`,
               duration: Infinity,
-              description:
-                "Anarlog could not remove the temporary audio. Cleanup will be retried automatically.",
+              description: `${APP_NAME} could not remove the temporary audio. Cleanup will be retried automatically.`,
             });
           } else if (audioKeptForTranscription) {
             toast.warning("Audio kept to finish your transcript", {
               id: `capture-incomplete-${sessionId}`,
               duration: Infinity,
-              description:
-                "Part of this meeting could not be transcribed yet, so Anarlog kept its temporary audio on purpose. It will be deleted automatically once transcription succeeds.",
+              description: `Part of this meeting could not be transcribed yet, so ${APP_NAME} kept its temporary audio on purpose. It will be deleted automatically once transcription succeeds.`,
             });
           }
         } else {
@@ -1512,7 +1539,6 @@ export function useCaptureLifecycle(sessionId: string) {
       conn?.model,
       conn?.provider,
       participantHumanIds,
-      rememberSpeakers,
       session?.raw_md,
       session?.user_id,
       sessionId,

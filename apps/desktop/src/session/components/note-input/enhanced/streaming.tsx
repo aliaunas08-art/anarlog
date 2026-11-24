@@ -15,16 +15,16 @@ function SummaryTitleSpace({ title }: { title: string }) {
   return (
     <div
       data-testid="summary-title-space"
-      className="pointer-events-none mb-4 flex min-h-[1.875rem] items-start"
+      className="pointer-events-none mb-5 flex min-h-[calc(var(--cf-title-size)*var(--cf-title-leading))] min-w-0 items-start"
     >
       {title ? (
-        <h1 className="text-foreground text-[1.5rem] leading-[1.875rem] font-bold">
+        <h1 className="cf-editorial-title min-w-0 truncate py-[0.08em]">
           {title}
         </h1>
       ) : (
         <span
           aria-hidden="true"
-          className="text-muted-foreground animate-pulse text-[1.5rem] leading-[1.875rem] font-bold opacity-60"
+          className="cf-editorial-title animate-pulse truncate py-[0.08em] opacity-40"
         >
           <Trans>Generating title...</Trans>
         </span>
@@ -89,7 +89,7 @@ export function StreamingView({
                 appears.
               </Trans>
             ) : (
-              <Trans>Tip: The Anarlog team loves our users!</Trans>
+              <Trans>Tip: The Notes team loves our users!</Trans>
             )}
           </span>
         </p>

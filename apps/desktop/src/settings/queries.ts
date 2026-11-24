@@ -2,6 +2,7 @@ import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { commands as auditCommands } from "@anlg/plugin-audit";
 import { commands as detectCommands } from "@anlg/plugin-detect";
 import {
   commands as localSttCommands,
@@ -119,7 +120,7 @@ export async function initializeApplicationSettings(): Promise<void> {
     !stored.hasValues.has("crash_reporting_consent") &&
     stored.hasValues.has("telemetry_consent")
   ) {
-    updates.crash_reporting_consent = stored.values.telemetry_consent ?? true;
+    updates.crash_reporting_consent = stored.values.telemetry_consent ?? false;
   }
 
   if (normalizedSttSelection.provider !== stored.values.current_stt_provider) {
@@ -347,7 +348,13 @@ async function persistSettingValues(values: SettingValues): Promise<void> {
     `,
     params: [key, JSON.stringify(value), now],
   }));
-  if (statements.length > 0) await executeTransaction(statements);
+  if (statements.length > 0) {
+    await executeTransaction(statements);
+    // ASPC D1.4: key names only, never values.
+    void auditCommands
+      .recordSettingsChange(Object.keys(values))
+      .catch(() => undefined);
+  }
   applySettingSideEffects(values);
 }
 
@@ -487,11 +494,15 @@ function applySettingSideEffects(values: SettingValues): void {
       .setMicActiveThreshold(values.mic_active_threshold)
       .catch(console.error);
   }
-  if (values.telemetry_consent !== undefined) {
-    setSessionReplayAnalyticsEnabled(values.telemetry_consent);
+  // ASPC D6: analytics is off unless the user opted in. Rust also defaults
+  // to off, so nothing is sent before this runs.
+  if (values.analytics_opt_in !== undefined) {
     void analyticsCommands
-      .setDisabled(!values.telemetry_consent)
+      .setDisabled(values.analytics_opt_in !== true)
       .catch(console.error);
+  }
+  if (values.session_replay_opt_in !== undefined) {
+    setSessionReplayAnalyticsEnabled(values.session_replay_opt_in === true);
   }
   if (values.crash_reporting_consent !== undefined) {
     void setErrorReportingEnabled(values.crash_reporting_consent).catch(

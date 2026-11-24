@@ -121,6 +121,30 @@ async setMicActiveThreshold(secs: number) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Starts recording who the meeting platform marks as speaking. Any earlier
+ * unfinished timeline is discarded.
+ */
+async startActiveSpeakerTracking() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|start_active_speaker_tracking") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stops tracking and returns the timeline, or nothing if tracking was not
+ * running.
+ */
+async stopActiveSpeakerTracking() : Promise<Result<ActiveSpeakerTimeline | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|stop_active_speaker_tracking") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -139,6 +163,20 @@ detectEvent: "plugin:detect:detect-event"
 
 /** user-defined types **/
 
+export type ActiveSpeakerInterval = { start_ms: number; end_ms: number; 
+/**
+ * Remote participants the platform marked as speaking.
+ */
+speakers: string[]; self_speaking: boolean }
+export type ActiveSpeakerTimeline = { version: number; platform: MeetingPlatform | null; app_id: string | null; 
+/**
+ * Samples taken while a call was in progress.
+ */
+samples: number; 
+/**
+ * Of those, samples where the platform marked someone as speaking.
+ */
+tagged_samples: number; intervals: ActiveSpeakerInterval[] }
 export type DetectEvent = { type: "micDetected"; key: string; apps: InstalledApp[]; duration_secs: number } | { type: "micStopped"; apps: InstalledApp[] } | { type: "micMuted"; value: boolean } | { type: "sleepStateChanged"; value: boolean }
 export type InstalledApp = { id: string; name: string }
 export type InstalledApplicationIcon = { id: string; dataUrl: string }

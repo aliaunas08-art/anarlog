@@ -5,6 +5,7 @@ import { DefaultMeetingShareAccessSelector } from "./default-share-access";
 import { PrimaryRecordingDeviceSelector } from "./primary-recording-device";
 
 import { SettingSwitchRow } from "~/settings/setting-row";
+import { APP_NAME } from "~/shared/app-name";
 
 interface SettingItem {
   value: boolean;
@@ -103,9 +104,12 @@ export function MeetingSettingsView({
         />
       )}
       <SettingSwitchRow
-        title={<Trans>Show floating bar</Trans>}
+        title={<Trans>Show floating recording bar</Trans>}
         description={
-          <Trans>Control listening without reopening Anarlog.</Trans>
+          <Trans>
+            While you record with {APP_NAME} in the background, a small bar with
+            the timer and Stop stays at the bottom of the screen.
+          </Trans>
         }
         checked={floatingBar.value}
         onChange={floatingBar.onChange}

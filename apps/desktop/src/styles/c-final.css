@@ -1,0 +1,602 @@
+/*
+ * "C · Final" design tokens (prototype rebrand).
+ * Apple blue accent, Liquid Glass approximation for floating controls,
+ * hairlines, motion — with Reduce Transparency / Motion / Contrast fallbacks.
+ *
+ * The board's `t` table lives here once as --cf-* tokens. The block at the
+ * bottom of this section remaps the shared shadcn tokens (--background,
+ * --card, --border, …) onto the same palette so every existing component
+ * picks up the new look. Edit colours here, not in components.
+ */
+
+@layer theme {
+  :root {
+    --cf-accent: #0071e3;
+    --cf-on-accent: #ffffff;
+    --cf-record: #ff3b30;
+
+    --cf-window: #fbfbfd;
+    --cf-surface: #ffffff;
+    --cf-control: #ffffff;
+    --cf-label: #1d1d1f;
+    --cf-secondary: #6e6e73;
+    --cf-ai: #6e6e73;
+    --cf-tertiary: #aeaeb2;
+    --cf-separator: rgba(0, 0, 0, 0.08);
+    --cf-separator-strong: rgba(0, 0, 0, 0.25);
+    --cf-fill: rgba(120, 120, 128, 0.12);
+    --cf-selection: rgba(0, 0, 0, 0.06);
+    --cf-chip: rgba(255, 255, 255, 0.6);
+    /* Opaque "glass over the window" colour: sticky headers and fades inside
+     * the sidebar panel paint with it so they match the panel. */
+    --cf-sidebar-bg: #fefeff;
+
+    --cf-glass-bg:
+      linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.85) 0%,
+      rgba(255, 255, 255, 0.52) 100%
+    ), rgba(250, 250, 252, 0.3);
+    --cf-glass-edge: rgba(0, 0, 0, 0.06);
+    --cf-glass-shadow:
+      inset 1px 1.5px 0 rgba(255, 255, 255, 1), inset -1px -1px 0 rgba(
+      255,
+      255,
+      255,
+      0.8
+    ), inset 0 -10px 18px rgba(255, 255, 255, 0.45), 0 10px 30px rgba(
+      0,
+      0,
+      0,
+      0.12
+    ), 0 1px 3px rgba(0, 0, 0, 0.08);
+    /* Docked sidebar panel: tight outer shadow, since the resizable panel clips
+     * anything past its 4–8px frame. */
+    --cf-panel-shadow:
+      inset 1px 1.5px 0 rgba(255, 255, 255, 1), inset -1px -1px 0 rgba(
+      255,
+      255,
+      255,
+      0.8
+    ), 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.04);
+    --cf-glass-sel: rgba(0, 0, 0, 0.07);
+    --cf-glass-solid: #f5f5f7;
+    /* Flat segmented control: opaque so it can float over scrolling text. */
+    --cf-seg-bg: #efeff2;
+    --cf-seg-edge: rgba(0, 0, 0, 0.08);
+
+    --cf-composer-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 28px rgba(0, 0, 0, 0.06);
+
+    /* Editorial type scale (meeting title, section heads, prose). */
+    --cf-title-size: 46px;
+    --cf-title-tracking: -0.035em;
+    --cf-title-leading: 1.02;
+    --cf-prose-size: 15px;
+    --cf-prose-leading: 1.5;
+
+    --cf-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --cf-dur: 200ms;
+  }
+
+  .dark {
+    --cf-accent: #0a84ff;
+    /* Pitch black: the window, sidebar and content are #000; raised surfaces
+     * (composer, cards, popovers, menus) get only a near-black lift. */
+    --cf-window: #000000;
+    --cf-surface: #111113;
+    --cf-control: #1c1c1e;
+    --cf-label: #f5f5f7;
+    --cf-secondary: #a1a1a6;
+    --cf-ai: #a1a1a6;
+    --cf-tertiary: #6e6e73;
+    --cf-separator: rgba(255, 255, 255, 0.08);
+    --cf-separator-strong: rgba(255, 255, 255, 0.24);
+    --cf-fill: rgba(255, 255, 255, 0.08);
+    --cf-selection: rgba(255, 255, 255, 0.09);
+    --cf-chip: rgba(255, 255, 255, 0.03);
+    /* Sidebar is the same black as the window, split off by a hairline. */
+    --cf-sidebar-bg: #000000;
+
+    --cf-glass-bg:
+      linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    ), rgba(20, 20, 22, 0.72);
+    --cf-glass-edge: rgba(255, 255, 255, 0.1);
+    --cf-glass-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.34), inset -1px -1px 0 rgba(
+      255,
+      255,
+      255,
+      0.1
+    ), inset 0 0 18px rgba(255, 255, 255, 0.05), 0 12px 32px rgba(0, 0, 0, 0.5),
+      0 2px 6px rgba(0, 0, 0, 0.3);
+    --cf-panel-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.22), inset -1px -1px 0 rgba(
+      255,
+      255,
+      255,
+      0.06
+    ), 0 1px 3px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --cf-glass-sel: rgba(255, 255, 255, 0.12);
+    --cf-glass-solid: #1c1c1e;
+    --cf-seg-bg: #161618;
+    --cf-seg-edge: rgba(255, 255, 255, 0.1);
+
+    --cf-composer-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.04), 0 8px 28px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/*
+ * Base theme remap. design-system/tokens.css defines these in `@layer base`;
+ * this file is imported later, so the same layer wins without !important.
+ * Values are HSL triplets (the shared contract is `hsl(var(--x))`), with
+ * translucent board values flattened over the window colour.
+ *   light: window #FBFBFD · surface #FFF · label #1D1D1F · secondary #6E6E73
+ *   dark:  window #000 · surface #111113 · control #1C1C1E · label #F5F5F7
+ */
+@layer base {
+  :root {
+    --background: 240 33% 98.8%; /* #FBFBFD window */
+    --foreground: 240 3% 11.8%; /* #1D1D1F label */
+    --card: 0 0% 100%; /* #FFFFFF surface */
+    --card-foreground: 240 3% 11.8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 3% 11.8%;
+    --primary: 210 100% 44.5%; /* #0071E3 accent */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 6% 93.5%; /* fill over window */
+    --secondary-foreground: 240 3% 11.8%;
+    --muted: 240 6% 94.5%;
+    --muted-foreground: 240 2% 44.1%; /* #6E6E73 secondary */
+    --accent: 240 4% 93%; /* selection over window */
+    --accent-foreground: 240 3% 11.8%;
+    --border: 240 4% 91%; /* 8% separator over window */
+    --input: 240 4% 88%;
+    --ring: 210 100% 44.5%;
+    --app-floating-chrome: 240 6% 95%;
+    --app-floating-panel: 0 0% 100%;
+    --app-floating-border: 240 4% 87%;
+    --sidebar-accent: 240 4% 92%;
+    --sidebar-background: 240 33% 99.6%;
+    --sidebar-foreground: 240 3% 11.8%;
+    --sidebar-border: 240 4% 91%;
+    --sidebar-ring: 210 100% 44.5%;
+  }
+
+  .dark {
+    --background: 0 0% 0%; /* #000 window */
+    --foreground: 240 11% 96.5%; /* #F5F5F7 label */
+    --card: 240 6% 7%; /* #111113 surface */
+    --card-foreground: 240 11% 96.5%;
+    --popover: 240 3% 11.4%; /* #1C1C1E menus / popovers */
+    --popover-foreground: 240 11% 96.5%;
+    --primary: 210 100% 52%; /* #0A84FF accent */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3% 11%; /* fill over window */
+    --secondary-foreground: 240 11% 96.5%;
+    --muted: 240 3% 9.5%;
+    --muted-foreground: 240 3% 64%; /* #A1A1A6 secondary */
+    --accent: 240 2% 12%; /* hover / selection over black */
+    --accent-foreground: 240 11% 96.5%;
+    --border: 240 2% 14%; /* hairline on black */
+    --input: 240 2% 18%;
+    --ring: 210 100% 52%;
+    --app-floating-chrome: 240 3% 11.4%; /* #1C1C1E control */
+    --app-floating-panel: 240 4% 8.5%;
+    --app-floating-border: 240 3% 17%;
+    --sidebar-accent: 240 2% 11%;
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 240 11% 96.5%;
+    --sidebar-border: 240 2% 12%;
+    --sidebar-ring: 210 100% 52%;
+  }
+}
+
+/* Real monospace only where it means "code": the UI remaps --font-mono to the
+ * system font (see globals.css @theme), and these opt back in. */
+code,
+pre,
+kbd.cf-code,
+[data-cf-code] {
+  --font-mono: var(--font-code);
+}
+
+/* Flat, airy sidebar (Claude / ChatGPT style): full height, no card, split
+ * from the content by a hairline only. */
+@utility cf-sidebar-panel {
+  background: var(--cf-sidebar-bg);
+  border-right: 0.5px solid var(--cf-separator);
+}
+
+/* Floating Liquid Glass capsule (toolbars, HUD, sidebars). */
+@utility cf-glass {
+  background: var(--cf-glass-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.06);
+  border: 0.5px solid var(--cf-glass-edge);
+  box-shadow: var(--cf-glass-shadow);
+}
+
+/* Selected item inside a glass capsule. */
+@utility cf-glass-sel {
+  background: var(--cf-glass-sel);
+}
+
+/* Accent-tinted glass (primary actions). */
+@utility cf-glass-tint {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.24) 0%,
+      rgba(255, 255, 255, 0) 60%
+    ),
+    var(--cf-accent);
+  color: var(--cf-on-accent);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.3),
+    0 2px 8px color-mix(in srgb, var(--cf-accent) 30%, transparent);
+}
+
+@utility cf-hairline {
+  border: 0.5px solid var(--cf-separator);
+}
+
+@utility cf-motion {
+  transition-duration: var(--cf-dur);
+  transition-timing-function: var(--cf-ease);
+}
+
+@keyframes cf-record-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 59, 48, 0);
+  }
+}
+
+@utility cf-record-dot {
+  background: var(--cf-record);
+  border-radius: 9999px;
+  animation: cf-record-pulse 1.6s var(--cf-ease) infinite;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cf-glass {
+    background: var(--cf-glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .cf-glass,
+  .cf-sidebar-panel,
+  .cf-hairline {
+    border-color: var(--cf-label);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-record-dot {
+    animation: none;
+  }
+  .cf-motion {
+    transition-duration: 0ms;
+  }
+}
+
+/*
+ * Session view prose (Minutes / Notes / shared summary). Scoped to the
+ * session content column so other note surfaces keep the shared typography.
+ */
+@utility cf-editorial-title {
+  color: var(--cf-label);
+  font-weight: 700;
+  font-size: var(--cf-title-size);
+  line-height: var(--cf-title-leading);
+  letter-spacing: var(--cf-title-tracking);
+}
+
+[data-session-content-column] {
+  /* Board: 10px under the title, an 18px meta row, then 26px to the body. */
+  --cf-meta-row: 18px;
+  --cf-title-gap: 26px;
+  --note-editor-font-size: var(--cf-prose-size);
+}
+
+[data-session-content-column] .note-typography {
+  line-height: var(--cf-prose-leading);
+}
+
+[data-session-content-column] .note-typography li {
+  line-height: var(--cf-prose-leading);
+}
+
+/* Minutes: the summary's first-line H1 is the session title. `first-of-type`
+ * because the comment-anchor widget can sit before it as the first child. */
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography.note-title-editor
+  > h1:first-of-type {
+  margin-bottom: var(--cf-title-gap);
+  padding-block: 0.04em 0.1em;
+  color: var(--cf-label);
+  font-weight: 700;
+  font-size: var(--cf-title-size);
+  line-height: var(--cf-title-leading);
+  letter-spacing: var(--cf-title-tracking);
+  text-wrap: balance;
+}
+
+/* Room for the participants row, which is laid over this gap. */
+[data-session-content-column][data-cf-view="enhanced"][data-cf-meta]
+  .note-typography.note-title-editor
+  > h1:first-of-type {
+  margin-bottom: calc(10px + var(--cf-meta-row) + var(--cf-title-gap));
+}
+
+/* At most two lines with an ellipsis while reading; unfolds while the caret
+ * is in the title (`note-title-active`, set by the editor) so nothing being
+ * edited is hidden. */
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography.note-title-editor
+  > h1:first-of-type:not(.note-title-editor:focus > .note-title-active) {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* Section heads at every level below the title: 12px bold uppercase with a
+ * 1px label-colour rule above (board's "Decided" / "Still open" / "Actions").
+ * The rule is a pseudo-element so it spans the text column, not the editor's
+ * hover-row inset. */
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography
+  > :is(h1:not(:first-of-type), h2, h3, h4, h5, h6) {
+  position: relative;
+  margin-top: 1.75rem;
+  margin-bottom: 0.375rem;
+  padding-top: 12px;
+  color: var(--cf-label);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography
+  > :is(h1:not(:first-of-type), h2, h3, h4, h5, h6)::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-top: 1px solid var(--cf-label);
+  content: "";
+  pointer-events: none;
+}
+
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography.prosemirror-editor
+  > :is(h1:not(:first-of-type), h2, h3, h4, h5, h6)::before {
+  right: 0.75rem;
+  left: 0.75rem;
+}
+
+/* The first section right under the title (or the lead) needs no extra gap. */
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography
+  > h1:first-of-type
+  + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0;
+}
+
+/* Lead: a paragraph straight after the title reads as the board's 19px
+ * summary line in the AI colour; emphasis inside it stays label colour. */
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography
+  > h1:first-of-type
+  + p:not(:empty, :has(> br:only-child)) {
+  color: var(--cf-ai);
+  font-size: 19px;
+  line-height: 1.5;
+  letter-spacing: -0.012em;
+}
+
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography
+  > h1:first-of-type
+  + p
+  :is(strong, b) {
+  color: var(--cf-label);
+  font-weight: 600;
+}
+
+[data-session-content-column][data-cf-view="enhanced"]
+  .note-typography
+  > h1:first-of-type
+  + p:not(:empty, :has(> br:only-child))
+  + * {
+  margin-top: var(--cf-title-gap);
+}
+
+/* Notes view: memo headings keep a document hierarchy, scaled to the board. */
+[data-session-content-column][data-cf-view="raw"] .note-typography > h1 {
+  font-size: 1.4em;
+  letter-spacing: -0.015em;
+}
+
+[data-session-content-column] .note-typography h3 {
+  font-weight: 600;
+  font-size: 1em;
+}
+
+/* Bullets: small, secondary colour. */
+[data-session-content-column]
+  .note-typography
+  ul:not([data-type="taskList"])
+  > li::before {
+  color: var(--cf-secondary);
+}
+
+[data-session-content-column]
+  .note-typography
+  > ul:not([data-type="taskList"])
+  > li::before {
+  width: 0.36em;
+  height: 0.36em;
+}
+
+/*
+ * Segmented controls (session bottom bar, Ask scope, Tasks views) are flat 2D
+ * on the Mac: a subtle opaque fill with a hairline, and the selected segment
+ * is a solid label-colour pill like the Record / New note buttons. No glass
+ * bevel, inner highlight or shadow.
+ */
+@utility cf-seg {
+  background: var(--cf-seg-bg);
+  border: 0.5px solid var(--cf-seg-edge);
+}
+
+.cf-bar-thumb {
+  background: var(--cf-label);
+}
+
+@media (prefers-contrast: more) {
+  .cf-seg {
+    border-color: var(--cf-label);
+  }
+}
+
+/* Action capsules under the summary (board: 32px, hairline, control fill). */
+@utility cf-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding-inline: 14px;
+  border: 0.5px solid var(--cf-separator);
+  background: var(--cf-control);
+  color: var(--cf-label);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/*
+ * Toasts in the C · Final glass. The shared toast (packages/ui app-toast)
+ * paints opaque popover chrome for the web app; the desktop restyles it here
+ * through its data-slots so both stay one component.
+ */
+[data-app-toast] {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.dark [data-app-toast] {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-app-toast] > [data-slot="smooth-corners"] {
+  background: var(--cf-glass-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.06);
+  color: var(--cf-label);
+  /* Border drawn inside: the squircle clip-path would cut an outer one. */
+  box-shadow:
+    inset 0 0 0 0.5px var(--cf-glass-edge),
+    inset 1px 1.5px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -10px 18px rgba(255, 255, 255, 0.35);
+}
+
+.dark [data-app-toast] > [data-slot="smooth-corners"] {
+  box-shadow:
+    inset 0 0 0 0.5px var(--cf-glass-edge),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+[data-app-toast] [data-slot="app-toast-message"] {
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+[data-app-toast][data-tone="info"] [data-slot="app-toast-leading"] > svg {
+  color: var(--cf-accent);
+}
+
+[data-app-toast] [data-slot="app-toast-actions"] > button {
+  min-height: 26px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background-color var(--cf-dur) var(--cf-ease),
+    transform 100ms ease-out;
+}
+
+[data-app-toast]
+  [data-slot="app-toast-actions"]
+  > button[data-variant="primary"] {
+  background: color-mix(in srgb, var(--cf-accent) 12%, transparent);
+  color: var(--cf-accent);
+}
+
+[data-app-toast]
+  [data-slot="app-toast-actions"]
+  > button[data-variant="primary"]:hover {
+  background: color-mix(in srgb, var(--cf-accent) 18%, transparent);
+}
+
+[data-app-toast]
+  [data-slot="app-toast-actions"]
+  > button[data-variant="secondary"] {
+  background: var(--cf-fill);
+  color: var(--cf-label);
+}
+
+[data-app-toast]
+  [data-slot="app-toast-actions"]
+  > button[data-variant="secondary"]:hover {
+  background: var(--cf-glass-sel);
+}
+
+[data-app-toast] [data-slot="app-toast-timer"] {
+  background: transparent;
+  border-top: 0.5px solid var(--cf-separator);
+  color: var(--cf-secondary);
+}
+
+[data-app-toast] [data-slot="app-toast-timer"]:hover {
+  background: var(--cf-glass-sel);
+}
+
+[data-app-toast] [data-slot="app-toast-progress"] {
+  background: var(--cf-accent);
+  opacity: 0.55;
+}
+
+[data-app-toast][data-tone="error"] [data-slot="app-toast-progress"] {
+  background: var(--cf-record);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  [data-app-toast] > [data-slot="smooth-corners"] {
+    background: var(--cf-glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  [data-app-toast] > [data-slot="smooth-corners"] {
+    box-shadow: inset 0 0 0 1px var(--cf-label);
+  }
+}

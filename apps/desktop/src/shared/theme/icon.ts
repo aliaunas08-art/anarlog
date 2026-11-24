@@ -12,23 +12,16 @@ export type AppIconPreference =
   | "typewriter-key"
   | "walnut";
 
+/**
+ * Only the Timbre icon is offered now. The other names (the old Anarlog
+ * artwork: Anagram, Field Journal, Stone…) stay in the type so old builds'
+ * stored values still parse, but any stored choice falls back to the
+ * default, so the Dock never shows the previous brand.
+ */
 export function normalizeAppIconPreference(
-  value: string | null | undefined,
+  _value: string | null | undefined,
 ): AppIconPreference {
-  switch (value) {
-    case "stable":
-    case "anagram":
-    case "dev":
-    case "staging":
-    case "journal":
-    case "notepad":
-    case "stone":
-    case "typewriter-key":
-    case "walnut":
-      return value;
-    default:
-      return "default";
-  }
+  return "default";
 }
 
 export function resolveAppIconName(

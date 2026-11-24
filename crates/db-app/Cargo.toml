@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-aspc = { workspace = true }
 anlg-cloudsync = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-migrate = { workspace = true }

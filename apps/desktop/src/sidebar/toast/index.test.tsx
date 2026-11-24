@@ -25,9 +25,8 @@ const mocks = vi.hoisted(() => ({
     id?: string;
     state?: { tab?: string; view?: { type: string } };
   },
+  engineKeyPresent: true,
   config: {
-    current_llm_provider: "local" as string | null,
-    current_llm_model: "model" as string | null,
     current_stt_provider: "local" as string | null,
     current_stt_model: "model" as string | null,
   },
@@ -72,6 +71,10 @@ vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
 
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: null, signIn: mocks.signIn }),
+}));
+
+vi.mock("~/ai/engine", () => ({
+  useEngineKeyStatus: () => ({ data: { present: mocks.engineKeyPresent } }),
 }));
 
 vi.mock("~/auth/cloudsync-progress", () => ({
@@ -165,8 +168,7 @@ describe("ToastNotifications", () => {
     mocks.openNew.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.currentTab = { type: "empty" };
-    mocks.config.current_llm_provider = "local";
-    mocks.config.current_llm_model = "model";
+    mocks.engineKeyPresent = true;
     mocks.config.current_stt_provider = "local";
     mocks.config.current_stt_model = "model";
     mocks.notifications.hasActiveDownload = false;
@@ -196,7 +198,7 @@ describe("ToastNotifications", () => {
     act(() => vi.advanceTimersByTime(500));
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Sign in to get the most out of Anarlog",
+      "Sign in to get the most out of Notes",
       expect.objectContaining({
         id: "sign-in-benefits",
         duration: Infinity,
@@ -320,7 +322,7 @@ describe("ToastNotifications", () => {
     view.rerender(<ToastNotifications />);
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Anarlog 1.0.34 is ready to install",
+      "Notes 1.0.34 is ready to install",
       expect.objectContaining({
         id: "desktop-update:1.0.34:ready",
         action: expect.objectContaining({ label: "Restart" }),
@@ -342,7 +344,7 @@ describe("ToastNotifications", () => {
     act(() => vi.advanceTimersByTime(500));
 
     expect(mocks.loading).toHaveBeenCalledWith(
-      "Downloading Anarlog 1.0.34 (10%)",
+      "Downloading Notes 1.0.34 (10%)",
       expect.objectContaining({
         id: "desktop-update:1.0.34:downloading",
         duration: Infinity,
@@ -356,7 +358,7 @@ describe("ToastNotifications", () => {
 
     expect(mocks.dismiss).not.toHaveBeenCalled();
     expect(mocks.loading).toHaveBeenCalledWith(
-      "Downloading Anarlog 1.0.34 (58%)",
+      "Downloading Notes 1.0.34 (58%)",
       expect.objectContaining({
         id: "desktop-update:1.0.34:downloading",
       }),
@@ -365,8 +367,7 @@ describe("ToastNotifications", () => {
 
   it("uses the latest registry action while a toast remains visible", () => {
     mocks.dismissedToastIds.add("auth-promotion");
-    mocks.config.current_llm_provider = null;
-    mocks.config.current_llm_model = null;
+    mocks.engineKeyPresent = false;
 
     const view = render(<ToastNotifications />);
 
@@ -433,7 +434,7 @@ describe("ToastNotifications", () => {
     act(() => vi.advanceTimersByTime(500));
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Anarlog 1.0.34 is ready to install",
+      "Notes 1.0.34 is ready to install",
       expect.objectContaining({ id: "desktop-update:1.0.34:ready" }),
     );
   });
@@ -469,7 +470,7 @@ describe("ToastNotifications", () => {
     act(() => vi.advanceTimersByTime(500));
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Anarlog 1.0.34 is available",
+      "Notes 1.0.34 is available",
       expect.objectContaining({ id: "desktop-update:1.0.34:available" }),
     );
 
@@ -484,7 +485,7 @@ describe("ToastNotifications", () => {
     view.rerender(<ToastNotifications />);
 
     expect(mocks.message).toHaveBeenCalledWith(
-      "Anarlog 1.0.34 is available",
+      "Notes 1.0.34 is available",
       expect.objectContaining({ id: "desktop-update:1.0.34:available" }),
     );
   });
@@ -503,7 +504,7 @@ describe("ToastNotifications", () => {
     mocks.live = { status: "active", sessionId: "meeting-1" };
     view.rerender(<ToastNotifications />);
     expect(mocks.message).not.toHaveBeenCalledWith(
-      "Anarlog 1.0.34 is available",
+      "Notes 1.0.34 is available",
       expect.anything(),
     );
 
@@ -511,7 +512,7 @@ describe("ToastNotifications", () => {
     view.rerender(<ToastNotifications />);
 
     expect(mocks.message).not.toHaveBeenCalledWith(
-      "Anarlog 1.0.34 is available",
+      "Notes 1.0.34 is available",
       expect.anything(),
     );
   });

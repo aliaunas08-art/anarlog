@@ -9,8 +9,12 @@ impl<R: tauri::Runtime, M: tauri::Manager<R>> Template<'_, R, M> {
     pub fn render_custom(
         &self,
         template_content: &str,
-        ctx: serde_json::Map<String, serde_json::Value>,
+        mut ctx: serde_json::Map<String, serde_json::Value>,
     ) -> Result<String, String> {
+        // B3.1: context values are external content; escape them so they
+        // can't close the template's data blocks.
+        ctx.values_mut()
+            .for_each(anlg_template_app::escape_json_strings);
         anlg_template_app_legacy::render_custom(template_content, &ctx)
             .map(|s| s.trim().to_string())
             .map_err(|e| e.to_string())

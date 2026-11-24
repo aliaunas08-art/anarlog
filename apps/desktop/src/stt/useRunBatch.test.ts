@@ -36,7 +36,6 @@ const {
   deleteProcessedAudioForRetentionMock,
   saveBatchTranscriptMock,
   reconcileRefinedSpeakerClustersMock,
-  maybeExtractVoiceprintCandidatesMock,
   notifyBatchCompletedMock,
   idMock,
   archMock,
@@ -58,7 +57,6 @@ const {
   deleteProcessedAudioForRetentionMock: vi.fn(),
   saveBatchTranscriptMock: vi.fn(),
   reconcileRefinedSpeakerClustersMock: vi.fn(),
-  maybeExtractVoiceprintCandidatesMock: vi.fn(),
   notifyBatchCompletedMock: vi.fn(),
   idMock: vi.fn(),
   archMock: vi.fn(),
@@ -114,10 +112,6 @@ vi.mock("~/services/audio-retention", () => ({
   deleteProcessedAudioForRetention: deleteProcessedAudioForRetentionMock,
   normalizeAudioRetention: (value: unknown) =>
     typeof value === "string" ? value : "forever",
-}));
-
-vi.mock("~/services/voiceprint", () => ({
-  maybeExtractVoiceprintCandidates: maybeExtractVoiceprintCandidatesMock,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -686,7 +680,7 @@ describe("useRunBatch", () => {
 
   test("promotes post-stop batch by replacing the live current capture", async () => {
     useConfigValueMock.mockImplementation((key) =>
-      key === "remember_speakers" ? true : key === "ai_language" ? "en" : [],
+      key === "ai_language" ? "en" : [],
     );
     saveBatchTranscriptMock.mockResolvedValueOnce({
       status: "ok",
@@ -752,14 +746,6 @@ describe("useRunBatch", () => {
         hints: expect.arrayContaining([
           expect.objectContaining({ type: "provider_speaker_index" }),
         ]),
-      }),
-    );
-    expect(maybeExtractVoiceprintCandidatesMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        enabled: true,
-        sessionId: "session-1",
-        transcriptId: "saved-transcript-id",
-        audioPath: "/tmp/session.wav",
       }),
     );
   });

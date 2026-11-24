@@ -18,8 +18,16 @@ pub async fn get_onboarding_needed<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_onboarding_needed<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_onboarding_needed(v).map_err(|e| e.to_string())
 }
 
@@ -27,7 +35,15 @@ pub async fn set_onboarding_needed<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_dismissed_toasts<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_dismissed_toasts()
 }
 
@@ -35,15 +51,36 @@ pub async fn get_dismissed_toasts<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_dismissed_toasts<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: Vec<String>,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_dismissed_toasts(v)
 }
 
+/// Environment variables the webview may read (ASPC A3.7). Only non-secret
+/// build flags belong here. No frontend code calls `get_env` today, so the list
+/// is empty and every key reads as unset.
+const WEBVIEW_ENV_ALLOWLIST: &[&str] = &[];
+
+fn allowed_env(key: &str) -> Option<String> {
+    WEBVIEW_ENV_ALLOWLIST
+        .contains(&key)
+        .then(|| std::env::var(key).ok())
+        .flatten()
+}
+
+/// Returns an empty string for any key outside the allowlist.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_env<R: tauri::Runtime>(_app: tauri::AppHandle<R>, key: String) -> String {
-    std::env::var(&key).unwrap_or_default()
+    allowed_env(&key).unwrap_or_default()
 }
 
 fn should_show_devtool(identifier: &str) -> bool {
@@ -63,6 +100,31 @@ pub fn is_app_store_build() -> bool {
     cfg!(feature = "app-store")
 }
 
+/// Full name of the signed-in macOS account (`id -F`), used to greet the user
+/// on Home when there is no profile name. `None` when unavailable.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_account_full_name<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
+) -> Option<String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .ok()?;
+    let output = std::process::Command::new("/usr/bin/id")
+        .arg("-F")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let name = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    (!name.is_empty()).then_some(name)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
@@ -74,7 +136,15 @@ pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
 #[specta::specta]
 pub async fn get_tinybase_values<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_tinybase_values()
 }
 
@@ -82,7 +152,15 @@ pub async fn get_tinybase_values<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_pinned_tabs<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_pinned_tabs()
 }
 
@@ -90,8 +168,16 @@ pub async fn get_pinned_tabs<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_pinned_tabs<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_pinned_tabs(v)
 }
 
@@ -99,7 +185,15 @@ pub async fn set_pinned_tabs<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_recently_opened_sessions<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Option<String>, String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.get_recently_opened_sessions()
 }
 
@@ -107,8 +201,16 @@ pub async fn get_recently_opened_sessions<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     v: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Notes,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.set_recently_opened_sessions(v)
 }
 
@@ -120,10 +222,18 @@ pub fn is_crash_reporting_enabled() -> Result<bool, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn set_crash_reporting_enabled(
+pub fn set_crash_reporting_enabled<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     state: tauri::State<'_, crate::CrashReportingState>,
     enabled: bool,
 ) -> Result<(), String> {
+    anlg_aspc::require(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     state.set_enabled(enabled);
     Ok(())
 }
@@ -140,7 +250,14 @@ pub async fn check_embedded_cli<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn install_embedded_cli<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
 ) -> Result<EmbeddedCliStatus, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )?;
     crate::embedded_cli::install(&app)
 }
 
@@ -156,10 +273,31 @@ pub async fn list_skill_agents() -> Result<Vec<SkillAgentStatus>, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn install_agent_skill(agent: SkillAgent) -> Result<SkillAgentStatus, String> {
+pub async fn install_agent_skill<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    window: tauri::Window<R>,
+    agent: SkillAgent,
+) -> Result<SkillAgentStatus, String> {
+    anlg_aspc::require(
+        &app,
+        &window,
+        anlg_aspc::DataType::Settings,
+        anlg_aspc::Action::Administer,
+    )?;
     if cfg!(feature = "app-store") {
         return Err("Agent skill installation is unavailable in the Mac App Store build.".into());
     }
 
     crate::agent_skills::install(agent)
+}
+
+#[cfg(test)]
+mod env_tests {
+    #[test]
+    fn get_env_never_returns_keys_outside_the_allowlist() {
+        // PATH and HOME are always set; neither is allowlisted.
+        assert_eq!(super::allowed_env("PATH"), None);
+        assert_eq!(super::allowed_env("HOME"), None);
+        assert_eq!(super::allowed_env("ANTHROPIC_API_KEY"), None);
+    }
 }

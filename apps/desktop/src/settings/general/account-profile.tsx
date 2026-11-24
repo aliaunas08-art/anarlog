@@ -19,6 +19,14 @@ import {
 } from "~/contacts/queries";
 import { useOwnerUserId } from "~/shared/owner-user";
 
+export const ACCOUNT_PROFILE_NAME_INPUT_ID = "account-profile-name";
+
+export function focusAccountProfileName() {
+  const input = document.getElementById(ACCOUNT_PROFILE_NAME_INPUT_ID);
+  input?.scrollIntoView({ block: "center", behavior: "smooth" });
+  input?.focus({ preventScroll: true });
+}
+
 export function AccountProfile() {
   const auth = useAuth();
   const localOwnerUserId = useOwnerUserId();
@@ -132,6 +140,9 @@ function ProfileForm({
               <label className="flex flex-col gap-2 text-sm">
                 {label}
                 <Input
+                  id={
+                    name === "name" ? ACCOUNT_PROFILE_NAME_INPUT_ID : undefined
+                  }
                   type={type}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}

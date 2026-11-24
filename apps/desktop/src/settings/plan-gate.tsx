@@ -10,6 +10,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { APP_NAME } from "~/shared/app-name";
 
 export type GatedPlan = "pro" | "enterprise";
 
@@ -21,8 +22,8 @@ export function useNotifyPlanRequired() {
     (plan: GatedPlan) => {
       const message =
         plan === "pro"
-          ? t`This requires Anarlog Pro`
-          : t`This requires Anarlog Enterprise`;
+          ? t`This requires ${APP_NAME} Pro`
+          : t`This requires ${APP_NAME} Enterprise`;
 
       toast.warning(message, {
         ...(plan === "pro"

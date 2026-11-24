@@ -31,7 +31,9 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useSessionSummaries } from "~/session/queries";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
+import { APP_NAME } from "~/shared/app-name";
 import { useMainContentCenterOffset } from "~/shared/main/content-offset";
+import { primaryHotkey } from "~/shared/primary-hotkey";
 import { useSettingsNavGroups } from "~/sidebar/settings-nav-groups";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
 
@@ -80,7 +82,9 @@ export function OpenNoteDialogProvider({
     setOpen(true);
   }, []);
 
-  useHotkeys("mod+k", openDialog, {
+  // ⌘K opens Search (the sidebar's Search row); ⌘P toggles Ask
+  // (chat/state/use-chat-mode.ts).
+  useHotkeys(primaryHotkey("k"), openDialog, {
     preventDefault: true,
     enableOnFormTags: true,
     enableOnContentEditable: true,
@@ -370,7 +374,7 @@ export function OpenNoteDialog({
           ) : null}
           {page.requiresPro && !isPro ? (
             <Lock
-              aria-label={t`Requires Anarlog Pro`}
+              aria-label={t`Requires ${APP_NAME} Pro`}
               className="h-3.5 w-3.5 shrink-0"
             />
           ) : null}

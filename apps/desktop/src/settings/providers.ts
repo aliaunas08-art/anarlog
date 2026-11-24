@@ -75,14 +75,6 @@ export function useAiProvidersState(type: AiProviderType): {
   };
 }
 
-export function useAiProvider(
-  type: AiProviderType,
-  providerId: string | null | undefined,
-): AiProviderConfig | undefined {
-  const providers = useAiProviders(type);
-  return providerId ? providers[providerRowId(type, providerId)] : undefined;
-}
-
 export async function getStoredAiProvider(
   type: AiProviderType,
   providerId: string,

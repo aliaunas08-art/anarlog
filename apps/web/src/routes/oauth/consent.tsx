@@ -58,7 +58,7 @@ export const Route = createFileRoute("/oauth/consent")({
 function OAuthConsent() {
   const details = Route.useLoaderData();
   const permissions = [
-    "Read the Anarlog meetings you explicitly uploaded for connectors",
+    "Read the Timbre meetings you explicitly uploaded for connectors",
     ...describeOAuthScopes(details.scope),
   ];
   const decision = useMutation({
@@ -74,8 +74,8 @@ function OAuthConsent() {
 
   return (
     <AuthShell
-      title="Connect Anarlog"
-      description={`${details.client.name} is requesting read-only access to your opted-in Anarlog meeting data.`}
+      title="Connect Timbre"
+      description={`${details.client.name} is requesting read-only access to your opted-in Timbre meeting data.`}
       showEyebrow={false}
       showMarketing={false}
     >

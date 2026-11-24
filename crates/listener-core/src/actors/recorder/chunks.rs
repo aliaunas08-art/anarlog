@@ -8,13 +8,24 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
+use anlg_audio_encode::StereoStreamEncoder;
 use anlg_audio_utils::Source;
-use anlg_mp3::StereoStreamEncoder;
 use ractor::ActorProcessingErr;
 
 use super::super::SAMPLE_RATE;
 
 const CHUNK_SAMPLES: u64 = SAMPLE_RATE as u64 * 60;
+/// The retained recording, appended as it is captured: `audio.aac` (ADTS)
+/// on macOS, `audio.flac` on Windows and Linux.
+pub const ARCHIVE_FILE: &str = anlg_audio_encode::RECORDING_FILE;
+/// Recordings in another format: `audio.mp3` from before LAME was removed,
+/// or another platform's format after sync. Read, and converted to
+/// `ARCHIVE_FILE` when the meeting records again.
+pub const OTHER_ARCHIVE_FILES: [&str; 2] = [
+    anlg_audio_encode::RECORDING_FILES[1],
+    anlg_audio_encode::RECORDING_FILES[2],
+];
+const CHUNK_EXTENSION: &str = anlg_audio_encode::RECORDING_EXTENSION;
 const DISK_RESERVE_BYTES: u64 = 256 * 1024 * 1024;
 const RECOVERY_BUDGET_BYTES: u64 = 256 * 1024 * 1024;
 const AUDIO_BUFFER_LIMIT_BYTES: usize = 64 * 1024 * 1024;
@@ -53,6 +64,14 @@ impl Encoder {
         })
     }
 
+    /// Continues the retained recording in `path` (FLAC must not repeat its
+    /// stream header).
+    fn appending_to(path: &Path) -> Result<Self, ActorProcessingErr> {
+        Ok(Self {
+            encoder: StereoStreamEncoder::appending_to(SAMPLE_RATE, path)?,
+        })
+    }
+
     fn encode(&mut self, mic: &[f32], speaker: &[f32]) -> Result<Vec<u8>, ActorProcessingErr> {
         let mut bytes = Vec::new();
         self.encoder.encode_f32(mic, speaker, &mut bytes)?;
@@ -86,6 +105,10 @@ pub(super) struct PersistConfig {
     pub finish_deadline: Duration,
     pub buffer_limit_bytes: usize,
     pub on_health: Arc<dyn Fn(StorageHealth) + Send + Sync>,
+    /// Called once, after the first encoded audio of the capture is written to
+    /// its `.part` file and synced. The session waits for it before starting
+    /// transcription, so a transcription crash leaves audio for recovery.
+    pub on_first_audio: Option<Box<dyn FnOnce() + Send>>,
 }
 
 impl PersistConfig {
@@ -97,7 +120,13 @@ impl PersistConfig {
             finish_deadline: FINISH_DEADLINE,
             buffer_limit_bytes: AUDIO_BUFFER_LIMIT_BYTES,
             on_health,
+            on_first_audio: None,
         }
+    }
+
+    pub fn with_first_audio(mut self, notify: Box<dyn FnOnce() + Send>) -> Self {
+        self.on_first_audio = Some(notify);
+        self
     }
 }
 
@@ -252,7 +281,7 @@ impl Persister {
         buffered: Arc<AtomicUsize>,
         aborted: Arc<OnceLock<String>>,
     ) -> Self {
-        let archive = retain_audio.then(|| TargetState::new(session_dir.join("audio.mp3"), true));
+        let archive = retain_audio.then(|| TargetState::new(session_dir.join(ARCHIVE_FILE), true));
         Self {
             session_dir,
             config,
@@ -376,6 +405,7 @@ impl Persister {
                     self.healthy = true;
                     (self.config.on_health)(StorageHealth::Resumed);
                 }
+                self.signal_first_audio();
                 self.persisted()
             }
             Err(error) => {
@@ -387,6 +417,29 @@ impl Persister {
 
     fn abort_message(&self) -> Option<&str> {
         self.aborted.get().map(String::as_str)
+    }
+
+    /// Fires `on_first_audio` once some audio is in a chunk file. The sync makes
+    /// it durable even across a power loss; a process crash only needs the write.
+    /// A failed sync is retried on the next pump.
+    fn signal_first_audio(&mut self) {
+        if self.config.on_first_audio.is_none() {
+            return;
+        }
+        let sync = self.config.sync;
+        let Some(chunk) = self
+            .chunks
+            .iter_mut()
+            .find(|chunk| chunk.state.written > 0 || chunk.state.synced_len > 0)
+        else {
+            return;
+        };
+        if chunk.state.sync(sync).is_err() {
+            return;
+        }
+        if let Some(notify) = self.config.on_first_audio.take() {
+            notify();
+        }
     }
 
     fn handle_error(&mut self, error: &std::io::Error) {
@@ -599,10 +652,13 @@ impl ChunkedSink {
         if !retain_audio {
             File::create(session_dir.join(DELETE_ON_STOP))?.sync_all()?;
         }
+        if retain_audio {
+            convert_legacy_archive(session_dir)?;
+        }
         let mut recovered_audio = false;
         // Keep the existing interrupted-WAV recovery path for older recordings.
         if retain_audio
-            && !session_dir.join("audio.mp3").exists()
+            && !session_dir.join(ARCHIVE_FILE).exists()
             && (session_dir.join("audio.wav").exists() || session_dir.join("audio.ogg").exists())
         {
             let mut legacy = super::disk::create_disk_sink(session_dir)?;
@@ -611,7 +667,10 @@ impl ChunkedSink {
         }
         let dir = session_dir.join(RECOVERY_DIR);
         std::fs::create_dir_all(&dir)?;
-        let archive = retain_audio.then(Encoder::new).transpose()?;
+        let archive_path = session_dir.join(ARCHIVE_FILE);
+        let archive = retain_audio
+            .then(|| Encoder::appending_to(&archive_path))
+            .transpose()?;
         let buffered = Arc::new(AtomicUsize::new(0));
         let aborted = Arc::new(OnceLock::new());
         let buffer_limit_bytes = config.buffer_limit_bytes;
@@ -750,7 +809,7 @@ impl ChunkedSink {
         self.push(Target::Chunk, chunk.finish()?, false)?;
         let end_ms = self.start_ms + self.chunk_samples * 1000 / SAMPLE_RATE as u64;
         let ready = self.dir.join(format!(
-            "{}-{}-{}-{}.mp3",
+            "{}-{}-{}-{}.{CHUNK_EXTENSION}",
             self.capture_started_at, self.start_ms, end_ms, self.audio_start_ms
         ));
         let closed = self.send(PersistOp::CloseChunk { ready });
@@ -833,7 +892,12 @@ pub fn list_recovery_chunks(session_dir: &Path) -> std::io::Result<Vec<RecoveryA
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let id = entry.file_name().to_string_lossy().into_owned();
-        let Some(stem) = id.strip_suffix(".mp3") else {
+        // Chunks in any format this app writes or wrote (MP3 before LAME
+        // was removed) are recovered.
+        let Some(stem) = anlg_audio_encode::ENCODED_RECORDING_EXTENSIONS
+            .iter()
+            .find_map(|extension| id.strip_suffix(&format!(".{extension}")))
+        else {
             continue;
         };
         let parts: Vec<_> = stem.split('-').collect();
@@ -863,11 +927,42 @@ pub fn list_recovery_chunks(session_dir: &Path) -> std::io::Result<Vec<RecoveryA
     Ok(chunks)
 }
 
+/// A meeting whose recording is in another format (`audio.mp3` from before
+/// LAME was removed, or another platform's format after sync) is converted
+/// to `ARCHIVE_FILE` before it records again, so new audio appends to one
+/// stream. The old file is removed only after the new one is complete; a
+/// failure leaves it as it was.
+fn convert_legacy_archive(session_dir: &Path) -> Result<(), ActorProcessingErr> {
+    let archive = session_dir.join(ARCHIVE_FILE);
+    if archive.exists() {
+        return Ok(());
+    }
+    let Some(legacy) = OTHER_ARCHIVE_FILES
+        .iter()
+        .map(|name| session_dir.join(name))
+        .find(|path| path.is_file())
+    else {
+        return Ok(());
+    };
+    let staging = tempfile::Builder::new()
+        .prefix("audio-convert")
+        .tempdir_in(session_dir)?;
+    let wav = staging.path().join("audio.wav");
+    anlg_audio_encode::decode_to_wav(&legacy, &wav).map_err(super::into_actor_err)?;
+    anlg_audio_encode::encode_wav(&wav, &archive).map_err(super::into_actor_err)?;
+    File::open(&archive)?.sync_all()?;
+    std::fs::remove_file(&legacy)?;
+    Ok(())
+}
+
 pub fn acknowledge_recovery_chunk(session_dir: &Path, id: &str) -> std::io::Result<()> {
-    if !id.ends_with(".mp3")
-        || !id
-            .bytes()
-            .all(|c| c.is_ascii_digit() || matches!(c, b'-' | b'.' | b'm' | b'p'))
+    let known_extension = anlg_audio_encode::ENCODED_RECORDING_EXTENSIONS
+        .iter()
+        .any(|extension| id.ends_with(&format!(".{extension}")));
+    if !known_extension
+        || !id.bytes().all(|c| {
+            c.is_ascii_digit() || matches!(c, b'-' | b'.' | b'a' | b'c' | b'f' | b'l' | b'm' | b'p')
+        })
     {
         return Err(std::io::Error::other("Invalid recovery chunk"));
     }
@@ -887,12 +982,14 @@ pub fn delete_capture_audio(session_dir: &Path) -> std::io::Result<()> {
         let name = name.to_string_lossy();
         if name == RECOVERY_DIR {
             std::fs::remove_dir_all(entry.path())?;
-        } else if (matches!(name.as_ref(), "audio.mp3.tmp" | "audio.wav.tmp")
-            || ((name.starts_with("audio.") || name.starts_with("audio_"))
-                && matches!(
-                    entry.path().extension().and_then(|ext| ext.to_str()),
-                    Some("wav" | "mp3" | "ogg" | "opus" | "m4a" | "flac")
-                )))
+        } else if (matches!(
+            name.as_ref(),
+            "audio.aac.tmp" | "audio.flac.tmp" | "audio.mp3.tmp" | "audio.wav.tmp"
+        ) || ((name.starts_with("audio.") || name.starts_with("audio_"))
+            && matches!(
+                entry.path().extension().and_then(|ext| ext.to_str()),
+                Some("wav" | "aac" | "flac" | "mp3" | "ogg" | "opus" | "m4a")
+            )))
             && entry.file_type()?.is_file()
         {
             std::fs::remove_file(entry.path())?;
@@ -994,12 +1091,29 @@ fn recover_partial_chunks(session_dir: &Path) -> std::io::Result<()> {
         if end <= start {
             continue;
         }
+        let extension = encoded_extension(&entry.path());
         std::fs::rename(
             entry.path(),
-            dir.join(format!("{capture}-{start}-{end}-{audio_start}.mp3")),
+            dir.join(format!("{capture}-{start}-{end}-{audio_start}.{extension}")),
         )?;
     }
     Ok(())
+}
+
+/// A `.part` chunk is named by its bytes: ADTS (AAC, macOS), `fLaC`
+/// (Windows, Linux), else MP3 (left by a version that still wrote MP3).
+fn encoded_extension(path: &Path) -> &'static str {
+    let mut head = [0u8; 4];
+    let read = File::open(path)
+        .and_then(|mut file| std::io::Read::read_exact(&mut file, &mut head))
+        .is_ok();
+    if read && &head == b"fLaC" {
+        "flac"
+    } else if read && head[0] == 0xFF && head[1] & 0xF6 == 0xF0 {
+        "aac"
+    } else {
+        "mp3"
+    }
 }
 
 pub fn recover_interrupted_captures(sessions_dir: &Path) -> std::io::Result<()> {
@@ -1119,6 +1233,7 @@ mod tests {
             finish_deadline: Duration::from_millis(200),
             buffer_limit_bytes: AUDIO_BUFFER_LIMIT_BYTES,
             on_health: Arc::new(|_| {}),
+            on_first_audio: None,
         }
     }
 
@@ -1172,12 +1287,12 @@ mod tests {
         assert_eq!(chunks.len(), 1);
         assert_eq!((chunks[0].start_ms, chunks[0].end_ms), (0, 60_000));
         let wav = dir.path().join("decoded.wav");
-        anlg_mp3::decode_to_wav(Path::new(&chunks[0].path), &wav).unwrap();
+        anlg_audio_encode::decode_to_wav(Path::new(&chunks[0].path), &wav).unwrap();
         assert!(hound::WavReader::open(wav).unwrap().duration() >= SAMPLE_RATE * 59);
         acknowledge_recovery_chunk(dir.path(), &chunks[0].id).unwrap();
         sink.finish().unwrap();
         assert_eq!(list_recovery_chunks(dir.path()).unwrap().len(), 1);
-        assert!(dir.path().join("audio.mp3").metadata().unwrap().len() < 2_000_000);
+        assert!(dir.path().join(ARCHIVE_FILE).metadata().unwrap().len() < 2_000_000);
     }
 
     fn write_one_chunk(sink: &mut ChunkedSink) {
@@ -1185,6 +1300,141 @@ mod tests {
         for _ in 0..60 {
             sink.write(&samples, &samples).unwrap();
         }
+    }
+
+    /// 100 ms of a 440 Hz tone, so recovered audio can be told from silence.
+    fn tone_frame() -> Vec<f32> {
+        (0..SAMPLE_RATE as usize / 10)
+            .map(|i| 0.3 * (i as f32 * 440.0 * std::f32::consts::TAU / SAMPLE_RATE as f32).sin())
+            .collect()
+    }
+
+    #[test]
+    fn first_audio_is_signalled_once_it_is_in_the_partial_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let config = test_config().with_first_audio(Box::new(move || {
+            let _ = tx.send(());
+        }));
+        let mut sink = ChunkedSink::new(dir.path(), 123, 0, true, config).unwrap();
+        assert!(rx.try_recv().is_err(), "no audio yet");
+
+        let frame = tone_frame();
+        let signalled = (0..50).any(|_| {
+            sink.write(&frame, &frame).unwrap();
+            rx.recv_timeout(Duration::from_millis(100)).is_ok()
+        });
+        assert!(signalled, "first audio was never signalled");
+
+        let partial = std::fs::read_dir(dir.path().join(RECOVERY_DIR))
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| entry.file_name().to_string_lossy().ends_with(".part"))
+            .expect("a partial chunk exists");
+        assert!(partial.metadata().unwrap().len() > 0);
+        sink.finish().unwrap();
+    }
+
+    const CRASH_CHILD_DIR: &str = "ANARLOG_TEST_CRASH_CHILD_DIR";
+
+    /// Child half of the crash test below; a no-op in a normal test run. It
+    /// records like a live session: once the first audio is on disk it marks
+    /// transcription as started, then keeps recording until it is killed.
+    #[test]
+    fn crash_child_records_until_killed() {
+        let Ok(dir) = std::env::var(CRASH_CHILD_DIR) else {
+            return;
+        };
+        let dir = PathBuf::from(dir);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let config = PersistConfig::new(Arc::new(|_| {})).with_first_audio(Box::new(move || {
+            let _ = tx.send(());
+        }));
+        let mut sink = ChunkedSink::new(&dir, 123, 0, true, config).unwrap();
+        let frame = tone_frame();
+        let mut frames = 0u64;
+        let mut transcribing = false;
+        loop {
+            sink.write(&frame, &frame).unwrap();
+            frames += 1;
+            if !transcribing && rx.try_recv().is_ok() {
+                transcribing = true;
+                std::fs::write(dir.join("transcription-started"), frames.to_string()).unwrap();
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// Regression for the 2026-11-17 Apple Speech crash, which took the whole
+    /// recording with it: kill the process mid-transcription, run the startup
+    /// recovery a relaunch runs, and check the audio is there and playable.
+    #[cfg(unix)]
+    #[test]
+    fn a_crash_mid_transcription_leaves_a_recoverable_recording() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "actors::recorder::chunks::tests::crash_child_records_until_killed",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CRASH_CHILD_DIR, &dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let marker = dir.join("transcription-started");
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while !marker.exists() {
+            assert!(Instant::now() < deadline, "transcription never started");
+            assert!(child.try_wait().unwrap().is_none(), "child exited early");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let frames_before_transcription: u64 =
+            std::fs::read_to_string(&marker).unwrap().parse().unwrap();
+
+        // Let "transcription" run, then kill the process outright (SIGKILL).
+        std::thread::sleep(Duration::from_millis(1500));
+        child.kill().unwrap();
+        child.wait().unwrap();
+
+        recover_interrupted_captures(root.path()).unwrap();
+        let chunks = list_recovery_chunks(&dir).unwrap();
+        assert_eq!(chunks.len(), 1, "one recovered chunk");
+
+        let wav = root.path().join("recovered.wav");
+        anlg_audio_encode::decode_to_wav(Path::new(&chunks[0].path), &wav).unwrap();
+        let mut reader = hound::WavReader::open(&wav).unwrap();
+        let spec = reader.spec();
+        let frames = u64::from(reader.duration());
+        let recovered_ms = frames * 1000 / u64::from(spec.sample_rate);
+        // Everything recorded before transcription started is there, plus most
+        // of what came after (1.5 s at about 100 ms of audio per 20 ms tick).
+        let before_ms = frames_before_transcription * 100;
+        assert!(
+            recovered_ms >= before_ms + 1000,
+            "recovered {recovered_ms} ms, expected at least {} ms",
+            before_ms + 1000
+        );
+        let peak = match spec.sample_format {
+            hound::SampleFormat::Float => reader
+                .samples::<f32>()
+                .map(|sample| sample.unwrap().abs())
+                .fold(0.0, f32::max),
+            hound::SampleFormat::Int => {
+                reader
+                    .samples::<i32>()
+                    .map(|sample| sample.unwrap().unsigned_abs() as f32)
+                    .fold(0.0, f32::max)
+                    / (1u32 << (spec.bits_per_sample - 1)) as f32
+            }
+        };
+        assert!(peak > 0.1, "recovered audio is silent (peak {peak})");
     }
 
     #[test]
@@ -1206,7 +1456,7 @@ mod tests {
         assert!(
             std::fs::read_dir(dir.path().join(RECOVERY_DIR))
                 .unwrap()
-                .all(|e| e.unwrap().path().extension().unwrap() == "mp3")
+                .all(|e| e.unwrap().path().extension().unwrap() == CHUNK_EXTENSION)
         );
     }
 
@@ -1226,7 +1476,7 @@ mod tests {
         let chunks = list_recovery_chunks(dir.path()).unwrap();
         assert_eq!(chunks.len(), 1);
         let wav = dir.path().join("decoded.wav");
-        anlg_mp3::decode_to_wav(Path::new(&chunks[0].path), &wav).unwrap();
+        anlg_audio_encode::decode_to_wav(Path::new(&chunks[0].path), &wav).unwrap();
         assert!(hound::WavReader::open(wav).unwrap().duration() >= SAMPLE_RATE * 59);
         sink.finish().unwrap();
     }
@@ -1337,7 +1587,7 @@ mod tests {
         assert_eq!(chunks.len(), 3);
         assert_eq!(chunks[2].start_ms, 120_000);
         let wav = dir.path().join("archive.wav");
-        anlg_mp3::decode_to_wav(&dir.path().join("audio.mp3"), &wav).unwrap();
+        anlg_audio_encode::decode_to_wav(&dir.path().join(ARCHIVE_FILE), &wav).unwrap();
         assert!(hound::WavReader::open(wav).unwrap().duration() >= SAMPLE_RATE * 149);
     }
 
@@ -1348,7 +1598,11 @@ mod tests {
         config.check = check_overflow_outage;
         config.buffer_limit_bytes = 256 * 1024;
         let mut sink = ChunkedSink::new(dir.path(), 123, 0, false, config).unwrap();
-        let samples = vec![0.1; SAMPLE_RATE as usize];
+        // Noise-like audio: AAC shrinks a constant signal to almost nothing,
+        // and the buffer must actually fill.
+        let samples: Vec<f32> = (0..SAMPLE_RATE as usize)
+            .map(|i| ((i.wrapping_mul(2_654_435_761) >> 7) % 2000) as f32 / 2000.0 - 0.5)
+            .collect();
         let mut write_error = None;
         for _ in 0..600 {
             if let Err(error) = sink.write(&samples, &samples) {
@@ -1459,7 +1713,7 @@ mod tests {
             (3_660_000, 3_661_000)
         );
         let decoded = dir.path().join("tail.wav");
-        anlg_mp3::decode_to_wav(Path::new(&chunks[0].path), &decoded).unwrap();
+        anlg_audio_encode::decode_to_wav(Path::new(&chunks[0].path), &decoded).unwrap();
         assert!(hound::WavReader::open(decoded).unwrap().duration() >= SAMPLE_RATE);
     }
 
@@ -1561,5 +1815,48 @@ mod tests {
         recover_interrupted_captures(dir.path()).unwrap();
         assert!(!zero.join(RECOVERY_DIR).exists());
         assert_eq!(std::fs::read(retained.join("audio.mp3")).unwrap(), b"keep");
+    }
+
+    #[test]
+    fn a_legacy_mp3_archive_is_converted_before_recording_resumes() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy = dir.path().join("audio.mp3");
+        std::fs::copy(anlg_data::english_1::AUDIO_MP3_PATH, &legacy).unwrap();
+
+        convert_legacy_archive(dir.path()).unwrap();
+
+        assert!(!legacy.exists(), "the MP3 is replaced");
+        let archive = dir.path().join(ARCHIVE_FILE);
+        let wav = dir.path().join("check.wav");
+        anlg_audio_encode::decode_to_wav(&archive, &wav).unwrap();
+        assert!(hound::WavReader::open(&wav).unwrap().duration() > 0);
+    }
+
+    #[test]
+    fn an_unreadable_legacy_archive_is_left_as_it_was() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy = dir.path().join("audio.mp3");
+        std::fs::write(&legacy, b"not audio").unwrap();
+
+        assert!(convert_legacy_archive(dir.path()).is_err());
+        assert_eq!(std::fs::read(&legacy).unwrap(), b"not audio");
+        assert!(!dir.path().join(ARCHIVE_FILE).exists());
+    }
+
+    #[test]
+    fn partial_chunks_are_named_by_their_codec() {
+        let dir = tempfile::tempdir().unwrap();
+        let aac = dir.path().join("a.part");
+        let mp3 = dir.path().join("b.part");
+        let mut encoder = StereoStreamEncoder::new(SAMPLE_RATE).unwrap();
+        let mut bytes = Vec::new();
+        encoder
+            .encode_f32(&vec![0.1; 4096], &vec![0.1; 4096], &mut bytes)
+            .unwrap();
+        encoder.flush(&mut bytes).unwrap();
+        std::fs::write(&aac, &bytes).unwrap();
+        std::fs::copy(anlg_data::english_1::AUDIO_MP3_PATH, &mp3).unwrap();
+        assert_eq!(encoded_extension(&aac), CHUNK_EXTENSION);
+        assert_eq!(encoded_extension(&mp3), "mp3");
     }
 }

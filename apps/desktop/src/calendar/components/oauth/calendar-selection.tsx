@@ -68,7 +68,7 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
 
     const grouped = new Map<
       string,
-      { connectionId?: string; calendars: CalendarItem[] }
+      { connectionId?: string; sourceName: string; calendars: CalendarItem[] }
     >();
 
     for (const cal of calendars) {
@@ -78,25 +78,32 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
         (connectionId ? sourceMap.get(connectionId) : undefined) ||
         singleSource ||
         config.displayName;
-      if (!grouped.has(source)) {
-        grouped.set(source, { connectionId, calendars: [] });
+      // One group per account and owner: two accounts can share an owner
+      // name, and one account can hold several owners' calendars.
+      const groupKey = `${connectionId ?? ""}\u0000${source}`;
+      if (!grouped.has(groupKey)) {
+        grouped.set(groupKey, {
+          connectionId,
+          sourceName: source,
+          calendars: [],
+        });
       }
-      const group = grouped.get(source)!;
+      const group = grouped.get(groupKey)!;
       if (!group.connectionId && connectionId) {
         group.connectionId = connectionId;
       }
       group.calendars.push({
         id: cal.id,
         title: cal.name ?? "Untitled",
-        color: cal.color ?? "#4285f4",
+        color: cal.color || "#4285f4",
         enabled: cal.enabled ?? false,
       });
     }
 
     return {
-      groups: Array.from(grouped.entries()).map(([sourceName, group]) => ({
+      groups: Array.from(grouped.values()).map((group) => ({
         id: group.connectionId,
-        sourceName,
+        sourceName: group.sourceName,
         calendars: group.calendars,
       })),
       connectionSourceMap: sourceMap,

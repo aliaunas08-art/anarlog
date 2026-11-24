@@ -1,4 +1,5 @@
 mod commands;
+mod http_origins;
 
 mod ext;
 pub use ext::*;
@@ -14,6 +15,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_device_info::<tauri::Wry>,
             commands::get_process_memory_bytes::<tauri::Wry>,
             commands::opinionated_md_to_html::<tauri::Wry>,
+            commands::allow_http_origin::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -23,6 +25,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
+        .setup(|app, _api| {
+            http_origins::restore(app);
+            Ok(())
+        })
         .build()
 }
 

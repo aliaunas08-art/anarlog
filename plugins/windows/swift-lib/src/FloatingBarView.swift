@@ -5,11 +5,12 @@ enum FloatingBarLayout {
   static let inset: CGFloat = 4
   static let screenMargin: CGFloat = 8
   static let compactHeight: CGFloat = 38
-  static let compactCornerRadius: CGFloat = 14
-  static let controlCornerRadius: CGFloat = 10
-  static let innerStrokeInset: CGFloat = 1
-  static let compactStopWidth: CGFloat = 62
-  static let compactSoloStopWidth: CGFloat = 68
+  static let compactCornerRadius: CGFloat = 19
+  static let controlCornerRadius: CGFloat = 15
+  // The status segment holds the live dot, timer, level meter and Stop.
+  // Keep in sync with layout.ts and the Rust layout module.
+  static let compactStopWidth: CGFloat = 176
+  static let compactSoloStopWidth: CGFloat = 180
   static let compactIconSize: CGFloat = 30
   static let compactGap: CGFloat = 0
   static let compactHorizontalPadding: CGFloat = 4
@@ -17,9 +18,10 @@ enum FloatingBarLayout {
   static let expandedHeight: CGFloat = 430
   static let expandedCornerRadius: CGFloat = 21
   static let expandedPadding: CGFloat = 12
-  static let waveformWidth: CGFloat = 26
-  static let waveformHeight: CGFloat = 20
-  static let stopSquareSize: CGFloat = 9
+  static let liveDotSize: CGFloat = 8
+  static let stopButtonHeight: CGFloat = 24
+  static let meterBars = 10
+  static let meterHeight: CGFloat = 16
   static let hoverHandleGap: CGFloat = 2
   static let hoverHandleTopPadding: CGFloat = 7
   static let hoverHandleHeight: CGFloat = 12
@@ -58,7 +60,6 @@ struct FloatingBarView: View {
   let panelOrigin: () -> NSPoint?
   let movePanel: (NSPoint) -> Void
   @State private var isBarHovered = false
-  @State private var isStopHovered = false
   @State private var shouldAutoScrollTranscript = true
   @State private var suppressNextClick = false
   @State private var dragStart: FloatingBarDragStart?
@@ -113,15 +114,11 @@ struct FloatingBarView: View {
       alignment: .bottom
     )
     .background(shape.fill(isBarHovered && !model.isExpanded ? envelopeSurfaceColor : surfaceColor))
-    .overlay(shape.strokeBorder(outerStrokeColor, lineWidth: 0.5))
-    .overlay(
-      RoundedRectangle(
-        cornerRadius: radius - FloatingBarLayout.innerStrokeInset, style: .continuous
-      )
-      .strokeBorder(innerStrokeColor, lineWidth: 0.5)
-      .padding(FloatingBarLayout.innerStrokeInset)
-    )
+    .overlay(shape.strokeBorder(hairlineColor, lineWidth: 0.5))
     .clipShape(shape)
+    // Soft shadow that fits inside the transparent window inset.
+    .compositingGroup()
+    .shadow(color: shadowColor, radius: 1.5, y: 1)
     .padding(FloatingBarLayout.inset)
     .frame(width: containerSize.width, height: containerSize.height, alignment: .bottom)
     .contentShape(Rectangle())
@@ -137,21 +134,21 @@ struct FloatingBarView: View {
           ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 8) {
               if let dictation = model.dictation {
-                DictationTranscript(dictation: dictation, color: primaryContentColor)
+                DictationTranscript(dictation: dictation, color: labelColor)
               } else {
                 ForEach(Array(model.transcriptBubbles.enumerated()), id: \.element.id) {
                   index, bubble in
                   TranscriptBubbleView(
                     bubble: bubble,
                     showsSpeakerLabel: showsSpeakerLabel(at: index),
-                    colorScheme: model.colorScheme
+                    palette: palette
                   )
                   .id(bubble.id)
                 }
                 if let notice = model.transcriptNotice {
                   Text(notice)
                     .font(.system(size: 12))
-                    .foregroundStyle(primaryContentColor.opacity(0.55))
+                    .foregroundStyle(secondaryLabelColor)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -220,7 +217,7 @@ struct FloatingBarView: View {
           systemName: isExpanded
             ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
           accessibilityLabel: isExpanded ? "Collapse live transcript" : "Expand live transcript",
-          color: primaryContentColor,
+          color: secondaryLabelColor,
           hoverFill: controlHoverFill,
           size: FloatingBarLayout.compactIconSize,
           action: { performClick { setExpanded(!isExpanded) } }
@@ -229,69 +226,81 @@ struct FloatingBarView: View {
     }
   }
 
+  /// Live dot · timer · level meter · Stop (or Done while dictating).
   private func audioControl(width: CGFloat, height: CGFloat) -> some View {
-    let shape = RoundedRectangle(
-      cornerRadius: FloatingBarLayout.controlCornerRadius,
-      style: .continuous
-    )
+    let finishing = model.dictation?.phase == "transcribing"
+    let notice = model.transcriptNotice ?? "Recording needs attention"
 
-    return Button(action: {
-      performClick {
-        if model.dictation != nil { dictationAction("finish") } else { RustBridge.stopListening() }
+    return HStack(spacing: 8) {
+      if model.status == .error {
+        Image(systemName: "exclamationmark.circle")
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(labelColor)
+          .help("\(notice). Open Anarlog to retry or change devices.")
+          .accessibilityLabel(notice)
+      } else {
+        FloatingLiveDot()
+          .accessibilityHidden(true)
       }
-    }) {
+
+      if model.dictation == nil, let elapsed = model.elapsedSeconds {
+        let text = FloatingBarTimer.format(elapsed)
+        Text(text)
+          .font(.system(size: 13, weight: .semibold).monospacedDigit())
+          .foregroundStyle(labelColor)
+          .lineLimit(1)
+          .fixedSize()
+          .accessibilityLabel("Recording time \(text)")
+      }
+
       Group {
-        if model.dictation?.phase == "transcribing" {
-          ProgressView().controlSize(.small)
-        } else if isStopHovered {
-          HStack(spacing: 6) {
-            Image(systemName: "stop.fill")
-              .font(.system(size: FloatingBarLayout.stopSquareSize, weight: .bold))
-            Text(model.dictation == nil ? "Stop" : "Done")
-              .font(.system(size: 12, weight: .semibold))
-          }
-          .foregroundStyle(stopColor)
-        } else if model.status == .reconnecting {
-          ProgressView().controlSize(.small)
-            .accessibilityHidden(true)
-        } else if model.status == .error {
-          ErrorMark(color: errorAccentColor)
-            .frame(
-              width: FloatingBarLayout.waveformWidth,
-              height: FloatingBarLayout.waveformHeight
-            )
+        if finishing {
+          Text("Finishing…")
+            .font(.system(size: 12))
+            .foregroundStyle(secondaryLabelColor)
+            .lineLimit(1)
         } else {
-          DancingBars(color: accentColor, amplitude: model.amplitude)
-            .frame(
-              width: FloatingBarLayout.waveformWidth,
-              height: FloatingBarLayout.waveformHeight
-            )
+          FloatingLevelMeter(amplitude: model.amplitude, color: labelColor)
+            .opacity(model.status == .reconnecting ? 0.4 : 1)
+            .accessibilityHidden(true)
         }
       }
-      .frame(width: width, height: height)
-      .background(
-        shape
-          .fill(isStopHovered ? accentColor.opacity(0.18) : controlHoverFill)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .clipped()
+
+      Button(action: {
+        performClick {
+          if model.dictation != nil {
+            dictationAction("finish")
+          } else {
+            RustBridge.stopListening()
+          }
+        }
+      }) {
+        Text(model.dictation == nil ? "Stop" : "Done")
+          .font(.system(size: 12, weight: .medium))
+          .foregroundStyle(windowColor)
+          .padding(.horizontal, 10)
+          .frame(height: FloatingBarLayout.stopButtonHeight)
+          .background(Capsule(style: .continuous).fill(labelColor))
+          .contentShape(Capsule(style: .continuous))
+      }
+      .buttonStyle(FloatingStopButtonStyle())
+      .disabled(finishing)
+      .accessibilityLabel(
+        model.dictation != nil
+          ? "Finish dictation"
+          : model.status == .reconnecting
+            ? "Reconnecting live transcription; stop listening"
+            : model.status == .error
+              ? "\(notice); stop listening"
+              : "Stop listening"
       )
-      .contentShape(shape)
+      .help(model.dictation == nil ? "Stop listening" : "Finish dictation")
     }
-    .buttonStyle(.plain)
-    .disabled(model.dictation?.phase == "transcribing")
-    .accessibilityLabel(
-      model.dictation != nil
-        ? "Finish dictation"
-        : model.status == .reconnecting
-          ? "Reconnecting live transcription; stop listening"
-          : model.status == .error
-            ? "\(model.transcriptNotice ?? "Recording needs attention"); stop listening"
-            : "Stop listening"
-    )
-    .help(
-      model.status == .error
-        ? "\(model.transcriptNotice ?? "Recording needs attention"). Open Anarlog to retry or change devices."
-        : "Stop listening"
-    )
-    .onHover { isStopHovered = $0 }
+    .padding(.leading, 10)
+    .padding(.trailing, 3)
+    .frame(width: width, height: height)
   }
 
   private var containerSize: NSSize {
@@ -302,81 +311,26 @@ struct FloatingBarView: View {
       )
   }
 
-  private var accentColor: Color {
-    model.status == .error ? errorAccentColor : normalAccentColor
+  private var palette: FloatingBarPalette {
+    FloatingBarPalette(colorScheme: model.colorScheme)
   }
 
+  /// Neutral pill (`--cf-glass-solid` / white). The opacity setting still
+  /// applies but never drops the surface below legible.
   private var surfaceColor: Color {
-    if model.colorScheme == .dark {
-      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(primarySurfaceOpacity)
-    }
-
-    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(primarySurfaceOpacity)
+    let opacity = min(max(settings.floatingBarOpacity, 0.35), 0.95)
+    return surfaceSolidColor.opacity(0.55 + (opacity - 0.35) / 0.6 * 0.45)
   }
 
-  private var envelopeSurfaceColor: Color {
-    if model.colorScheme == .dark {
-      return Color(red: 0.43, green: 0.44, blue: 0.40).opacity(envelopeSurfaceOpacity)
-    }
-
-    return Color(red: 0.86, green: 0.85, blue: 0.82).opacity(envelopeSurfaceOpacity)
-  }
-
-  private var primarySurfaceOpacity: Double {
-    settings.floatingBarOpacity * 0.82
-  }
-
-  private var envelopeSurfaceOpacity: Double {
-    min(settings.floatingBarOpacity * 1.08, FloatingOverlayOpacity.maxFloatingBar)
-  }
-
-  private var primaryContentColor: Color {
-    if model.colorScheme == .dark {
-      return .white
-    }
-
-    return Color(red: 0.12, green: 0.11, blue: 0.10)
-  }
-
-  private var secondaryContentColor: Color {
-    primaryContentColor.opacity(model.colorScheme == .dark ? 0.66 : 0.46)
-  }
-
-  private var controlHoverFill: Color {
-    primaryContentColor.opacity(model.colorScheme == .dark ? 0.08 : 0.07)
-  }
-
-  private var outerStrokeColor: Color {
-    primaryContentColor.opacity(model.colorScheme == .dark ? 0.14 : 0.12)
-  }
-
-  private var innerStrokeColor: Color {
-    primaryContentColor.opacity(model.colorScheme == .dark ? 0.28 : 0.18)
-  }
-
-  private var dragHandleDotColor: Color {
-    primaryContentColor.opacity(model.colorScheme == .dark ? 0.48 : 0.36)
-  }
-
-  private var dragHandleSurfaceColor: Color {
-    if model.colorScheme == .dark {
-      return Color(red: 0.34, green: 0.35, blue: 0.32).opacity(settings.floatingBarOpacity)
-    }
-
-    return Color(red: 0.72, green: 0.72, blue: 0.68).opacity(settings.floatingBarOpacity)
-  }
-
-  private var stopColor: Color {
-    normalAccentColor
-  }
-
-  private var errorAccentColor: Color {
-    Color(red: 1, green: 0.25, blue: 0.24)
-  }
-
-  private var normalAccentColor: Color {
-    Color(red: 1, green: 0.20, blue: 0.30)
-  }
+  private var envelopeSurfaceColor: Color { surfaceSolidColor }
+  private var surfaceSolidColor: Color { palette.surface }
+  private var labelColor: Color { palette.label }
+  private var secondaryLabelColor: Color { palette.secondary }
+  private var windowColor: Color { palette.window }
+  private var hairlineColor: Color { palette.hairline }
+  private var shadowColor: Color { palette.shadow }
+  private var controlHoverFill: Color { palette.hover }
+  private var dragHandleDotColor: Color { palette.handle }
 
   private var dragClickSuppressor: some Gesture {
     DragGesture(
@@ -462,10 +416,7 @@ struct FloatingBarView: View {
   }
 
   private func transcriptBottomChip(action: @escaping () -> Void) -> some View {
-    let shape = RoundedRectangle(
-      cornerRadius: FloatingBarLayout.controlCornerRadius,
-      style: .continuous
-    )
+    let shape = Capsule(style: .continuous)
 
     return Button(action: action) {
       HStack(spacing: 6) {
@@ -474,7 +425,7 @@ struct FloatingBarView: View {
         Text("Go to bottom")
           .font(.system(size: 11, weight: .medium))
       }
-      .foregroundStyle(primaryContentColor)
+      .foregroundStyle(labelColor)
       .padding(.horizontal, 12)
       .padding(.vertical, 7)
       .background(
@@ -490,21 +441,9 @@ struct FloatingBarView: View {
     .accessibilityLabel("Scroll transcript to bottom")
   }
 
-  private var transcriptChipFillColor: Color {
-    if model.colorScheme == .dark {
-      return Color(red: 0.18, green: 0.18, blue: 0.17)
-    }
+  private var transcriptChipFillColor: Color { palette.surface }
 
-    return Color(red: 0.95, green: 0.95, blue: 0.93)
-  }
-
-  private var transcriptChipStrokeColor: Color {
-    if model.colorScheme == .dark {
-      return Color(red: 0.36, green: 0.36, blue: 0.34)
-    }
-
-    return Color(red: 0.76, green: 0.75, blue: 0.72)
-  }
+  private var transcriptChipStrokeColor: Color { palette.hairlineStrong }
 }
 
 private struct FloatingBarDragStart {
@@ -660,7 +599,7 @@ private struct FloatingIconButton: View {
 private struct TranscriptBubbleView: View {
   let bubble: FloatingTranscriptBubblePayload
   let showsSpeakerLabel: Bool
-  let colorScheme: FloatingBarColorScheme
+  let palette: FloatingBarPalette
 
   var body: some View {
     HStack {
@@ -680,16 +619,16 @@ private struct TranscriptBubbleView: View {
         let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
         Text(bubble.text)
           .font(.system(size: 13, weight: .regular))
-          .foregroundStyle(Color.white)
+          .foregroundStyle(palette.label)
           .multilineTextAlignment(.leading)
           .frame(maxWidth: .infinity, alignment: .leading)
           .fixedSize(horizontal: false, vertical: true)
           .padding(.horizontal, 11)
           .padding(.vertical, 8)
-          .background(shape.fill(bubbleBackground))
+          .background(shape.fill(bubble.isSelf ? palette.bubbleSelf : palette.bubble))
           .overlay(
             shape
-              .strokeBorder(overlapStrokeColor, lineWidth: isOverlapping ? 1 : 0)
+              .strokeBorder(palette.hairlineStrong, lineWidth: isOverlapping ? 1 : 0)
           )
       }
 
@@ -699,20 +638,12 @@ private struct TranscriptBubbleView: View {
     }
   }
 
-  private var bubbleBackground: Color {
-    if bubble.isSelf {
-      return Color.black.opacity(colorScheme == .dark ? 0.34 : 0.24)
-    }
-
-    return Color.black.opacity(colorScheme == .dark ? 0.28 : 0.2)
-  }
-
   private var speakerLabel: some View {
     Group {
       if showsSpeakerLabel {
         Text(bubble.speakerLabel)
           .font(.system(size: 10, weight: .semibold))
-          .foregroundStyle(Color.white)
+          .foregroundStyle(palette.secondary)
           .lineLimit(1)
       }
     }
@@ -723,7 +654,7 @@ private struct TranscriptBubbleView: View {
       if isOverlapping {
         Image(systemName: "arrow.left.and.right")
           .font(.system(size: 8, weight: .bold))
-          .foregroundStyle(Color.white.opacity(0.72))
+          .foregroundStyle(palette.secondary)
           .frame(width: 12, height: 12)
           .accessibilityLabel("Overlapping speech")
       }
@@ -733,60 +664,121 @@ private struct TranscriptBubbleView: View {
   private var isOverlapping: Bool {
     bubble.overlapsPrevious || bubble.overlapsNext
   }
+}
 
-  private var overlapStrokeColor: Color {
-    Color.white.opacity(colorScheme == .dark ? 0.26 : 0.34)
+/// Neutral palette mirroring the app's `--cf-*` tokens (c-final.css).
+struct FloatingBarPalette {
+  let colorScheme: FloatingBarColorScheme
+
+  private var dark: Bool { colorScheme == .dark }
+
+  /// `--cf-glass-solid` in dark (#1c1c1e), white in light.
+  var surface: Color { dark ? rgb(28, 28, 30) : .white }
+  var label: Color { dark ? rgb(245, 245, 247) : rgb(29, 29, 31) }
+  var secondary: Color { dark ? rgb(161, 161, 166) : rgb(110, 110, 115) }
+  var window: Color { dark ? .black : rgb(251, 251, 253) }
+  var hairline: Color { dark ? Color.white.opacity(0.1) : Color.black.opacity(0.08) }
+  var hairlineStrong: Color { dark ? Color.white.opacity(0.24) : Color.black.opacity(0.2) }
+  var shadow: Color { Color.black.opacity(dark ? 0.45 : 0.16) }
+  var hover: Color { dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05) }
+  var handle: Color { dark ? Color.white.opacity(0.35) : Color.black.opacity(0.25) }
+  var bubble: Color { dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05) }
+  var bubbleSelf: Color { dark ? Color.white.opacity(0.14) : Color.black.opacity(0.09) }
+
+  private func rgb(_ red: Double, _ green: Double, _ blue: Double) -> Color {
+    Color(red: red / 255, green: green / 255, blue: blue / 255)
   }
 }
 
-private struct ErrorMark: View {
-  let color: Color
+enum FloatingBarTimer {
+  /// m:ss, or h:mm:ss past an hour (matches `formatElapsed` in the app).
+  static func format(_ totalSeconds: Double) -> String {
+    let safe = max(0, Int(totalSeconds.rounded(.down)))
+    let hours = safe / 3600
+    let minutes = (safe % 3600) / 60
+    let seconds = safe % 60
+    return hours > 0
+      ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
+      : String(format: "%d:%02d", minutes, seconds)
+  }
+}
+
+/// `--cf-record`: the bar's only red. Pulses like `.cf-record-dot`; still with
+/// reduced motion.
+private struct FloatingLiveDot: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var pulsing = false
+
+  private static let red = Color(red: 1, green: 59 / 255, blue: 48 / 255)
 
   var body: some View {
-    VStack(spacing: 1.5) {
-      Capsule(style: .continuous)
-        .fill(color)
-        .frame(width: 3.2, height: 8)
-      Circle()
-        .fill(color)
-        .frame(width: 3.2, height: 3.2)
+    Circle()
+      .fill(Self.red)
+      .frame(width: FloatingBarLayout.liveDotSize, height: FloatingBarLayout.liveDotSize)
+      .background(
+        Circle()
+          .fill(Self.red.opacity(reduceMotion ? 0 : (pulsing ? 0 : 0.35)))
+          .scaleEffect(reduceMotion ? 1 : (pulsing ? 2.25 : 1))
+      )
+      .onAppear { updatePulse() }
+      .onChange(of: reduceMotion) { _, _ in updatePulse() }
+  }
+
+  private func updatePulse() {
+    guard !reduceMotion else {
+      pulsing = false
+      return
+    }
+    pulsing = false
+    withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+      pulsing = true
     }
   }
 }
 
-struct DancingBars: View {
-  let color: Color
+/// The in-app pill's level meter (src/shared/level-meter.tsx): a rolling row
+/// of thin bars, newest on the right. Still with reduced motion.
+struct FloatingLevelMeter: View {
   let amplitude: Double
+  let color: Color
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var history = Array(repeating: 0.0, count: FloatingBarLayout.meterBars)
 
-  private let barCount = 5
-  private let barWidth: CGFloat = 3
-  private let barSpacing: CGFloat = 2
-  private let minHeight: CGFloat = 4
-  private let maxHeight: CGFloat = 20
+  private static let sampleInterval: TimeInterval = 0.12
+  private static let staticLevel = 0.3
+  // Shared so re-renders (amplitude arrives many times a second) do not
+  // restart the sampling timer.
+  private static let ticker = Timer.publish(every: sampleInterval, on: .main, in: .common)
+    .autoconnect()
 
   var body: some View {
-    TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
-      HStack(spacing: barSpacing) {
-        let t = timeline.date.timeIntervalSinceReferenceDate
-        ForEach(0..<barCount, id: \.self) { index in
-          Capsule(style: .continuous)
-            .fill(color)
-            .frame(width: barWidth, height: barHeight(index: index, time: t))
-        }
+    HStack(spacing: 2) {
+      ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+        RoundedRectangle(cornerRadius: 1, style: .continuous)
+          .fill(color)
+          .opacity(0.35 + value * 0.65)
+          .frame(
+            width: 2,
+            height: max(3, (value * FloatingBarLayout.meterHeight).rounded()))
       }
-      .frame(maxHeight: .infinity, alignment: .center)
+    }
+    .frame(height: FloatingBarLayout.meterHeight)
+    .onReceive(Self.ticker) { _ in
+      guard !reduceMotion else { return }
+      history = Array(history.dropFirst()) + [min(max(amplitude, 0), 1)]
     }
   }
 
-  private func barHeight(index: Int, time: TimeInterval) -> CGFloat {
-    let normalized = min(max(amplitude, 0), 1)
-    let center = Double(barCount - 1) / 2
-    let distance = abs(Double(index) - center) / max(center, 1)
-    let envelope = 1 - distance * 0.42
-    let phase = time * 8.5 + Double(index) * 0.68
-    let wave = sin(phase) * 0.5 + 0.5
-    let drive = 0.4 + normalized * 0.9
-    let height = maxHeight * CGFloat(drive * envelope * (0.4 + wave * 0.6))
-    return max(minHeight, min(maxHeight, height))
+  private var values: [Double] {
+    reduceMotion ? history.map { _ in Self.staticLevel } : history
+  }
+}
+
+private struct FloatingStopButtonStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .opacity(!isEnabled ? 0.6 : configuration.isPressed ? 0.85 : 1)
   }
 }

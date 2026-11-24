@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import { type ComponentType, type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -55,10 +55,16 @@ import {
   useSetAiProvider,
 } from "~/settings/providers";
 import { setSettingValues } from "~/settings/queries";
+import { APP_MARK_ICON_SRC } from "~/shared/app-mark";
+import { APP_NAME } from "~/shared/app-name";
+import {
+  type BrandIconName,
+  brandIconSrc,
+  isColoredBrandIcon,
+} from "~/shared/brand-icons";
 import { staticAssetUrl, fallbackToLocalAsset } from "~/shared/static-assets";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
-export * from "./model-combobox";
 export * from "./provider-search";
 
 type ProviderType = "stt" | "llm";
@@ -81,49 +87,29 @@ type ProviderConfig = {
   };
 };
 
-const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
+const ANARLOG_ICON_SRC = APP_MARK_ICON_SRC;
 
 export function AnarlogProviderIcon() {
   return (
     <img
       src={staticAssetUrl(ANARLOG_ICON_SRC)}
       onError={fallbackToLocalAsset(ANARLOG_ICON_SRC)}
-      alt="Anarlog"
+      alt={APP_NAME}
       data-slot="provider-logo"
       className="size-full object-contain object-center"
     />
   );
 }
 
-type LobeIconComponent = ComponentType<{
-  color?: string;
-  size?: number | string;
-}> & {
-  Color?: ComponentType<{ size?: number | string }>;
-  colorPrimary?: string;
-};
-
-const THEME_TINTED_BRAND_COLORS = new Set([
-  "#000",
-  "#000000",
-  "#fff",
-  "#ffffff",
-  "#141413",
-  "#16191e",
-  "#f1f0e8",
-]);
-
-export function ProviderLobeIcon({ icon: Icon }: { icon: LobeIconComponent }) {
-  if (Icon.Color) {
-    return <Icon.Color />;
-  }
-
-  const brandColor = Icon.colorPrimary?.toLowerCase();
-  if (brandColor && !THEME_TINTED_BRAND_COLORS.has(brandColor)) {
-    return <Icon color={Icon.colorPrimary} />;
-  }
-
-  return <Icon />;
+/** A provider's brand mark (see `~/shared/brand-icons`). */
+export function ProviderLobeIcon({ icon }: { icon: BrandIconName }) {
+  return (
+    <ProviderBrandImage
+      src={brandIconSrc(icon)}
+      alt={icon}
+      preserveColor={isColoredBrandIcon(icon)}
+    />
+  );
 }
 
 export function ProviderBrandImage({
@@ -442,9 +428,9 @@ export function NonAnarlogProviderCard({
     },
   });
   const keychainToastDescription = isKeychainRecoveryInProgress
-    ? t`Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically.`
+    ? t`Unlock your login Keychain in the macOS prompt. ${APP_NAME} will retry saving this API key automatically.`
     : (repairMutation.error?.message ??
-      t`macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key.`);
+      t`macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before ${APP_NAME} retries this API key.`);
   const hasStoredConfig =
     Boolean(provider?.api_key?.trim()) ||
     Boolean(

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-finish-voice-enrollment"
+description = "Enables the finish_voice_enrollment command without any pre-configured scope."
+commands.allow = ["finish_voice_enrollment"]
+
+[[permission]]
+identifier = "deny-finish-voice-enrollment"
+description = "Denies the finish_voice_enrollment command without any pre-configured scope."
+commands.deny = ["finish_voice_enrollment"]

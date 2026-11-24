@@ -3,10 +3,8 @@ import { Cause, Effect, Exit } from "effect";
 import type { StoreApi } from "zustand";
 
 import { commands as detectCommands } from "@anlg/plugin-detect";
-import { commands as hooksCommands } from "@anlg/plugin-hooks";
 import { commands as iconCommands } from "@anlg/plugin-icon";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
-import { commands as settingsCommands } from "@anlg/plugin-settings";
 import {
   commands as listenerCommands,
   events as listenerEvents,
@@ -32,7 +30,9 @@ import {
   markLiveInactive,
   markLiveStartFailed,
   noteLiveTranscriptActivity,
+  getLivePausedMs,
   releaseLiveCaptureGeneration,
+  setLivePaused,
   setLiveState,
   tickTranscriptionStallWatchdog,
   updateLiveAmplitude,
@@ -49,8 +49,7 @@ import {
 import { prepareSessionPeaks } from "~/audio-player/waveform";
 import { runMeetingCompletedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
-import { getSessionResourcePath } from "~/session/resource-path";
-import { isAppStoreBuild } from "~/shared/app-store";
+import { APP_NAME } from "~/shared/app-name";
 import { fromResult } from "~/stt/fromResult";
 import { recordDetectedMeetingApps } from "~/stt/meeting-source-apps";
 import {
@@ -213,8 +212,7 @@ const notifyTranscriptionStalled = () => {
   toast.warning("Live transcription stalled", {
     id: "live-transcription-stalled",
     duration: Infinity,
-    description:
-      "Anarlog keeps recording while live transcription reconnects. Missing text will be recovered from temporary audio while the meeting continues.",
+    description: `${APP_NAME} keeps recording while live transcription reconnects. Missing text will be recovered from temporary audio while the meeting continues.`,
   });
 };
 
@@ -226,6 +224,10 @@ const createLiveSecondsInterval = <T extends GeneralState>(
     let stalled = false;
     setLiveState(set, (live) => {
       if (guard && !guard(live)) {
+        return;
+      }
+      // Paused time is not in the recording; the timer follows the audio.
+      if (live.paused) {
         return;
       }
       live.seconds += 1;
@@ -643,6 +645,17 @@ const createSessionEventHandlers = <T extends LiveStore>(
       setLiveState(set, (live) => {
         live.muted = payload.value;
       });
+      return;
+    }
+
+    if (payload.type === "paused") {
+      if (get().live.sessionId !== targetSessionId) {
+        return;
+      }
+
+      setLiveState(set, (live) => {
+        setLivePaused(live, payload.value, Date.now());
+      });
     }
   },
 });
@@ -669,13 +682,9 @@ export const startLiveSession = <T extends LiveStore>(
       live.eventUnlistenersBySession[targetSessionId] = unlisteners;
     });
 
-    const [dataDirPath, micUsingApps, bundleId] = yield* Effect.tryPromise({
+    const [micUsingApps, bundleId] = yield* Effect.tryPromise({
       try: () =>
         Promise.all([
-          settingsCommands.vaultBase().then((r) => {
-            if (r.status === "error") throw new Error(r.error);
-            return r.data;
-          }),
           detectCommands
             .listMicUsingApplications()
             .then((r) => (r.status === "ok" ? r.data : null)),
@@ -684,9 +693,7 @@ export const startLiveSession = <T extends LiveStore>(
       catch: (error) => error,
     });
 
-    const sessionPath = getSessionResourcePath(dataDirPath, targetSessionId);
     const micUsingAppIds = micUsingApps?.map((app) => app.id) ?? null;
-    const app_meeting = micUsingAppIds?.[0] ?? null;
     const triggerAppIds = getAutoStopTriggerAppIds(micUsingAppIds, bundleId);
 
     if (triggerAppIds.length > 0) {
@@ -694,25 +701,6 @@ export const startLiveSession = <T extends LiveStore>(
         if (live.sessionId === targetSessionId) {
           live.triggerAppIds = triggerAppIds;
         }
-      });
-    }
-
-    if (!isAppStoreBuild()) {
-      yield* Effect.tryPromise({
-        try: () =>
-          hooksCommands.runEventHooks({
-            beforeListeningStarted: {
-              args: {
-                resource_dir: sessionPath,
-                app_hyprnote: bundleId,
-                app_meeting,
-              },
-            },
-          }),
-        catch: (error) => {
-          console.error("[hooks] BeforeListeningStarted failed:", error);
-          return error;
-        },
       });
     }
 
@@ -990,6 +978,17 @@ function applyCaptureSnapshot<T extends LiveStore>(
           );
 
     setLiveState(set, (live) => {
+      // A snapshot without pause fields (native state not cached yet) must not
+      // reset what this window already knows about the same capture.
+      const previous =
+        live.sessionId === targetSessionId && live.status === "active"
+          ? {
+              seconds: live.seconds,
+              paused: live.paused,
+              pausedTotalMs: live.pausedTotalMs,
+              pausedSinceMs: live.pausedSinceMs,
+            }
+          : null;
       markLiveActive(
         live,
         targetSessionId,
@@ -998,8 +997,27 @@ function applyCaptureSnapshot<T extends LiveStore>(
         snapshot.liveTranscriptionActive ?? true,
         snapshot.degraded ?? null,
       );
-      if (snapshot.startedAtMs != null) {
-        live.seconds = elapsedSecondsSince(snapshot.startedAtMs);
+      const nowMs = Date.now();
+      if (snapshot.paused != null) {
+        live.paused = snapshot.paused;
+        live.pausedTotalMs = snapshot.pausedMs ?? 0;
+        live.pausedSinceMs = snapshot.paused ? nowMs : null;
+      } else if (previous) {
+        live.paused = previous.paused;
+        live.pausedTotalMs = previous.pausedTotalMs;
+        live.pausedSinceMs = previous.pausedSinceMs;
+      }
+      if (
+        snapshot.startedAtMs != null &&
+        (snapshot.paused != null || !previous)
+      ) {
+        live.seconds = Math.max(
+          0,
+          elapsedSecondsSince(snapshot.startedAtMs) -
+            Math.floor(getLivePausedMs(live, nowMs) / 1000),
+        );
+      } else if (previous) {
+        live.seconds = previous.seconds;
       }
       if (snapshot.captureHealth != null) {
         live.captureHealth = snapshot.captureHealth;
@@ -1081,33 +1099,6 @@ export const stopLiveSession = <T extends GeneralState>(
         }
 
         syncCloudApiSnapshotBestEffort(sessionId);
-
-        if (isAppStoreBuild()) {
-          return;
-        }
-
-        void Promise.all([
-          settingsCommands.vaultBase().then((r) => {
-            if (r.status === "error") throw new Error(r.error);
-            return r.data;
-          }),
-          getIdentifier().catch(() => "com.anarlog.stable"),
-        ])
-          .then(([dataDirPath, bundleId]) => {
-            const sessionPath = getSessionResourcePath(dataDirPath, sessionId);
-            return hooksCommands.runEventHooks({
-              afterListeningStopped: {
-                args: {
-                  resource_dir: sessionPath,
-                  app_hyprnote: bundleId,
-                  app_meeting: null,
-                },
-              },
-            });
-          })
-          .catch((error) => {
-            console.error("[hooks] AfterListeningStopped failed:", error);
-          });
       },
     });
   });

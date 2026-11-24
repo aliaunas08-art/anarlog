@@ -211,6 +211,9 @@ async function shareWithFolderDefaultAccess({
 
   const source = await loadSessionShareSource(sessionId, ownerUserId);
   signal.throwIfAborted();
+  // ASPC C6.4: a folder's default sharing never includes a Private meeting.
+  // It is not marked applied, so it is shared if it stops being Private.
+  if (source.isPrivate) return;
   const share = await createOrReuseSessionShare(context, {
     workspaceId: source.workspaceId,
     sessionId: source.sessionId,

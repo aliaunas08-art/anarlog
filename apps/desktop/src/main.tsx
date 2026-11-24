@@ -1,6 +1,7 @@
 // Must be the first import: React only reports commits to a devtools hook that
 // exists before react-dom evaluates.
 import "./devtools-bar/render-hook";
+import "./shared/zod-jitless";
 import "./styles/globals.css";
 import "./styles/cursor.css";
 
@@ -27,6 +28,7 @@ import {
 } from "./error-reporting";
 import { AppI18nProvider } from "./i18n/provider";
 import { AppLockGate } from "./lock/gate";
+import { waitForAppUnlock } from "./lock/store";
 import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
@@ -51,6 +53,8 @@ import { startInteractionProfiler } from "./shared/perf/interaction-profiler";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
+import { ContextMenuHost } from "./shared/ui/context-menu-host";
+import { detectUnexpectedQuit } from "./shared/unexpected-quit";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
 
@@ -129,6 +133,7 @@ function ReadyApp() {
             {isMainWindow ? <TrayRecordingSync /> : null}
             {isMainWindow && !isAppStoreBuild() ? <UpdaterMeetingSync /> : null}
             <Toaster position="bottom-right" theme={theme} />
+            <ContextMenuHost />
           </AppLockGate>
         </TaskSchedulerProvider>
       </AppI18nProvider>
@@ -151,6 +156,7 @@ if (isMainWindow) {
       });
     }
   } catch {}
+  void detectUnexpectedQuit();
   void initializeAppExitFlush().catch((error) => {
     captureOperationalError(error, {
       operation: "app_exit_flush_initialize",
@@ -185,6 +191,12 @@ function runMainWindowStartupTasks() {
     return;
   }
 
+  // These write to SQLite, which Rust denies to the webview while the app
+  // lock is closed (ASPC A4.2): run them once it opens.
+  void waitForAppUnlock().then(runUnlockedStartupTasks);
+}
+
+function runUnlockedStartupTasks() {
   void runStartupTask(
     "legacy_settings_refresh",
     refreshLegacySettingsSnapshots,

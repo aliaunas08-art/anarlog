@@ -114,7 +114,7 @@ export const Route = createFileRoute("/")({
             getOrganizationJsonLd(),
             {
               "@type": "WebSite",
-              name: "Anarlog",
+              name: "Timbre",
               url: getCanonicalUrl(),
             },
             getSoftwareApplicationJsonLd({

@@ -138,7 +138,7 @@ const testimonials = [
   },
   {
     quote:
-      "I love the flexibility that Anarlog gives me to integrate personal notes with AI summaries.",
+      "I love the flexibility that Timbre gives me to integrate personal notes with AI summaries.",
     author: "Tom Yang",
     username: "tomyang11_",
     avatar: assetUrl("anarlog/blog/testimonials/tom.jpg"),
@@ -194,8 +194,8 @@ function formatTestimonialOffset(offset: TestimonialCardPosition["x"]) {
 }
 
 function renderPullQuote(quote: string) {
-  return quote.split(/(Anarlog)/g).map((part, index) => {
-    if (part !== "Anarlog") return part;
+  return quote.split(/(Timbre)/g).map((part, index) => {
+    if (part !== "Timbre") return part;
 
     return (
       <mark
@@ -408,7 +408,7 @@ export function TestimonialsSection() {
           What people say
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          It's clear they love Anarlog.
+          It's clear they love Timbre.
         </p>
       </div>
 

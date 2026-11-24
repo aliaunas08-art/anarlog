@@ -29,6 +29,31 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
+type SleepListener = Box<dyn Fn(bool) + Send + Sync>;
+
+static SLEEP_LISTENERS: std::sync::Mutex<Vec<SleepListener>> = std::sync::Mutex::new(Vec::new());
+
+/// Runs `listener` in Rust whenever the Mac is about to sleep (`true`) or
+/// has woken (`false`). macOS only; never called elsewhere. Used by the app
+/// lock to relock on sleep (ASPC A4.4).
+pub fn on_sleep_state_changed(listener: impl Fn(bool) + Send + Sync + 'static) {
+    SLEEP_LISTENERS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .push(Box::new(listener));
+}
+
+#[cfg_attr(not(all(target_os = "macos", feature = "sleep")), allow(dead_code))]
+fn notify_sleep_listeners(asleep: bool) {
+    for listener in SLEEP_LISTENERS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+    {
+        listener(asleep);
+    }
+}
+
 pub fn handle_detect_event<E: Env>(
     env: &E,
     state: &ProcessorState,
@@ -50,6 +75,7 @@ pub fn handle_detect_event<E: Env>(
         }
         #[cfg(all(target_os = "macos", feature = "sleep"))]
         anlg_detect::DetectEvent::SleepStateChanged { value } => {
+            notify_sleep_listeners(value);
             env.emit(DetectEvent::SleepStateChanged { value });
         }
     }

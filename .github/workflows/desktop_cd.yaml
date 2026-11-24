@@ -245,6 +245,9 @@ jobs:
           VITE_API_URL: "https://api.anarlog.so"
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - name: Check the built frontend for embedded keys (ASPC C7.7)
+        run: node scripts/check-secrets.mjs --require-bundle
+        working-directory: .
       - if: ${{ inputs.channel != 'staging' }}
         id: macos-symbols
         name: Generate and verify macOS debug symbols
@@ -449,6 +452,9 @@ jobs:
           ARCH: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64' || 'x86_64' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Check the built frontend for embedded keys (ASPC C7.7)
+        run: node scripts/check-secrets.mjs --require-bundle
+        working-directory: .
       - if: ${{ inputs.channel != 'staging' }}
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel != 'staging' }}
@@ -655,6 +661,9 @@ jobs:
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - name: Check the built frontend for embedded keys (ASPC C7.7)
+        run: node scripts/check-secrets.mjs --require-bundle
+        working-directory: .
       - if: ${{ inputs.channel != 'staging' }}
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel != 'staging' }}

@@ -53,6 +53,8 @@ export function isUsablePeaks(
 }
 
 const AUDIO_TYPES_BY_EXTENSION: Record<string, string> = {
+  // Recordings are AAC (ADTS) streams; older ones are MP3.
+  aac: "audio/aac",
   mp3: "audio/mpeg",
   wav: "audio/wav",
   m4a: "audio/mp4",
@@ -62,8 +64,8 @@ const AUDIO_TYPES_BY_EXTENSION: Record<string, string> = {
   flac: "audio/flac",
 };
 
-// Tauri's asset protocol sniffs content types, and headerless MP3 recordings
-// come back as text/html. WebKitGTK cannot stream asset:// URLs either, so
+// Tauri's asset protocol sniffs content types, and headerless AAC and MP3
+// recordings come back as text/html. WebKitGTK cannot stream asset:// URLs either, so
 // relabel the blob from the file extension before giving up on it.
 function playableBlob(
   media: Pick<HTMLMediaElement, "canPlayType">,

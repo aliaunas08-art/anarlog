@@ -9,7 +9,7 @@ let package = Package(
     .library(
       name: "soniqo-swift",
       type: .static,
-      targets: ["swift-lib"])
+      targets: ["SoniqoBridge"])
   ],
   dependencies: [
     .package(
@@ -19,7 +19,8 @@ let package = Package(
   ],
   targets: [
     .target(
-      name: "swift-lib",
+      // Unique module name; see scripts/check-swift-modules.mjs.
+      name: "SoniqoBridge",
       dependencies: [
         .product(name: "AudioCommon", package: "speech-swift"),
         .product(name: "OmnilingualASR", package: "speech-swift"),

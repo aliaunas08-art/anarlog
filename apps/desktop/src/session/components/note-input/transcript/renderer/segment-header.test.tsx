@@ -6,8 +6,18 @@ import { SegmentHeader } from "./segment-header";
 import type { Segment } from "~/stt/live-segment";
 
 vi.mock("./speaker-assign", () => ({
-  SpeakerAssignPopover: ({ label }: { label: string }) => (
-    <button type="button">{label}</button>
+  SpeakerAssignPopover: ({
+    label,
+    color,
+    title,
+  }: {
+    label: string;
+    color: string;
+    title?: string;
+  }) => (
+    <button type="button" title={title} style={{ color }}>
+      {label}
+    </button>
   ),
 }));
 
@@ -66,6 +76,47 @@ describe("SegmentHeader", () => {
     );
 
     expect(screen.getByRole("button", { name: "Speaker 1" })).toBeTruthy();
+  });
+});
+
+describe("SegmentHeader attribution", () => {
+  it("mutes uncertain speaker labels and explains them in a tooltip", () => {
+    render(
+      <SegmentHeader
+        transcriptId="transcript-1"
+        sessionId="session-1"
+        label="Speaker A"
+        segment={
+          {
+            ...createRemoteSegment(0),
+            attribution: {
+              source: "diarization",
+              confidence: 0.4,
+              uncertain: true,
+            },
+          } as unknown as Segment
+        }
+      />,
+    );
+
+    const label = screen.getByRole("button", { name: "Speaker A" });
+    expect(label.getAttribute("title")).toBe("Speaker uncertain");
+    expect(label.style.color).toBe("var(--cf-tertiary)");
+  });
+
+  it("keeps confident and legacy labels in the secondary colour", () => {
+    render(
+      <SegmentHeader
+        transcriptId="transcript-1"
+        sessionId="session-1"
+        label="Them"
+        segment={createRemoteSegment(0)}
+      />,
+    );
+
+    const label = screen.getByRole("button", { name: "Them" });
+    expect(label.getAttribute("title")).toBeNull();
+    expect(label.style.color).toBe("var(--cf-secondary)");
   });
 });
 

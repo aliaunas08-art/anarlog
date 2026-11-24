@@ -175,7 +175,8 @@ pub async fn begin_connection(
     let scopes = manager.select_scopes(None, &[]);
     let scope_refs = scopes.iter().map(String::as_str).collect::<Vec<_>>();
     let client = manager
-        .register_client("Anarlog", &redirect_uri, &scope_refs)
+        // Display name shown on the provider's consent screen (placeholder product name).
+        .register_client("Notes", &redirect_uri, &scope_refs)
         .await
         .map_err(|error| auth_error(provider, error))?;
     let authorization_url = manager
@@ -458,12 +459,12 @@ async fn receive_authorization_callback(
         Ok(_) => (
             "200 OK",
             format!("{provider_name} connected"),
-            "Your meeting history is being brought into Anarlog. You can close this window.",
+            "Your meeting history is being brought into the app. You can close this window.",
         ),
         Err(_) => (
             "400 Bad Request",
             format!("{provider_name} connection failed"),
-            "Return to Anarlog and try connecting again.",
+            "Return to the app and try connecting again.",
         ),
     };
     let body = format!(

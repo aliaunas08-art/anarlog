@@ -419,6 +419,7 @@ export function haveFloatingRouteInputsChanged(
       previousState.live.lastErrorIsAudioRelated ||
     state.live.amplitude.mic !== previousState.live.amplitude.mic ||
     state.live.amplitude.speaker !== previousState.live.amplitude.speaker ||
+    state.live.seconds !== previousState.live.seconds ||
     state.live.degraded !== previousState.live.degraded ||
     Boolean(state.live.lastError) !== Boolean(previousState.live.lastError) ||
     state.live.liveTranscriptionActive !==

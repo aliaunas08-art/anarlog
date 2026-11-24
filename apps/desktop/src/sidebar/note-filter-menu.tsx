@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 
 import {
   CalendarBlank,
+  CalendarDots,
   Check,
   FolderSimple,
   FunnelSimple,
@@ -15,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuPortal,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -30,8 +32,12 @@ export function SidebarNoteFilterMenu() {
   const sortOrder = useSidebarNotes((state) => state.sortOrder);
   const setGroupBy = useSidebarNotes((state) => state.setGroupBy);
   const setSortOrder = useSidebarNotes((state) => state.setSortOrder);
-  const isDefaultView = groupBy === "date" && sortOrder === "newest";
-  const groupingLabel = groupBy === "folder" ? t`Folder` : t`Date`;
+  const showDateFilter = useSidebarNotes((state) => state.showDateFilter);
+  const hasDateFilter = useSidebarNotes((state) => state.dateFilter !== null);
+  const setShowDateFilter = useSidebarNotes((state) => state.setShowDateFilter);
+  const isDefaultView =
+    groupBy === "date" && sortOrder === "newest" && !hasDateFilter;
+  const groupingLabel = groupBy === "folder" ? t`Project` : t`Date`;
   const orderingLabel = sortOrder === "oldest" ? t`Oldest` : t`Newest`;
 
   return (
@@ -43,14 +49,14 @@ export function SidebarNoteFilterMenu() {
           title={t`Sort notes`}
           data-tauri-drag-region="false"
           className={cn([
-            "pointer-events-auto relative flex size-7 items-center justify-center rounded-full",
-            "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
-            "focus-visible:bg-accent focus-visible:text-foreground focus-visible:outline-hidden",
-            !isDefaultView && "text-foreground",
+            "pointer-events-auto relative flex size-7 items-center justify-center rounded-md",
+            "cf-motion text-[var(--cf-secondary)] transition-colors hover:bg-[var(--cf-fill)] hover:text-[var(--cf-label)]",
+            "focus-visible:bg-[var(--cf-fill)] focus-visible:text-[var(--cf-label)] focus-visible:outline-hidden",
+            !isDefaultView && "text-[var(--cf-label)]",
           ])}
         >
           <FunnelSimple
-            size={15}
+            size={14}
             className={cn([!isDefaultView && "fill-current"])}
           />
         </button>
@@ -94,7 +100,7 @@ export function SidebarNoteFilterMenu() {
                       aria-hidden="true"
                     />
                     <span className="flex-1">
-                      <Trans>Folder</Trans>
+                      <Trans>Project</Trans>
                     </span>
                     {groupBy === "folder" ? (
                       <Check className="size-4" aria-hidden="true" />
@@ -151,6 +157,22 @@ export function SidebarNoteFilterMenu() {
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => setShowDateFilter(!showDateFilter)}
+            className="cursor-pointer"
+          >
+            <CalendarDots
+              className="size-4 shrink-0 opacity-70"
+              aria-hidden="true"
+            />
+            <span className="flex-1">
+              <Trans>By date</Trans>
+            </span>
+            {showDateFilter ? (
+              <Check className="size-4" aria-hidden="true" />
+            ) : null}
+          </DropdownMenuItem>
         </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>

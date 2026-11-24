@@ -84,11 +84,13 @@ pub(super) async fn spawn_source(
         SourceArgs {
             mic_device: ctx.params.mic_device.clone(),
             onboarding: ctx.params.onboarding,
+            mic_only: ctx.params.mic_only,
             runtime: ctx.runtime.clone(),
             audio: ctx.audio.clone(),
             session_id: ctx.params.session_id.clone(),
             listener_routing,
             recorder,
+            paused: ctx.paused.clone(),
         },
         supervisor_cell,
     )
@@ -99,6 +101,7 @@ pub(super) async fn spawn_source(
 pub(super) async fn spawn_recorder(
     supervisor_cell: ActorCell,
     ctx: &SessionContext,
+    first_audio: Option<tokio::sync::oneshot::Sender<()>>,
 ) -> Result<ActorCell, ractor::SpawnErr> {
     let (recorder_ref, _): (ActorRef<RecMsg>, _) = Actor::spawn_linked(
         Some(RecorderActor::name(&ctx.params.session_id)),
@@ -114,6 +117,7 @@ pub(super) async fn spawn_recorder(
                 .as_millis() as u64,
             offset_ms: ctx.started_at_instant.elapsed().as_millis() as u64,
             session_id: ctx.params.session_id.clone(),
+            first_audio,
         },
         supervisor_cell,
     )
@@ -129,7 +133,7 @@ pub(super) async fn spawn_listener(
     ctx: &SessionContext,
     stream_offset_secs: Option<f64>,
 ) -> Result<(ActorCell, bool), ractor::SpawnErr> {
-    let mode = ChannelMode::determine(ctx.params.onboarding);
+    let mode = ChannelMode::determine(ctx.params.onboarding, ctx.params.mic_only);
     let mic_isolated = source_mic_isolated(ctx).await;
     let (listener_ref, _): (ActorRef<crate::actors::ListenerMsg>, _) = Actor::spawn_linked(
         Some(ListenerActor::name(&ctx.params.session_id)),
@@ -161,7 +165,9 @@ pub(super) async fn spawn_listener(
 }
 
 pub(super) async fn source_mic_isolated(ctx: &SessionContext) -> bool {
-    if ChannelMode::determine(ctx.params.onboarding) != ChannelMode::MicAndSpeaker {
+    if ChannelMode::determine(ctx.params.onboarding, ctx.params.mic_only)
+        != ChannelMode::MicAndSpeaker
+    {
         return false;
     }
     if let Some(source) = ractor::registry::where_is(SourceActor::name(&ctx.params.session_id)) {
@@ -238,12 +244,14 @@ pub(super) async fn try_restart_recorder(
     }
 
     let sup = supervisor_cell;
-    let ctx = state.ctx.clone();
+    // A recorder restarted mid-pause starts at the audio timeline, not wall-clock time.
+    let mut ctx = state.ctx.clone();
+    ctx.started_at_instant += state.pause.current_pause(std::time::Instant::now());
 
     let cell = spawn_with_retry(&RETRY_STRATEGY, || {
         let sup = sup.clone();
         let ctx = ctx.clone();
-        async move { spawn_recorder(sup, &ctx).await }
+        async move { spawn_recorder(sup, &ctx, None).await }
     })
     .await;
 

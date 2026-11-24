@@ -14,6 +14,8 @@ export type SentenceLine = {
 type SegmentColorVars = CSSProperties & {
   "--segment-color-light": string;
   "--segment-color-dark": string;
+  "--speaker-dot-light": string;
+  "--speaker-dot-dark": string;
 };
 
 export function groupWordsIntoLines(words: SegmentWord[]): SentenceLine[] {
@@ -106,10 +108,44 @@ export function getSegmentColor(
   return chroma.oklch(mode === "dark" ? 0.72 : 0.55, 0.15, hue).hex();
 }
 
+// Apple system colors (light, dark). Red is left out: it means "recording".
+const SPEAKER_DOT_PALETTE: ReadonlyArray<readonly [string, string]> = [
+  ["#0071E3", "#0A84FF"], // blue
+  ["#FF9500", "#FF9F0A"], // orange
+  ["#34C759", "#30D158"], // green
+  ["#AF52DE", "#BF5AF2"], // purple
+  ["#30B0C7", "#40C8E0"], // teal
+  ["#FF2D55", "#FF375F"], // pink
+  ["#5856D6", "#5E5CE6"], // indigo
+  ["#A2845E", "#AC8E68"], // brown
+];
+
+export function getSpeakerDotColor(
+  key: SegmentKey,
+  mode: "light" | "dark" = "light",
+): string {
+  let index: number;
+  if (key.speaker_human_id) {
+    index = 0;
+    for (const character of key.speaker_human_id) {
+      index = (Math.imul(index, 31) + character.charCodeAt(0)) >>> 0;
+    }
+  } else {
+    // Your mic is blue; the first remote speaker is orange.
+    index = (key.speaker_index ?? 0) + (key.channel === "RemoteParty" ? 1 : 0);
+  }
+
+  const [light, dark] =
+    SPEAKER_DOT_PALETTE[index % SPEAKER_DOT_PALETTE.length]!;
+  return mode === "dark" ? dark : light;
+}
+
 export function getSegmentColorVars(key: SegmentKey): SegmentColorVars {
   return {
     "--segment-color-light": getSegmentColor(key),
     "--segment-color-dark": getSegmentColor(key, "dark"),
+    "--speaker-dot-light": getSpeakerDotColor(key),
+    "--speaker-dot-dark": getSpeakerDotColor(key, "dark"),
   };
 }
 

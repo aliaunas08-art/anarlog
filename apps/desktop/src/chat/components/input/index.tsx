@@ -18,6 +18,7 @@ import { cn } from "@anlg/utils";
 import {
   useAutoFocusEditor,
   useDraftState,
+  usePendingChatPrompt,
   useMessageHistory,
   useSubmit,
 } from "./hooks";
@@ -81,6 +82,7 @@ export function ChatMessageInput({
     disabled: Boolean(disabled) || Boolean(isStreaming),
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
+  usePendingChatPrompt({ draftKey, editorRef });
   const mentionConfig = useMentionConfig();
   const isSendDisabled = Boolean(disabled) || !hasContent;
   const isRightPanel = layout === "right-panel";
@@ -267,7 +269,7 @@ function SendButton({
         "chat-input-send",
         "border-border text-muted-foreground/60 inline-flex size-7 shrink-0 items-center justify-center rounded-full border transition-all duration-100",
         !disabled && [
-          "bg-primary text-primary-foreground border-stone-600",
+          "bg-primary text-primary-foreground border-transparent",
           "hover:bg-primary/90",
           "active:bg-primary/80 active:scale-[0.97]",
         ],

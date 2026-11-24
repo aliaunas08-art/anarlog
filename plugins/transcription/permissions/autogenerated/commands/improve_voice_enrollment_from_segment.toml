@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-improve-voice-enrollment-from-segment"
+description = "Enables the improve_voice_enrollment_from_segment command without any pre-configured scope."
+commands.allow = ["improve_voice_enrollment_from_segment"]
+
+[[permission]]
+identifier = "deny-improve-voice-enrollment-from-segment"
+description = "Denies the improve_voice_enrollment_from_segment command without any pre-configured scope."
+commands.deny = ["improve_voice_enrollment_from_segment"]

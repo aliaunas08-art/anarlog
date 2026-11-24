@@ -16,6 +16,7 @@ import { IntegrationGate, useAuthedApiClient } from "./starter-config";
 import { pickDriveFolder } from "~/automations/drive-picker";
 import { retryDriveExport } from "~/automations/engine";
 import type { AutomationWorkflow, WorkflowStep } from "~/automations/workflows";
+import { APP_NAME } from "~/shared/app-name";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
 export function GoogleDriveConfig({
@@ -124,7 +125,7 @@ export function GoogleDriveConfig({
         <Trans>
           Every note summarized after enabling this automation is saved here as
           one file with its summary and transcript in the selected format.
-          Anarlog must be open.
+          {APP_NAME} must be open.
         </Trans>
       </p>
       {picker.error ? (

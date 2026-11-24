@@ -11,8 +11,16 @@ use tauri_plugin_fs_sync::FsSyncPluginExt;
 #[specta::specta]
 pub async fn start_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     params: TranscriptionParams,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let audio_session_id = params.session_id.split(':').next().unwrap_or_default();
     let _audio_guard = app.fs_sync().lock_session_audio(audio_session_id).await;
     app.listener2()
@@ -25,8 +33,16 @@ pub async fn start_transcription<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn stop_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2().stop_transcription(session_id).await;
     Ok(())
 }
@@ -35,7 +51,15 @@ pub async fn stop_transcription<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn list_transcription_sessions<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
 ) -> Result<Vec<crate::TranscriptionSession>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2()
         .list_transcription_sessions()
         .map_err(|e| e.to_string())
@@ -45,8 +69,16 @@ pub async fn list_transcription_sessions<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn get_completed_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<Option<crate::CompletedTranscription>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2()
         .get_completed_transcription(session_id)
         .map_err(|e| e.to_string())
@@ -56,8 +88,16 @@ pub async fn get_completed_transcription<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn acknowledge_completed_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     session_id: String,
 ) -> Result<(), String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     app.listener2()
         .acknowledge_completed_transcription(session_id);
     Ok(())
@@ -75,11 +115,34 @@ pub async fn parse_subtitle<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn export_to_vtt<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     session_id: String,
     words: Vec<core::VttWord>,
 ) -> Result<String, String> {
-    app.listener2().export_to_vtt(session_id, words)
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Export,
+    )
+    .map_err(|denied| denied.to_string())?;
+    let audited = session_id.clone();
+    let vtt = app.listener2().export_to_vtt(session_id, words)?;
+    anlg_audit_log::record(
+        &app,
+        anlg_audit_log::NewEntry::new(
+            anlg_audit_log::actions::MEETING_EXPORTED,
+            "meeting",
+            if anlg_audit_log::is_identifier(&audited) {
+                audited.as_str()
+            } else {
+                ""
+            },
+        )
+        .id("format", "vtt"),
+    );
+    Ok(vtt)
 }
 
 #[tauri::command]
@@ -136,8 +199,16 @@ pub async fn refine_batch_transcript(
 #[specta::specta]
 pub async fn save_batch_transcript<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    aspc_window: tauri::Window<R>,
     request: crate::batch_transcript::SaveBatchTranscriptRequest,
 ) -> Result<crate::batch_transcript::SaveBatchTranscriptOutcome, String> {
+    anlg_aspc::require_ignoring_lock(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Create,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())
@@ -149,21 +220,44 @@ pub async fn save_batch_transcript<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub async fn render_session_transcript<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     app: tauri::AppHandle<R>,
     request: crate::session_transcript::RenderSessionTranscriptRequest,
 ) -> Result<Option<crate::session_transcript::RenderedSessionTranscript>, String> {
+    anlg_aspc::require(
+        &app,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Read,
+    )
+    .map_err(|denied| denied.to_string())?;
     let runtime = app
         .try_state::<tauri_plugin_db::ManagedState>()
         .map(|state| state.inner().clone())
         .ok_or_else(|| "database is not ready yet".to_string())?;
-    crate::session_transcript::render_session_transcript(runtime.pool(), request).await
+    let scope = anlg_db_app::local_workspace_scope(runtime.pool())
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "aspc.no_context: no local workspace".to_string())?;
+    if anlg_audit_log::is_identifier(&request.session_id) {
+        anlg_audit_log::record_transcript_access(&app, &request.session_id, "render");
+    }
+    crate::session_transcript::render_session_transcript(runtime.pool(), &scope, request).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn reconcile_refined_speaker_clusters(
+pub async fn reconcile_refined_speaker_clusters<R: tauri::Runtime>(
+    aspc_window: tauri::Window<R>,
     request: anlg_transcript::SpeakerClusterReconciliationRequest,
 ) -> Result<Vec<anlg_transcript::StoredSpeakerHint>, String> {
+    anlg_aspc::require_ignoring_lock(
+        &aspc_window,
+        &aspc_window,
+        anlg_aspc::DataType::Transcript,
+        anlg_aspc::Action::Edit,
+    )
+    .map_err(|denied| denied.to_string())?;
     Ok(anlg_transcript::reconcile_refined_speaker_clusters(
         &request.source,
         &request.words,

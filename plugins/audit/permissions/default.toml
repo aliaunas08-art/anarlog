@@ -1,0 +1,9 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+  "allow-list-entries",
+  "allow-verify",
+  "allow-record-meeting-view",
+  "allow-record-ask",
+  "allow-record-settings-change",
+]

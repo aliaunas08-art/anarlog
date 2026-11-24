@@ -61,7 +61,7 @@ async fn next_recorder_runs_while_previous_listener_finalizes() {
     let mut previous_ctx = test_ctx();
     previous_ctx.app_dir = vault.path().to_path_buf();
     previous_ctx.params.session_id = uuid::Uuid::new_v4().to_string();
-    let recorder = children::spawn_recorder(supervisor.get_cell(), &previous_ctx)
+    let recorder = children::spawn_recorder(supervisor.get_cell(), &previous_ctx, None)
         .await
         .unwrap();
     record_audio(&recorder).await;
@@ -89,7 +89,7 @@ async fn next_recorder_runs_while_previous_listener_finalizes() {
     next_ctx.params.session_id = uuid::Uuid::new_v4().to_string();
     let (next_supervisor, next_supervisor_task) =
         Actor::spawn(None, SessionStopProbe, ()).await.unwrap();
-    let next_recorder = children::spawn_recorder(next_supervisor.get_cell(), &next_ctx)
+    let next_recorder = children::spawn_recorder(next_supervisor.get_cell(), &next_ctx, None)
         .await
         .expect("previous finalization must not reserve the next meeting's recorder");
     record_audio(&next_recorder).await;
@@ -109,7 +109,7 @@ async fn next_recorder_runs_while_previous_listener_finalizes() {
         vault
             .path()
             .join(&next_ctx.params.session_id)
-            .join("audio.mp3")
+            .join("audio.aac")
             .metadata()
             .unwrap()
             .len()
@@ -314,7 +314,7 @@ async fn refreshed_credentials_resume_live_transcription_after_authentication_fa
             .unwrap()
             .is_empty()
     );
-    assert!(!session_dir.join("audio.mp3").exists());
+    assert!(!session_dir.join("audio.aac").exists());
 }
 
 #[tokio::test]
@@ -435,7 +435,7 @@ async fn live_words_resume_after_stalled_streams_without_restarting_recorder() {
             vault
                 .path()
                 .join(&session_id)
-                .join("audio.mp3")
+                .join("audio.aac")
                 .metadata()
                 .unwrap()
                 .len()

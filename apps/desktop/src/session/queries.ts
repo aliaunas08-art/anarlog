@@ -9,6 +9,7 @@ export {
 export {
   finalizeSessionDeletion,
   isSessionDeleted,
+  purgeDeletedSession,
   isSessionEmpty,
   restoreDeletedSession,
   softDeleteSession,

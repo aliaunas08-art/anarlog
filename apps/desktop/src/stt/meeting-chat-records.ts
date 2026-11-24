@@ -196,12 +196,12 @@ export function persistMeetingChatRecords({
         rows.map((row) => ({
           sql: `
             INSERT INTO session_documents (
-              id, session_id, kind, title, body_format, body, source_hash,
+              id, workspace_id, session_id, kind, title, body_format, body, source_hash,
               generation_metadata_json, sort_order, created_by, updated_by,
               created_at, updated_at, deleted_at
             )
             SELECT
-              ?, id, 'meeting_chat', ?, 'json', ?, ?, ?, ?, owner_user_id,
+              ?, workspace_id, id, 'meeting_chat', ?, 'json', ?, ?, ?, ?, owner_user_id,
               owner_user_id, ?, ?, NULL
             FROM sessions
             WHERE id = ? AND deleted_at IS NULL

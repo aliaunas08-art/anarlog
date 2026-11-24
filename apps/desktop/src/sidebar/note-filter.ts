@@ -9,12 +9,17 @@ type SidebarNotesState = {
   folderFilter: string | null;
   groupBy: SidebarNotesGroupBy;
   sortOrder: SidebarNotesSortOrder;
+  /** Local day ("YYYY-MM-DD", configured timezone) the timeline is limited to. */
+  dateFilter: string | null;
+  showDateFilter: boolean;
   setView: (
     noteFilter: SidebarNoteFilter,
     folderFilter?: string | null,
   ) => void;
   setGroupBy: (groupBy: SidebarNotesGroupBy) => void;
   setSortOrder: (sortOrder: SidebarNotesSortOrder) => void;
+  setDateFilter: (dateFilter: string | null) => void;
+  setShowDateFilter: (showDateFilter: boolean) => void;
 };
 
 const defaultSidebarNotes = {
@@ -22,6 +27,9 @@ const defaultSidebarNotes = {
   folderFilter: null,
   groupBy: "date" as const,
   sortOrder: "newest" as const,
+  dateFilter: null,
+  // Board: the "By date" calendar is part of the default sidebar.
+  showDateFilter: true,
 };
 
 export const useSidebarNotes = create<SidebarNotesState>((set) => ({
@@ -33,6 +41,19 @@ export const useSidebarNotes = create<SidebarNotesState>((set) => ({
     }),
   setGroupBy: (groupBy) => set({ groupBy }),
   setSortOrder: (sortOrder) => set({ sortOrder }),
+  setDateFilter: (dateFilter) =>
+    set(
+      dateFilter === null
+        ? { dateFilter }
+        : { dateFilter, showDateFilter: true },
+    ),
+  // Hiding the calendar also clears its filter so no invisible filter remains.
+  setShowDateFilter: (showDateFilter) =>
+    set(
+      showDateFilter
+        ? { showDateFilter }
+        : { showDateFilter, dateFilter: null },
+    ),
 }));
 
 export function resetSidebarNotes() {

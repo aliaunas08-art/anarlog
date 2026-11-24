@@ -195,6 +195,7 @@ fn split_synthetic_transcript(transcript: RenderTranscriptInput) -> Vec<RenderTr
                 started_at: transcript.started_at,
                 words,
                 assignments: transcript.assignments.clone(),
+                speaker_hints: transcript.speaker_hints.clone(),
             })
             .collect();
     }
@@ -241,6 +242,7 @@ fn split_synthetic_transcript(transcript: RenderTranscriptInput) -> Vec<RenderTr
             started_at: transcript.started_at,
             words,
             assignments: transcript.assignments.clone(),
+            speaker_hints: transcript.speaker_hints.clone(),
         })
         .collect()
 }
@@ -585,7 +587,8 @@ mod tests {
                 .iter()
                 .map(|segment| segment.speaker_label.as_str())
                 .collect::<Vec<_>>(),
-            vec!["Alice", "Bob"]
+            // Invitees never name system audio; the context boundary still splits it.
+            vec!["Them", "Them"]
         );
         assert_eq!(remote[0].words[0].id.as_deref(), Some("remote-a"));
         assert_eq!(remote[1].words[0].id.as_deref(), Some("remote-b"));
@@ -655,6 +658,7 @@ mod tests {
                 word("remote-2", 400, 1, 0),
             ],
             assignments: vec![],
+            speaker_hints: None,
         }];
         let segments = crate::render_transcript_segments(context);
         assert_eq!(

@@ -26,9 +26,9 @@ export function FolderInstructionsField({
 
   return (
     <textarea
-      aria-label={t`Folder context`}
+      aria-label={t`Project context`}
       value={value}
-      placeholder={t`Add context for this folder`}
+      placeholder={t`Add context for this project`}
       rows={rows}
       className={cn([
         "border-border/60 placeholder:text-muted-foreground w-full resize-none rounded-md border bg-transparent",

@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
 import { BookFounderCall } from "@/components/book-founder-call";
 import { EnterpriseCtaLink } from "@/components/enterprise-cta-link";
 import { PilotPath } from "@/components/pilot-path";
 import { SecurityReviewList } from "@/components/security-review-list";
 import { SiteFooter } from "@/components/site-footer";
+import { TimbreLogo } from "@/components/timbre-logo";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
@@ -27,9 +27,9 @@ import {
   TRUST_CENTER_UPDATED_ON,
 } from "@/lib/trust-center";
 
-const title = "Security · Anarlog";
+const title = "Security · Timbre";
 const description =
-  "How Anarlog handles encryption, data location, retention, training, subprocessors, and incident reporting — the packet for a first enterprise security review.";
+  "How Timbre handles encryption, data location, retention, training, subprocessors, and incident reporting — the packet for a first enterprise security review.";
 
 export const Route = createFileRoute("/security")({
   component: SecurityPage,
@@ -69,14 +69,14 @@ function SecurityPage() {
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <div className="min-w-0">
           <section className="pt-10 pb-4 text-center md:pt-12 md:pb-6">
-            <Link to="/" aria-label="Anarlog home" className="inline-flex">
-              <AnarlogLogo className="h-8 w-auto md:h-9" />
+            <Link to="/" aria-label="Timbre home" className="inline-flex">
+              <TimbreLogo className="h-8 w-auto md:h-9" />
             </Link>
             <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
               Security
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-              What a first security review needs: how Anarlog stores meeting
+              What a first security review needs: how Timbre stores meeting
               data, who can see it, how long it is kept, and which documents we
               can send today. Fastrepl does not claim SOC 2, ISO 27001, or HIPAA
               here.
