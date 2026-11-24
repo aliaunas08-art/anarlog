@@ -10,12 +10,12 @@ import {
 } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
-import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SharedNoteAudioPlayer } from "@/components/shared-note-audio-player";
 import {
   type SharedAttachmentResolver,
   SharedNoteDocument,
 } from "@/components/shared-note-document";
+import { TimbreLogo } from "@/components/timbre-logo";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 import {
@@ -192,7 +192,7 @@ function SharedNoteMeetingMetadata({
 }
 
 export function SharedNoteLoading({
-  headerLabel = "Shared with Anarlog",
+  headerLabel = "Shared with Timbre",
   loadingLabel = "Loading shared note",
 }: {
   headerLabel?: string;
@@ -228,7 +228,7 @@ export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
     <SharedNotePrompt
       icon={<WarningCircle className="size-6" aria-hidden="true" />}
       title="We couldn’t load this shared note"
-      description="Anarlog had a temporary problem loading the note. Please try again."
+      description="Timbre had a temporary problem loading the note. Please try again."
       actions={
         <button
           type="button"
@@ -246,7 +246,7 @@ export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
 export function SharedNotePrompt({
   actions,
   description,
-  headerLabel = "Shared with Anarlog",
+  headerLabel = "Shared with Timbre",
   icon,
   title,
 }: {
@@ -301,7 +301,7 @@ function SharedNotePromptShell({
 
 function SharedNoteShell({
   children,
-  headerLabel = "Shared with Anarlog",
+  headerLabel = "Shared with Timbre",
   topActions,
 }: {
   children: React.ReactNode;
@@ -323,8 +323,8 @@ function SharedNoteShell({
           headerHidden && "-translate-y-full",
         ])}
       >
-        <a href="/" aria-label="Anarlog home" className="inline-flex">
-          <AnarlogLogo className="h-7 w-auto" />
+        <a href="/" aria-label="Timbre home" className="inline-flex">
+          <TimbreLogo className="h-7 w-auto" />
         </a>
         {topActions ?? (
           <span className="text-xs text-stone-500">{headerLabel}</span>

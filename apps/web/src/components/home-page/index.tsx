@@ -18,7 +18,7 @@ const manifestoLetter = [
   "Notetaking matters more than note-takers. A note-taker is passive. A notepad is something you use. You stay present and in control while the room is still alive.",
   "Most AI tools ask you to move your memory into their ecosystem and rules. Meeting notes should stay in software you control, with a local record that can work offline.",
   "Interfaces change. Your meeting record should remain yours. Use on-device models or your own keys, not a service you cannot inspect.",
-  "Anarlog is our attempt to build that meeting notepad.",
+  "Timbre is our attempt to build that meeting notepad.",
 ];
 
 const manifestoSigners = MANIFESTO_SIGNERS;
@@ -139,7 +139,7 @@ function FinalCtaSection() {
           Keep your meeting notes yours.
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          Try Anarlog today and be present in meetings.
+          Try Timbre today and be present in meetings.
         </p>
         <Link
           to="/download/"
@@ -171,8 +171,8 @@ function OpenSourceSection({
           Open source by default
         </h2>
         <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          We deeply care about transparency. Anarlog is open source so anyone
-          can inspect how meeting memory is handled.
+          We deeply care about transparency. Timbre is open source so anyone can
+          inspect how meeting memory is handled.
         </p>
 
         <a

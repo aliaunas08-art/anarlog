@@ -35,18 +35,18 @@ const INTEGRATION_DISPLAY: Record<
     name: "Google Drive",
     description:
       "Connect Google Drive to save meeting summaries and transcripts to a folder you choose",
-    connectingHint: "Finish authorization with Google, then return to Anarlog",
+    connectingHint: "Finish authorization with Google, then return to Timbre",
   },
   "google-calendar": {
     name: "Google Calendar",
     description: "See upcoming events and link them to private notes",
-    connectingHint: "Finish authorization with Google, then return to Anarlog",
+    connectingHint: "Finish authorization with Google, then return to Timbre",
   },
   outlook: {
     name: "Outlook Calendar",
     description: "See upcoming events and link them to private notes",
     connectingHint:
-      "Finish authorization with Microsoft, then return to Anarlog",
+      "Finish authorization with Microsoft, then return to Timbre",
   },
   linear: {
     name: "Linear",
@@ -61,38 +61,38 @@ const INTEGRATION_DISPLAY: Record<
   slack: {
     name: "Slack",
     description: "Send meeting recaps to your channels",
-    connectingHint: "Finish authorization with Slack, then return to Anarlog",
+    connectingHint: "Finish authorization with Slack, then return to Timbre",
   },
   notion: {
     name: "Notion",
     description: "Add meeting updates to your pages",
-    connectingHint: "Pick the Notion pages to share, then return to Anarlog",
+    connectingHint: "Pick the Notion pages to share, then return to Timbre",
   },
   zoom: {
     name: "Zoom",
     description: "Sync your Zoom cloud recordings",
-    connectingHint: "Finish authorization with Zoom, then return to Anarlog",
+    connectingHint: "Finish authorization with Zoom, then return to Timbre",
   },
   fathom: {
     name: "Fathom",
     description: "Sync your Fathom meeting recordings",
-    connectingHint: "Finish authorization with Fathom, then return to Anarlog",
+    connectingHint: "Finish authorization with Fathom, then return to Timbre",
   },
   webex: {
     name: "Webex",
     description: "Sync your Webex meeting transcripts",
-    connectingHint: "Finish authorization with Webex, then return to Anarlog",
+    connectingHint: "Finish authorization with Webex, then return to Timbre",
   },
   "google-meet": {
     name: "Google Meet",
     description: "Sync your Google Meet transcripts",
-    connectingHint: "Finish authorization with Google, then return to Anarlog",
+    connectingHint: "Finish authorization with Google, then return to Timbre",
   },
   "microsoft-teams": {
     name: "Microsoft Teams",
     description: "Sync your Teams meeting transcripts",
     connectingHint:
-      "Finish authorization with Microsoft, then return to Anarlog",
+      "Finish authorization with Microsoft, then return to Timbre",
   },
   attio: {
     name: "Attio",
@@ -169,8 +169,8 @@ function DesktopHandoffConnect() {
       <IntegrationPageLayout>
         <div className="flex flex-col gap-4">
           <p className="text-neutral-600">
-            This connection link is invalid or expired. Return to Anarlog and
-            try again.
+            This connection link is invalid or expired. Return to Timbre and try
+            again.
           </p>
         </div>
       </IntegrationPageLayout>

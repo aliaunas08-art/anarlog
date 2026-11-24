@@ -1,4 +1,4 @@
-export function AnarlogLogo({
+export function TimbreLogo({
   className,
   compact,
 }: {
@@ -8,9 +8,9 @@ export function AnarlogLogo({
   return (
     <img
       src="/logo.svg"
-      alt="Anarlog"
-      width={1205}
-      height={334}
+      alt="Timbre"
+      width={1424}
+      height={203}
       className={className}
       data-compact={compact ? "true" : undefined}
     />

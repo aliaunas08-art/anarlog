@@ -27,7 +27,7 @@ export const securityReviewAnswers = [
     summary:
       "Fastrepl does not train models on notes, transcripts, audio, or connected calendar data. Review the selected AI provider if you use hosted or bring-your-own-key models.",
     detail:
-      "Fastrepl does not use notes, transcripts, audio, or connected calendar data to train AI models, and we do not sell that data. If a team uses on-device transcription and a local language model, meeting content never leaves the device for AI. If they use Anarlog Cloud or a bring-your-own-key provider, the audio or text needed for that request goes to the selected provider under that provider's terms — review that provider's retention and training policy before sending sensitive meetings.",
+      "Fastrepl does not use notes, transcripts, audio, or connected calendar data to train AI models, and we do not sell that data. If a team uses on-device transcription and a local language model, meeting content never leaves the device for AI. If they use Timbre Cloud or a bring-your-own-key provider, the audio or text needed for that request goes to the selected provider under that provider's terms — review that provider's retention and training policy before sending sensitive meetings.",
   },
   {
     question: "Who are your subprocessors?",
@@ -41,7 +41,7 @@ export const securityReviewAnswers = [
     summary:
       "No. The desktop app captures microphone and system audio locally. Nothing is added to the participant list.",
     detail:
-      "Anarlog does not send a meeting bot into Zoom, Google Meet, Microsoft Teams, or other calls. Capture happens on the desktop from microphone and system audio. That is the product, not a setting. Customer-hosted Meet or Zoom workers, when used by an enterprise pilot, are a separate capture path and are disclosed as such — they are not the default desktop product.",
+      "Timbre does not send a meeting bot into Zoom, Google Meet, Microsoft Teams, or other calls. Capture happens on the desktop from microphone and system audio. That is the product, not a setting. Customer-hosted Meet or Zoom workers, when used by an enterprise pilot, are a separate capture path and are disclosed as such — they are not the default desktop product.",
   },
 ];
 
@@ -56,7 +56,7 @@ export const architectureLayers = [
   },
   {
     title: "Optional AI and transcription",
-    body: "On-device models, bring-your-own keys, or Anarlog Cloud. Content goes only to the provider the user selected for that request.",
+    body: "On-device models, bring-your-own keys, or Timbre Cloud. Content goes only to the provider the user selected for that request.",
   },
   {
     title: "Optional sharing and Cloud API",
@@ -166,11 +166,11 @@ export const contractualDocs = [
   {
     label: "Terms of Service",
     href: "/terms/",
-    note: "Contract for using Anarlog",
+    note: "Contract for using Timbre",
   },
   {
     label: "Data Processing Addendum",
-    href: "mailto:team@fastrepl.com?subject=Anarlog%20DPA",
+    href: "mailto:team@fastrepl.com?subject=Timbre%20DPA",
     note: "Available on request for enterprise evaluations",
   },
 ];
