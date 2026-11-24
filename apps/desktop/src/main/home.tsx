@@ -39,6 +39,7 @@ import {
   getOrCreateSessionForEventId,
   updateSession,
 } from "~/session/queries";
+import { AppMark } from "~/shared/app-mark";
 import { useConfigValue } from "~/shared/config";
 import { useOwnerUserId } from "~/shared/owner-user";
 import {
@@ -495,26 +496,9 @@ export function HomeView() {
   );
 }
 
-/** App icon tile: label-colour squircle with a window-colour waveform. */
+/** The Timbre mark, in the label colour. */
 function AppTile() {
-  return (
-    <div
-      aria-hidden="true"
-      className="flex size-12 items-center justify-center rounded-[13px] bg-[var(--cf-label)]"
-    >
-      <svg
-        width="26"
-        height="26"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="var(--cf-window)"
-        strokeWidth="2"
-        strokeLinecap="round"
-      >
-        <path d="M4 12v0M7 9v6M10 6v12M13 9v6M16 7v10M19 11v2" />
-      </svg>
-    </div>
-  );
+  return <AppMark className="w-[68px] text-[var(--cf-label)]" />;
 }
 
 function relativeDay(

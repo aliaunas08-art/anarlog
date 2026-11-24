@@ -20,17 +20,10 @@ import {
 import { applyAppIconPreference } from "~/shared/theme/provider";
 import type { ThemePreference } from "~/shared/theme/resolve";
 
+// Only the Timbre icon (light and dark follow the theme). The old Anarlog
+// artwork is no longer offered; see normalizeAppIconPreference.
 const APP_ICON_OPTIONS = [
   "default",
-  "stable",
-  "anagram",
-  "dev",
-  "staging",
-  "journal",
-  "notepad",
-  "stone",
-  "typewriter-key",
-  "walnut",
 ] as const satisfies readonly AppIconPreference[];
 
 const PREVIEW_CLASS =
@@ -68,7 +61,8 @@ export function AppIconSelector() {
     (option) => option === "default" || option !== defaultIconName,
   );
 
-  if (platform() !== "macos") {
+  // With a single icon there is nothing to choose.
+  if (platform() !== "macos" || options.length < 2) {
     return null;
   }
 

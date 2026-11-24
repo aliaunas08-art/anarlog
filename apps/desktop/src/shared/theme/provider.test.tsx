@@ -167,11 +167,11 @@ describe("AppThemeProvider", () => {
       expected: "stable",
     },
     {
-      name: "explicit dark appearance",
+      name: "explicit dark appearance with a saved old icon",
       identifier: "com.hyprnote.stable",
       theme: "dark",
       appIcon: "anagram",
-      expected: "anagram-dark",
+      expected: "stable-dark",
     },
   ])("uses the $expected Dock icon for a $name", async (scenario) => {
     themeState.settingsReady = true;

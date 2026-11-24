@@ -31,7 +31,7 @@ describe("ThemeSelector", () => {
     mocks.appIcon = "default";
   });
 
-  it("applies the selected theme with the current app icon", () => {
+  it("applies the selected theme with the Timbre icon, even if an old one was saved", () => {
     mocks.appIcon = "anagram";
     render(<ThemeSelector />);
 
@@ -43,7 +43,7 @@ describe("ThemeSelector", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: /Dark/ }));
 
-    expect(mocks.applyThemePreference).toHaveBeenCalledWith("dark", "anagram");
+    expect(mocks.applyThemePreference).toHaveBeenCalledWith("dark", "default");
     expect(mocks.setTheme).toHaveBeenCalledWith("dark");
   });
 });
